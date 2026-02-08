@@ -1,0 +1,70 @@
+.mode-toggle {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  display: flex;
+  gap: 8px;
+  z-index: 100;
+}
+
+.mode-toggle-buttons {
+  display: flex;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.mode-toggle-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  border-right: 1px solid var(--border);
+}
+
+.mode-toggle-btn:last-child {
+  border-right: none;
+}
+
+.mode-toggle-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.mode-toggle-btn.active {
+  background: var(--accent);
+  color: white;
+}
+
+.mode-icon {
+  font-size: 14px;
+}
+
+.portal-btn {
+  background: rgba(108, 92, 231, 0.15);
+  color: #a29bfe;
+  font-size: 15px;
+}
+
+.portal-btn:hover {
+  background: rgba(108, 92, 231, 0.35);
+  color: #d6d3ff;
+}
+
+.signout-btn {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 8px 12px;
+  font-size: 16px;
+}
+
+.signout-btn:hover {
+  background: var(--danger);
+  color: white;
+  border-color: var(--danger);
+}

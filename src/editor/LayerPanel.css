@@ -1,0 +1,35 @@
+.layer-panel {
+  width: 120px;
+  padding: 8px;
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.layer-panel-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+
+.layer-btn {
+  padding: 6px 10px;
+  font-size: 12px;
+  background: var(--bg-hover);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  text-align: left;
+}
+
+.layer-btn:hover {
+  border-color: var(--border);
+}
+
+.layer-btn.active {
+  background: var(--accent);
+  color: white;
+}

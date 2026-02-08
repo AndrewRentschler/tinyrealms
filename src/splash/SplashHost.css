@@ -1,0 +1,78 @@
+.splash-host {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  pointer-events: none;
+}
+
+.splash-layer {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  animation: splash-fade-in 0.3s ease-out;
+}
+
+.splash-transparent .splash-backdrop {
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(2px);
+}
+
+.splash-backdrop {
+  position: absolute;
+  inset: 0;
+  background: var(--bg-primary);
+}
+
+.splash-content {
+  position: relative;
+  z-index: 1;
+  max-width: 100%;
+  max-height: 100%;
+}
+
+@keyframes splash-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Transition classes */
+.splash-transition-fade-enter {
+  animation: splash-fade-in 0.3s ease-out;
+}
+
+.splash-transition-slide-up-enter {
+  animation: splash-slide-up-in 0.35s ease-out;
+}
+
+@keyframes splash-slide-up-in {
+  from {
+    opacity: 0;
+    transform: translateY(40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.splash-transition-slide-down-enter {
+  animation: splash-slide-down-in 0.35s ease-out;
+}
+
+@keyframes splash-slide-down-in {
+  from {
+    opacity: 0;
+    transform: translateY(-40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

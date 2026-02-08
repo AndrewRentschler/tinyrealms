@@ -1,0 +1,324 @@
+/* ====================================================================
+   Sprite Editor
+   ==================================================================== */
+
+.sprite-editor {
+  position: absolute;
+  inset: 50px 0 0 0;
+  z-index: 80;
+  display: flex;
+  background: var(--bg-primary);
+}
+
+/* ---- Sidebar (left) ---- */
+
+.sprite-editor-sidebar {
+  width: 220px;
+  padding: 12px;
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+}
+
+.sprite-editor-title {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+}
+
+.sprite-editor-section-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin-top: 8px;
+}
+
+.sprite-editor-select {
+  width: 100%;
+  padding: 5px 6px;
+  font-size: 12px;
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+}
+
+.sprite-editor-anim-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.sprite-editor-anim-btn {
+  padding: 5px 8px;
+  font-size: 11px;
+  text-align: left;
+  background: var(--bg-hover);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sprite-editor-anim-btn:hover {
+  background: var(--bg-surface);
+}
+
+.sprite-editor-anim-btn.active {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
+/* ---- Center (sheet + preview) ---- */
+
+.sprite-editor-center {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.sprite-editor-sheet-wrap {
+  flex: 1;
+  overflow: auto;
+  padding: 12px;
+  background: var(--bg-primary);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+.sprite-editor-sheet-canvas {
+  image-rendering: pixelated;
+  background: repeating-conic-gradient(
+    #222 0% 25%, #2a2a2a 0% 50%
+  ) 50% / 16px 16px;
+  border: 1px solid var(--border);
+}
+
+.sprite-editor-preview-wrap {
+  height: 160px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border);
+}
+
+.sprite-editor-preview-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.sprite-editor-preview-canvas {
+  image-rendering: pixelated;
+  width: 128px;
+  height: 128px;
+  background: repeating-conic-gradient(
+    #222 0% 25%, #2a2a2a 0% 50%
+  ) 50% / 16px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+/* ---- Definition panel (right) ---- */
+
+.sprite-editor-defpanel {
+  width: 260px;
+  padding: 12px;
+  background: var(--bg-secondary);
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+}
+
+.sprite-editor-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sprite-editor-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.sprite-editor-field label {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.sprite-editor-field input,
+.sprite-editor-field select {
+  padding: 5px 6px;
+  font-size: 12px;
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.sprite-editor-field-row {
+  flex-direction: row !important;
+  align-items: center;
+  gap: 8px !important;
+}
+
+.sprite-editor-field-row input[type="checkbox"] {
+  width: auto;
+}
+
+.sprite-editor-field-row label {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.sprite-editor-btn-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.sprite-editor-btn {
+  padding: 6px 10px;
+  font-size: 12px;
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.sprite-editor-btn:hover {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+}
+
+.sprite-editor-btn.accent {
+  background: #1a6b2a;
+  border-color: #25923a;
+  color: white;
+  font-weight: 600;
+}
+
+.sprite-editor-btn.accent:hover {
+  background: #25923a;
+}
+
+.sprite-editor-btn.danger {
+  background: #6b1a1a;
+  border-color: #923025;
+  color: #ffa0a0;
+}
+
+.sprite-editor-btn.danger:hover {
+  background: #923025;
+}
+
+.sprite-editor-btn.small {
+  padding: 3px 8px;
+  font-size: 11px;
+}
+
+.sprite-editor-status {
+  font-size: 11px;
+  font-family: monospace;
+  min-height: 16px;
+}
+
+/* ---- Saved list ---- */
+
+.sprite-editor-saved-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.sprite-editor-saved-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  background: var(--bg-hover);
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+}
+
+.sprite-editor-saved-row:hover {
+  border-color: var(--border);
+}
+
+.sprite-editor-saved-name {
+  font-size: 12px;
+  color: var(--text-primary);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sprite-editor-saved-cat {
+  font-size: 10px;
+  color: var(--text-muted);
+  background: var(--bg-surface);
+  padding: 2px 6px;
+  border-radius: 8px;
+  white-space: nowrap;
+}
+
+.sprite-editor-empty {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+  padding: 8px;
+}
+
+/* ---- NPC fields ---- */
+
+.sprite-editor-npc-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  margin-top: 4px;
+  background: rgba(100, 180, 255, 0.06);
+  border: 1px solid rgba(100, 180, 255, 0.15);
+  border-radius: var(--radius-sm);
+}
+
+.sprite-editor-textarea {
+  padding: 5px 6px;
+  font-size: 12px;
+  font-family: inherit;
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+}

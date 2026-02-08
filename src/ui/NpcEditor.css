@@ -1,0 +1,504 @@
+/* ====================================================================
+   NPC Editor
+   ==================================================================== */
+
+.npc-editor {
+  position: absolute;
+  inset: 50px 0 0 0;
+  z-index: 80;
+  display: flex;
+  background: var(--bg-primary);
+}
+
+/* ---- Sidebar (NPC list) ---- */
+
+.npc-editor-sidebar {
+  width: 240px;
+  padding: 12px;
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+}
+
+.npc-editor-title {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+}
+
+.npc-editor-section-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin-top: 8px;
+}
+
+.npc-editor-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.npc-editor-list-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  font-size: 12px;
+  text-align: left;
+  background: var(--bg-hover);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.npc-editor-list-item:hover {
+  background: var(--bg-surface);
+}
+
+.npc-editor-list-item.active {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
+.npc-editor-list-sprite {
+  width: 28px;
+  height: 28px;
+  border-radius: 3px;
+  background: var(--bg-secondary);
+  image-rendering: pixelated;
+  flex-shrink: 0;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.npc-editor-list-sprite canvas {
+  image-rendering: pixelated;
+}
+
+.npc-editor-list-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.npc-editor-list-name {
+  font-size: 12px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.npc-editor-list-sub {
+  font-size: 10px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.npc-editor-list-item.active .npc-editor-list-sub {
+  color: rgba(255,255,255,0.7);
+}
+
+.npc-editor-empty {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+  padding: 8px;
+}
+
+/* ---- Main form area ---- */
+
+.npc-editor-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.npc-editor-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+}
+
+.npc-editor-header-sprite {
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+  image-rendering: pixelated;
+}
+
+.npc-editor-header-sprite canvas {
+  image-rendering: pixelated;
+}
+
+.npc-editor-header-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.npc-editor-header-name {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.npc-editor-header-def {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.npc-editor-header-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.npc-editor-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  gap: 16px;
+}
+
+/* Two-column layout inside body */
+
+.npc-editor-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+/* ---- Sections ---- */
+
+.npc-editor-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.npc-editor-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+  margin: 0;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* ---- Form fields ---- */
+
+.npc-editor-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.npc-editor-field label {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.npc-editor-field input,
+.npc-editor-field select {
+  padding: 5px 6px;
+  font-size: 12px;
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.npc-editor-field textarea {
+  padding: 6px 8px;
+  font-size: 12px;
+  font-family: inherit;
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  min-height: 60px;
+  line-height: 1.4;
+}
+
+.npc-editor-field textarea:focus,
+.npc-editor-field input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-glow);
+  outline: none;
+}
+
+.npc-editor-field-row {
+  display: flex;
+  gap: 8px;
+}
+
+.npc-editor-field-row .npc-editor-field {
+  flex: 1;
+}
+
+/* ---- Stats grid ---- */
+
+.npc-editor-stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 6px;
+}
+
+.npc-editor-stats-grid .npc-editor-field input {
+  text-align: center;
+  font-family: var(--font-mono);
+}
+
+/* ---- Items list ---- */
+
+.npc-editor-items-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.npc-editor-item-tag {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  color: var(--text-primary);
+}
+
+.npc-editor-item-qty {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+.npc-editor-item-remove {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 12px;
+  padding: 0;
+  margin-left: 2px;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.npc-editor-item-remove:hover {
+  color: var(--danger);
+}
+
+.npc-editor-add-row {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  margin-top: 4px;
+}
+
+.npc-editor-add-row input {
+  padding: 4px 6px;
+  font-size: 11px;
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+}
+
+.npc-editor-add-row input:first-child {
+  flex: 1;
+}
+
+.npc-editor-add-row input:nth-child(2) {
+  width: 40px;
+  text-align: center;
+}
+
+/* ---- Tags ---- */
+
+.npc-editor-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.npc-editor-tag {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 8px;
+  background: rgba(108, 92, 231, 0.15);
+  border: 1px solid rgba(108, 92, 231, 0.3);
+  border-radius: 10px;
+  font-size: 11px;
+  color: #a29bfe;
+}
+
+.npc-editor-tag-remove {
+  background: none;
+  border: none;
+  color: rgba(162, 155, 254, 0.6);
+  font-size: 12px;
+  padding: 0;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.npc-editor-tag-remove:hover {
+  color: var(--danger);
+}
+
+/* ---- Relationships ---- */
+
+.npc-editor-rel-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.npc-editor-rel-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: var(--bg-hover);
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+}
+
+.npc-editor-rel-name {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.npc-editor-rel-type {
+  color: var(--text-muted);
+}
+
+.npc-editor-rel-remove {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 12px;
+  padding: 0;
+  margin-left: auto;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.npc-editor-rel-remove:hover {
+  color: var(--danger);
+}
+
+/* ---- Buttons ---- */
+
+.npc-editor-btn {
+  padding: 6px 12px;
+  font-size: 12px;
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.npc-editor-btn:hover {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+}
+
+.npc-editor-btn.accent {
+  background: #1a6b2a;
+  border-color: #25923a;
+  color: white;
+  font-weight: 600;
+}
+
+.npc-editor-btn.accent:hover {
+  background: #25923a;
+}
+
+.npc-editor-btn.danger {
+  background: #6b1a1a;
+  border-color: #923025;
+  color: #ffa0a0;
+}
+
+.npc-editor-btn.danger:hover {
+  background: #923025;
+}
+
+.npc-editor-btn.small {
+  padding: 3px 8px;
+  font-size: 11px;
+}
+
+.npc-editor-status {
+  font-size: 11px;
+  font-family: monospace;
+  min-height: 16px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+}
+
+/* ---- Empty state ---- */
+
+.npc-editor-empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.npc-editor-empty-icon {
+  font-size: 48px;
+  opacity: 0.4;
+}

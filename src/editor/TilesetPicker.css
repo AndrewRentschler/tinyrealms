@@ -1,0 +1,60 @@
+.tileset-picker {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 8px;
+}
+
+.tileset-picker-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  flex-shrink: 0;
+}
+
+.tileset-picker-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.tileset-select {
+  flex: 1;
+  padding: 4px 6px;
+  font-size: 12px;
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  outline: none;
+}
+
+.tileset-select:focus {
+  border-color: var(--accent);
+}
+
+.tileset-canvas-wrap {
+  flex: 1;
+  overflow: auto;
+  position: relative;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.tileset-canvas {
+  display: block;
+  image-rendering: pixelated;
+  cursor: pointer;
+}
+
+.tileset-highlight {
+  position: absolute;
+  border: 2px solid var(--accent);
+  pointer-events: none;
+  box-shadow: 0 0 6px var(--accent-glow, rgba(108, 92, 231, 0.4));
+  z-index: 1;
+}
