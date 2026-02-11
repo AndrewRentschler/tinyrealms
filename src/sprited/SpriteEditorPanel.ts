@@ -15,27 +15,33 @@ interface SheetEntry {
   jsonUrl: string;
 }
 
-const SPRITE_SHEETS: SheetEntry[] = [
-  { name: "Villager 2",    jsonUrl: "/assets/sprites/villager2.json" },
-  { name: "Villager 3",    jsonUrl: "/assets/sprites/villager3.json" },
-  { name: "Villager 4",    jsonUrl: "/assets/sprites/villager4.json" },
-  { name: "Villager 5",    jsonUrl: "/assets/sprites/villager5.json" },
-  { name: "Villager Jane", jsonUrl: "/assets/sprites/villager-jane.json" },
-  { name: "Woman Med",     jsonUrl: "/assets/sprites/woman-med.json" },
-  { name: "Chicken",       jsonUrl: "/assets/sprites/chicken.json" },
-  { name: "Goat",          jsonUrl: "/assets/sprites/goat.json" },
+/** Sprite sheets for object / environment sprites */
+export const OBJECT_SPRITE_SHEETS: SheetEntry[] = [
   { name: "Cozy Fire",     jsonUrl: "/assets/sprites/cozy-fire.json" },
   { name: "Cozy Fireplace",jsonUrl: "/assets/sprites/cozy-fireplace.json" },
   { name: "Cozy Candles",  jsonUrl: "/assets/sprites/cozy-candles.json" },
   { name: "Cozy Door",     jsonUrl: "/assets/sprites/cozydoor0.json" },
-  { name: "Sleeping Cat",  jsonUrl: "/assets/sprites/sleeping-cat.json" },
-  { name: "Sleeping Dog",  jsonUrl: "/assets/sprites/sleeping-dog.json" },
   { name: "Fountain",      jsonUrl: "/assets/sprites/Fountain_32x32.json" },
   { name: "Street Lamp",   jsonUrl: "/assets/sprites/Street_Lamp_2_32x32.json" },
   { name: "Grandfather Clock", jsonUrl: "/assets/sprites/cozyclock.json" },
   { name: "Phonograph",    jsonUrl: "/assets/sprites/phono.json" },
-  { name: "Music Notes",  jsonUrl: "/assets/sprites/musicnotes.json" },
-  { name: "Soup Pot",     jsonUrl: "/assets/sprites/cozy-souppot.json" },
+  { name: "Music Notes",   jsonUrl: "/assets/sprites/musicnotes.json" },
+  { name: "Soup Pot",      jsonUrl: "/assets/sprites/cozy-souppot.json" },
+  { name: "Sleeping Cat",  jsonUrl: "/assets/sprites/sleeping-cat.json" },
+  { name: "Sleeping Dog",  jsonUrl: "/assets/sprites/sleeping-dog.json" },
+];
+
+/** Sprite sheets for NPC / character sprites */
+export const NPC_SPRITE_SHEETS: SheetEntry[] = [
+  { name: "Villager 2",    jsonUrl: "/assets/characters/villager2.json" },
+  { name: "Villager 3",    jsonUrl: "/assets/characters/villager3.json" },
+  { name: "Villager 4",    jsonUrl: "/assets/characters/villager4.json" },
+  { name: "Villager 5",    jsonUrl: "/assets/characters/villager5.json" },
+  { name: "Villager Jane", jsonUrl: "/assets/characters/villager-jane.json" },
+  { name: "Guest",         jsonUrl: "/assets/characters/guest.json" },
+  { name: "Woman Med",     jsonUrl: "/assets/characters/woman-med.json" },
+  { name: "Chicken",       jsonUrl: "/assets/characters/chicken.json" },
+  { name: "Goat",          jsonUrl: "/assets/characters/goat.json" },
 ];
 
 /** Raw sprite-sheet JSON shape (TexturePacker / PixiJS format) */
@@ -98,7 +104,7 @@ interface SavedSpriteDef {
 }
 
 /** Available sound files for the picker */
-const SOUND_FILES: { label: string; url: string }[] = [
+export const SOUND_FILES: { label: string; url: string }[] = [
   { label: "(none)",               url: "" },
   { label: "Camp Fire",            url: "/assets/audio/camp-fire.mp3" },
   { label: "Fire Crackling",       url: "/assets/audio/fire-crackling-short.mp3" },
@@ -118,7 +124,7 @@ const SOUND_FILES: { label: string; url: string }[] = [
   { label: "Soup Pot",             url: "/assets/audio/souppot.mp3" },
 ];
 
-const CATEGORIES = ["object", "npc"];
+const CATEGORIES = ["object"];
 
 // ---------------------------------------------------------------------------
 // Editor panel
@@ -227,7 +233,7 @@ export class SpriteEditorPanel {
     placeholder.value = "";
     placeholder.textContent = "— Select a sheet —";
     this.sheetSelect.appendChild(placeholder);
-    for (const s of SPRITE_SHEETS) {
+    for (const s of OBJECT_SPRITE_SHEETS) {
       const opt = document.createElement("option");
       opt.value = s.jsonUrl;
       opt.textContent = s.name;
@@ -592,7 +598,7 @@ export class SpriteEditorPanel {
     const url = this.sheetSelect.value;
     if (!url) return;
 
-    const entry = SPRITE_SHEETS.find((s) => s.jsonUrl === url);
+    const entry = OBJECT_SPRITE_SHEETS.find((s) => s.jsonUrl === url);
     if (!entry) return;
 
     try {
@@ -1044,7 +1050,10 @@ export class SpriteEditorPanel {
   private renderSavedList() {
     this.savedListEl.innerHTML = "";
 
-    if (this.savedDefs.length === 0) {
+    // Filter out NPC sprites — those are managed in the NPC Editor
+    const objectDefs = this.savedDefs.filter((d) => d.category !== "npc");
+
+    if (objectDefs.length === 0) {
       const empty = document.createElement("div");
       empty.className = "sprite-editor-empty";
       empty.textContent = "No saved sprites yet. Create one above!";
@@ -1052,7 +1061,7 @@ export class SpriteEditorPanel {
       return;
     }
 
-    for (const def of this.savedDefs) {
+    for (const def of objectDefs) {
       const row = document.createElement("div");
       row.className = "sprite-editor-saved-row";
 

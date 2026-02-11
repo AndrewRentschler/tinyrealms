@@ -703,6 +703,77 @@ export const grantMapEditor = internalMutation({
   },
 });
 
+/** Lightweight NPC list for CLI */
+export const listNpcs = query({
+  args: { adminKey: v.string() },
+  handler: async (ctx, { adminKey }) => {
+    requireAdminKey(adminKey);
+
+    // All sprite defs with category "npc"
+    const allDefs = await ctx.db.query("spriteDefinitions").collect();
+    const npcDefNames = new Set(
+      allDefs.filter((d) => d.category === "npc").map((d) => d.name),
+    );
+
+    // All map objects that use an NPC sprite
+    const allObjects = await ctx.db.query("mapObjects").collect();
+    const npcObjects = allObjects.filter((o) => npcDefNames.has(o.spriteDefName));
+
+    // NPC profiles (for display name)
+    const profiles = await ctx.db.query("npcProfiles").collect();
+    const profilesByName = new Map(profiles.map((p) => [p.name, p]));
+
+    // Users for creator lookup
+    const users = await ctx.db.query("users").collect();
+    const emailById = new Map<string, string>();
+    for (const u of users) {
+      emailById.set(String(u._id), (u as any).email ?? "(no-email)");
+    }
+
+    // Maps for creator lookup
+    const maps = await ctx.db.query("maps").collect();
+    const mapCreatorById = new Map<string, string>();
+    for (const m of maps) {
+      const creator = m.createdBy ? (emailById.get(String(m.createdBy)) ?? "(unknown)") : "(none)";
+      mapCreatorById.set(m.name, creator);
+    }
+
+    return npcObjects.map((obj) => {
+      const profile = obj.instanceName ? profilesByName.get(obj.instanceName) ?? null : null;
+      return {
+        name: (profile as any)?.displayName ?? obj.instanceName ?? obj.spriteDefName,
+        instanceName: obj.instanceName ?? "(unnamed)",
+        spriteDefName: obj.spriteDefName,
+        mapName: obj.mapName,
+        mapCreator: mapCreatorById.get(obj.mapName) ?? "(unknown)",
+      };
+    });
+  },
+});
+
+/** Lightweight map list for CLI (no tile data, no heavy fields) */
+export const listMaps = query({
+  args: { adminKey: v.string() },
+  handler: async (ctx, { adminKey }) => {
+    requireAdminKey(adminKey);
+    const maps = await ctx.db.query("maps").collect();
+    const users = await ctx.db.query("users").collect();
+
+    const emailById = new Map<string, string>();
+    for (const u of users) {
+      emailById.set(String(u._id), (u as any).email ?? "(no-email)");
+    }
+
+    return maps.map((m) => ({
+      name: m.name,
+      width: m.width,
+      height: m.height,
+      mapType: (m as any).mapType ?? "private",
+      owner: m.createdBy ? (emailById.get(String(m.createdBy)) ?? String(m.createdBy)) : "(none)",
+    }));
+  },
+});
+
 /** Admin: update a map's type and/or owner. CLI-only. */
 export const adminUpdateMap = mutation({
   args: {
@@ -742,5 +813,43 @@ export const adminUpdateMap = mutation({
 
     await ctx.db.patch(map._id, patch);
     return { ok: true, mapName, patched: Object.keys(patch).filter((k) => k !== "updatedAt") };
+  },
+});
+
+// ---------------------------------------------------------------------------
+// One-shot migration: rewrite spriteSheetUrl paths in spriteDefinitions
+// e.g. /assets/sprites/villager2.json → /assets/characters/villager2.json
+// ---------------------------------------------------------------------------
+
+/** NPC sprite filenames that moved from sprites/ to characters/ */
+const MOVED_NPC_FILES = [
+  "villager2.json",
+  "villager3.json",
+  "villager4.json",
+  "villager5.json",
+  "villager-jane.json",
+  "woman-med.json",
+  "chicken.json",
+  "goat.json",
+];
+
+export const migrateSpriteSheetUrls = mutation({
+  args: { adminKey: v.optional(v.string()) },
+  handler: async (ctx, { adminKey }) => {
+    requireAdminKey(adminKey);
+    const allDefs = await ctx.db.query("spriteDefinitions").collect();
+    let patched = 0;
+    const details: string[] = [];
+    for (const def of allDefs) {
+      const url: string = (def as any).spriteSheetUrl ?? "";
+      const filename = url.split("/").pop() ?? "";
+      if (url.startsWith("/assets/sprites/") && MOVED_NPC_FILES.includes(filename)) {
+        const newUrl = `/assets/characters/${filename}`;
+        await ctx.db.patch(def._id, { spriteSheetUrl: newUrl } as any);
+        details.push(`${def.name}: ${url} → ${newUrl}`);
+        patched++;
+      }
+    }
+    return { total: allDefs.length, patched, details };
   },
 });
