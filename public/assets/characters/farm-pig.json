@@ -1,0 +1,271 @@
+{
+  "frames": {
+    "tile0_0": {
+      "frame": {
+        "x": 0,
+        "y": 0,
+        "w": 48,
+        "h": 72
+      },
+      "rotated": false,
+      "trimmed": true,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 48,
+        "h": 72
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 72
+      }
+    },
+    "tile0_1": {
+      "frame": {
+        "x": 48,
+        "y": 0,
+        "w": 48,
+        "h": 72
+      },
+      "rotated": false,
+      "trimmed": true,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 48,
+        "h": 72
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 72
+      }
+    },
+    "tile0_2": {
+      "frame": {
+        "x": 96,
+        "y": 0,
+        "w": 48,
+        "h": 72
+      },
+      "rotated": false,
+      "trimmed": true,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 48,
+        "h": 72
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 72
+      }
+    },
+    "tile1_0": {
+      "frame": {
+        "x": 0,
+        "y": 72,
+        "w": 48,
+        "h": 72
+      },
+      "rotated": false,
+      "trimmed": true,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 48,
+        "h": 72
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 72
+      }
+    },
+    "tile1_1": {
+      "frame": {
+        "x": 48,
+        "y": 72,
+        "w": 48,
+        "h": 72
+      },
+      "rotated": false,
+      "trimmed": true,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 48,
+        "h": 72
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 72
+      }
+    },
+    "tile1_2": {
+      "frame": {
+        "x": 96,
+        "y": 72,
+        "w": 48,
+        "h": 72
+      },
+      "rotated": false,
+      "trimmed": true,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 48,
+        "h": 72
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 72
+      }
+    },
+    "tile2_0": {
+      "frame": {
+        "x": 0,
+        "y": 144,
+        "w": 48,
+        "h": 72
+      },
+      "rotated": false,
+      "trimmed": true,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 48,
+        "h": 72
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 72
+      }
+    },
+    "tile2_1": {
+      "frame": {
+        "x": 48,
+        "y": 144,
+        "w": 48,
+        "h": 72
+      },
+      "rotated": false,
+      "trimmed": true,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 48,
+        "h": 72
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 72
+      }
+    },
+    "tile2_2": {
+      "frame": {
+        "x": 96,
+        "y": 144,
+        "w": 48,
+        "h": 72
+      },
+      "rotated": false,
+      "trimmed": true,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 48,
+        "h": 72
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 72
+      }
+    },
+    "tile3_0": {
+      "frame": {
+        "x": 0,
+        "y": 216,
+        "w": 48,
+        "h": 72
+      },
+      "rotated": false,
+      "trimmed": true,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 48,
+        "h": 72
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 72
+      }
+    },
+    "tile3_1": {
+      "frame": {
+        "x": 48,
+        "y": 216,
+        "w": 48,
+        "h": 72
+      },
+      "rotated": false,
+      "trimmed": true,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 48,
+        "h": 72
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 72
+      }
+    },
+    "tile3_2": {
+      "frame": {
+        "x": 96,
+        "y": 216,
+        "w": 48,
+        "h": 72
+      },
+      "rotated": false,
+      "trimmed": true,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 48,
+        "h": 72
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 72
+      }
+    }
+  },
+  "animations": {
+    "row0": [
+      "tile0_0",
+      "tile0_1",
+      "tile0_2"
+    ],
+    "row1": [
+      "tile1_0",
+      "tile1_1",
+      "tile1_2"
+    ],
+    "row2": [
+      "tile2_0",
+      "tile2_1",
+      "tile2_2"
+    ],
+    "row3": [
+      "tile3_0",
+      "tile3_1",
+      "tile3_2"
+    ]
+  },
+  "meta": {
+    "image": "farm-pig.png",
+    "format": "RGBA8888",
+    "scale": "1"
+  }
+}
