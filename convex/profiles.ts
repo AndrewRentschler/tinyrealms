@@ -204,10 +204,8 @@ export const consumeConsumable = mutation({
       throw new Error(`"${itemName}" is not consumable`);
     }
 
+    // Consumables may be "effectless" (HP delta 0): still allow consuming.
     const hpDelta = itemDef.consumeHpDelta ?? 0;
-    if (hpDelta === 0) {
-      throw new Error(`"${itemDef.displayName}" has no HP effect configured`);
-    }
 
     const items = [...profile.items];
     const idx = items.findIndex((i) => i.name === itemName);

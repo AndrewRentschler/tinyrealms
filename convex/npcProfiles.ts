@@ -8,6 +8,7 @@ const visibilityTypeValidator = v.union(
   v.literal("system"),
 );
 const npcTypeValidator = v.union(v.literal("procedural"), v.literal("ai"));
+const instanceTypeValidator = v.union(v.literal("animal"), v.literal("character"));
 const aggressionValidator = v.union(
   v.literal("low"),
   v.literal("medium"),
@@ -151,6 +152,7 @@ export const save = mutation({
   args: {
     profileId: v.id("profiles"),
     name: v.string(),
+    instanceType: v.optional(instanceTypeValidator),
     spriteDefName: v.string(),
     mapName: v.optional(v.string()),
     displayName: v.string(),
@@ -158,6 +160,11 @@ export const save = mutation({
     backstory: v.optional(v.string()),
     personality: v.optional(v.string()),
     dialogueStyle: v.optional(v.string()),
+    moveSpeed: v.optional(v.number()),
+    wanderRadius: v.optional(v.number()),
+    greeting: v.optional(v.string()),
+    logicKey: v.optional(v.string()),
+    logicConfig: v.optional(v.any()),
     systemPrompt: v.optional(v.string()),
     faction: v.optional(v.string()),
     knowledge: v.optional(v.string()),
@@ -229,20 +236,68 @@ export const save = mutation({
       throw new Error(`Only superusers can set NPC visibility to "system".`);
     }
 
+    const instanceType = args.instanceType ?? ((existing as any)?.instanceType ?? "character");
     const { profileId: _, visibilityType: __, ...fields } = args;
+    const baseCapabilities = {
+      ...(((existing as any)?.aiPolicy?.capabilities as any) ?? {}),
+      ...(args.aiPolicy?.capabilities ?? {}),
+    };
+    const normalizedAiPolicy =
+      instanceType === "animal"
+        ? {
+            capabilities: {
+              ...baseCapabilities,
+              canChat: false,
+            },
+          }
+        : {
+            capabilities: {
+              ...baseCapabilities,
+              canChat: true,
+            },
+          };
     const data = {
       ...fields,
+      instanceType,
+      npcType: instanceType === "animal" ? "procedural" : args.npcType,
+      aiEnabled: instanceType === "animal" ? false : args.aiEnabled,
+      aiPolicy: normalizedAiPolicy,
       visibilityType,
       createdByUser: existing?.createdByUser ?? userId,
       updatedAt: Date.now(),
     };
 
+    let savedId;
     if (existing) {
       await ctx.db.patch(existing._id, data);
-      return existing._id;
+      savedId = existing._id;
     } else {
-      return await ctx.db.insert("npcProfiles", data);
+      savedId = await ctx.db.insert("npcProfiles", data);
     }
+
+    // If this profile is bound to live NPC instances, push behavior tuning
+    // directly into runtime npcState rows so changes apply immediately.
+    if (typeof args.moveSpeed === "number" || typeof args.wanderRadius === "number") {
+      const allStates = await ctx.db.query("npcState").collect();
+      for (const state of allStates) {
+        if (state.instanceName !== args.name) continue;
+        const patch: Record<string, number> = {};
+        if (typeof args.moveSpeed === "number" && state.speed !== args.moveSpeed) {
+          patch.speed = args.moveSpeed;
+        }
+        if (
+          typeof args.wanderRadius === "number" &&
+          state.wanderRadius !== args.wanderRadius
+        ) {
+          patch.wanderRadius = args.wanderRadius;
+        }
+        if (Object.keys(patch).length > 0) {
+          await ctx.db.patch(state._id, patch as any);
+        }
+      }
+    }
+
+    return savedId;
   },
 });
 

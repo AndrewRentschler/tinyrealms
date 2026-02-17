@@ -258,6 +258,8 @@ export const syncMap = internalMutation({
     const npcDefNames = new Set(
       defs.filter((d) => d.category === "npc").map((d) => d.name),
     );
+    const profiles = await ctx.db.query("npcProfiles").collect();
+    const profileByName = new Map(profiles.map((p) => [p.name, p]));
 
     // Current npcState rows for this map
     const currentStates = await ctx.db
@@ -277,13 +279,35 @@ export const syncMap = internalMutation({
     // Create missing npcState rows  (+ update instanceName on existing ones)
     for (const obj of npcObjects) {
       const existing = stateByObjectId.get(obj._id as string);
+      const def = defs.find((d) => d.name === obj.spriteDefName);
+      const profile =
+        typeof obj.instanceName === "string"
+          ? profileByName.get(obj.instanceName)
+          : undefined;
+      const resolvedSpeed =
+        typeof profile?.moveSpeed === "number"
+          ? profile.moveSpeed
+          : (def?.npcSpeed ?? 30);
+      const resolvedWanderRadius =
+        typeof profile?.wanderRadius === "number"
+          ? profile.wanderRadius
+          : (def?.npcWanderRadius ?? 60);
       if (existing) {
-        // Keep instanceName in sync with mapObject
+        // Keep instance identity and behavior tuning in sync.
+        const patch: Record<string, any> = {};
         if (existing.instanceName !== obj.instanceName) {
-          await ctx.db.patch(existing._id, { instanceName: obj.instanceName });
+          patch.instanceName = obj.instanceName;
+        }
+        if (existing.speed !== resolvedSpeed) {
+          patch.speed = resolvedSpeed;
+        }
+        if (existing.wanderRadius !== resolvedWanderRadius) {
+          patch.wanderRadius = resolvedWanderRadius;
+        }
+        if (Object.keys(patch).length > 0) {
+          await ctx.db.patch(existing._id, patch);
         }
       } else {
-        const def = defs.find((d) => d.name === obj.spriteDefName);
         await ctx.db.insert("npcState", {
           mapName,
           mapObjectId: obj._id,
@@ -296,8 +320,8 @@ export const syncMap = internalMutation({
           direction: "down",
           vx: 0,
           vy: 0,
-          speed: def?.npcSpeed ?? 30,
-          wanderRadius: def?.npcWanderRadius ?? 60,
+          speed: resolvedSpeed,
+          wanderRadius: resolvedWanderRadius,
           currentHp: undefined,
           maxHp: undefined,
           defeatedAt: undefined,

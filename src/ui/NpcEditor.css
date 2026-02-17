@@ -194,11 +194,47 @@
   border-color: rgba(46, 204, 113, 0.35);
 }
 
+.npc-editor-type-tag {
+  font-size: 9px;
+  line-height: 1;
+  padding: 2px 6px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.npc-editor-type-tag.animal {
+  color: #f7d9a6;
+  background: rgba(230, 140, 40, 0.16);
+  border-color: rgba(230, 140, 40, 0.35);
+}
+
+.npc-editor-type-tag.ai {
+  color: #c6f7ff;
+  background: rgba(60, 180, 255, 0.16);
+  border-color: rgba(60, 180, 255, 0.35);
+}
+
 .npc-editor-empty {
   font-size: 12px;
   color: var(--text-muted);
   font-style: italic;
   padding: 8px;
+}
+
+.npc-editor-map-header {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px 2px;
+}
+
+.npc-editor-map-header:hover {
+  color: var(--text-primary);
 }
 
 /* ---- Main form area ---- */

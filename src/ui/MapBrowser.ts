@@ -233,6 +233,10 @@ export class MapBrowser {
           info.appendChild(typeWrap);
         }
 
+        // Actions
+        const actionsEl = document.createElement("div");
+        actionsEl.className = "map-card-actions";
+
         // Travel button
         const travelBtn = document.createElement("button");
         travelBtn.className = "map-card-travel";
@@ -249,7 +253,48 @@ export class MapBrowser {
           });
         }
 
-        card.append(iconEl, info, badges, travelBtn);
+        actionsEl.appendChild(travelBtn);
+
+        // Delete button (owner or superuser only)
+        const canDelete = !!m.ownedByCurrentUser || this.callbacks.isAdmin;
+        if (canDelete) {
+          const deleteBtn = document.createElement("button");
+          deleteBtn.className = "map-card-delete";
+          deleteBtn.textContent = "Delete";
+          if (m.name === currentMap) {
+            deleteBtn.disabled = true;
+            deleteBtn.title = "Travel to another map before deleting this one.";
+          }
+          deleteBtn.addEventListener("click", async (e) => {
+            e.stopPropagation();
+            if (m.name === currentMap) return;
+
+            const confirmed = window.confirm(
+              `Delete map "${m.name}"?\n\nThis will permanently remove the map and its placed objects/items/messages.`,
+            );
+            if (!confirmed) return;
+
+            const original = deleteBtn.textContent;
+            deleteBtn.disabled = true;
+            deleteBtn.textContent = "Deleting...";
+            try {
+              const convex = getConvexClient();
+              await convex.mutation((api as any).maps.remove, {
+                profileId: this.callbacks.getProfileId() as Id<"profiles">,
+                name: m.name,
+              });
+              await this.refresh();
+            } catch (err: any) {
+              console.warn("delete map failed:", err);
+              window.alert(err?.message ?? "Failed to delete map");
+              deleteBtn.textContent = original || "Delete";
+              deleteBtn.disabled = false;
+            }
+          });
+          actionsEl.appendChild(deleteBtn);
+        }
+
+        card.append(iconEl, info, badges, actionsEl);
         list.appendChild(card);
       }
 

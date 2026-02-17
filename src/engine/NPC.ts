@@ -111,6 +111,7 @@ export class NPC {
   private serverTime = 0; // performance.now() when last server update arrived
   private lastServerDir: Direction = "down";
   private serverIsMoving = false;
+  private dialogueLocked = false;
 
   // Wander AI state (only used when !serverDriven)
   private state: WanderState = "idle";
@@ -234,6 +235,11 @@ export class NPC {
 
   /** Server-driven: interpolate toward server position */
   private updateServerDriven(dt: number) {
+    if (this.dialogueLocked) {
+      // While in conversation, hold position and force standing frame.
+      this.stopWalkAnim();
+      return;
+    }
     const now = performance.now();
     const elapsed = (now - this.serverTime) / 1000;
 
@@ -265,7 +271,11 @@ export class NPC {
     this.serverVX = vx;
     this.serverVY = vy;
     this.serverTime = performance.now();
-    this.serverIsMoving = vx !== 0 || vy !== 0;
+    this.serverIsMoving = !this.dialogueLocked && (vx !== 0 || vy !== 0);
+    if (this.dialogueLocked) {
+      this.stopWalkAnim();
+      return;
+    }
 
     // Update facing direction
     const dir = direction as Direction;
@@ -331,14 +341,15 @@ export class NPC {
     this.setDirection(pick.dir);
   }
 
-  private setDirection(dir: Direction) {
+  private setDirection(dir: Direction, play = true) {
     this.direction = dir;
     if (this.sprite && this.spritesheet?.animations) {
       const animKey = this.dirMap[dir];
       const frames = this.spritesheet.animations[animKey];
       if (frames && frames.length > 0) {
         this.sprite.textures = frames;
-        this.sprite.play();
+        if (play) this.sprite.play();
+        else this.sprite.gotoAndStop(0);
       }
     }
   }
@@ -388,14 +399,22 @@ export class NPC {
     const dx = px - this.x;
     const dy = py - this.y;
     if (Math.abs(dx) > Math.abs(dy)) {
-      this.setDirection(dx > 0 ? "right" : "left");
+      this.setDirection(dx > 0 ? "right" : "left", false);
     } else {
-      this.setDirection(dy > 0 ? "down" : "up");
+      this.setDirection(dy > 0 ? "down" : "up", false);
     }
-    // Stop walking when interacting
+    // Stop walking when interacting and hold standing frame (frame 0).
     if (this.state === "walking") {
       this.state = "idle";
       this.stateTimer = 3;
+    }
+    this.stopWalkAnim();
+  }
+
+  setDialogueLocked(locked: boolean) {
+    this.dialogueLocked = locked;
+    this.serverIsMoving = locked ? false : this.serverVX !== 0 || this.serverVY !== 0;
+    if (locked) {
       this.stopWalkAnim();
     }
   }

@@ -731,7 +731,8 @@ export class EntityLayer {
       .query(api.npcProfiles.getByName, { name: instanceName })
       .then((profile: any) => {
         const hostile = Array.isArray(profile?.tags) && profile.tags.includes("hostile");
-        const canChat = profile?.aiPolicy?.capabilities?.canChat !== false;
+        const isAnimal = profile?.instanceType === "animal";
+        const canChat = !isAnimal;
         const combatEnabled = !!this.game.currentMapData?.combatEnabled;
         const hint: "chat" | "attack" | "none" = hostile && combatEnabled
           ? "attack"
@@ -763,6 +764,7 @@ export class EntityLayer {
 
     this.inDialogue = true;
     this.engagedNpcId = npc.id;
+    npc.setDialogueLocked(true);
 
     splashManager.push({
       id: `dialogue-${npc.id}`,
@@ -787,6 +789,7 @@ export class EntityLayer {
       transparent: true,
       pausesGame: false,
       onClose: () => {
+        npc.setDialogueLocked(false);
         this.inDialogue = false;
         this.engagedNpcId = null;
       },

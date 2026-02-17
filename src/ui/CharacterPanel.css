@@ -284,6 +284,10 @@
   color: var(--danger);
 }
 
+.char-item-use-status.neutral {
+  color: var(--text-secondary);
+}
+
 .char-item {
   display: flex;
   align-items: center;
@@ -434,6 +438,41 @@
 }
 
 .char-npcs-empty {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* ---- Completed Quests ---- */
+
+.char-completed-quest-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.char-completed-quest-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 8px;
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.char-completed-quest-title {
+  font-size: 12px;
+  color: var(--text-primary);
+}
+
+.char-completed-quest-date {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.char-completed-quests-empty {
   font-size: 12px;
   color: var(--text-muted);
   font-style: italic;

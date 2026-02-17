@@ -27,10 +27,14 @@ import type * as mechanics_loot from "../mechanics/loot.js";
 import type * as migrations from "../migrations.js";
 import type * as npc_braintrust from "../npc/braintrust.js";
 import type * as npc_chat from "../npc/chat.js";
+import type * as npc_logic_pilotSingleCharacter from "../npc/logic/pilotSingleCharacter.js";
+import type * as npc_logic_villageBarLady from "../npc/logic/villageBarLady.js";
 import type * as npc_memory from "../npc/memory.js";
 import type * as npc_policy from "../npc/policy.js";
 import type * as npc_router from "../npc/router.js";
 import type * as npc_services_dialogue from "../npc/services/dialogue.js";
+import type * as npc_services_logicContracts from "../npc/services/logicContracts.js";
+import type * as npc_services_logicRegistry from "../npc/services/logicRegistry.js";
 import type * as npcEngine from "../npcEngine.js";
 import type * as npcProfiles from "../npcProfiles.js";
 import type * as npcs from "../npcs.js";
@@ -47,6 +51,7 @@ import type * as story_lore from "../story/lore.js";
 import type * as story_quests from "../story/quests.js";
 import type * as story_storyAi from "../story/storyAi.js";
 import type * as superuser from "../superuser.js";
+import type * as weather from "../weather.js";
 import type * as worldItems from "../worldItems.js";
 
 import type {
@@ -75,10 +80,14 @@ declare const fullApi: ApiFromModules<{
   migrations: typeof migrations;
   "npc/braintrust": typeof npc_braintrust;
   "npc/chat": typeof npc_chat;
+  "npc/logic/pilotSingleCharacter": typeof npc_logic_pilotSingleCharacter;
+  "npc/logic/villageBarLady": typeof npc_logic_villageBarLady;
   "npc/memory": typeof npc_memory;
   "npc/policy": typeof npc_policy;
   "npc/router": typeof npc_router;
   "npc/services/dialogue": typeof npc_services_dialogue;
+  "npc/services/logicContracts": typeof npc_services_logicContracts;
+  "npc/services/logicRegistry": typeof npc_services_logicRegistry;
   npcEngine: typeof npcEngine;
   npcProfiles: typeof npcProfiles;
   npcs: typeof npcs;
@@ -95,6 +104,7 @@ declare const fullApi: ApiFromModules<{
   "story/quests": typeof story_quests;
   "story/storyAi": typeof story_storyAi;
   superuser: typeof superuser;
+  weather: typeof weather;
   worldItems: typeof worldItems;
 }>;
 

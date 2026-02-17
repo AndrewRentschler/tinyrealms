@@ -10,6 +10,7 @@ export const SOUND_FILES: SoundOption[] = [
   { label: "Cat Purring", url: "/assets/audio/cat-purring.mp3" },
   { label: "Dog Snoring", url: "/assets/audio/dog-snoring.mp3" },
   { label: "Chicken", url: "/assets/audio/chicken.mp3" },
+  { label: "Chicken2", url: "/assets/audio/chicken2.mp3" },
   { label: "Clock Tick", url: "/assets/audio/clock-tick.mp3" },
   { label: "Grandfather Clock", url: "/assets/audio/grandfather-clock.mp3" },
   { label: "Rain", url: "/assets/audio/rain.mp3" },
@@ -22,6 +23,8 @@ export const SOUND_FILES: SoundOption[] = [
   { label: "1920s Jazz", url: "/assets/audio/1920jazz.mp3" },
   { label: "Soup Pot", url: "/assets/audio/souppot.mp3" },
   { label: "Puppy Bark", url: "/assets/audio/puppy-bark.mp3" },
+  { label: "Sheep", url: "/assets/audio/sheep.mp3" },
+  { label: "Pig", url: "/assets/audio/pig.mp3" },
 ];
 
 export const ITEM_PICKUP_SOUND_OPTIONS: string[] = [

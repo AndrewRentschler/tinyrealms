@@ -162,6 +162,18 @@ const mapTypeValidator = v.union(
   v.literal("system"),
 );
 
+const weatherModeValidator = v.union(
+  v.literal("clear"),
+  v.literal("rainy"),
+  v.literal("scattered_rain"),
+);
+
+const weatherIntensityValidator = v.union(
+  v.literal("light"),
+  v.literal("medium"),
+  v.literal("heavy"),
+);
+
 const combatSettingsValidator = v.object({
   attackRangePx: v.optional(v.number()),
   playerAttackCooldownMs: v.optional(v.number()),
@@ -228,6 +240,11 @@ export const create = mutation({
     tilesetPxH: v.number(),
     musicUrl: v.optional(v.string()),
     ambientSoundUrl: v.optional(v.string()),
+    weatherMode: v.optional(weatherModeValidator),
+    weatherIntensity: v.optional(weatherIntensityValidator),
+    weatherRainSfx: v.optional(v.boolean()),
+    weatherLightningEnabled: v.optional(v.boolean()),
+    weatherLightningChancePerSec: v.optional(v.number()),
     combatEnabled: v.optional(v.boolean()),
     combatSettings: v.optional(combatSettingsValidator),
     mapType: v.optional(mapTypeValidator),
@@ -282,6 +299,11 @@ export const create = mutation({
       portals: [],
       musicUrl: args.musicUrl,
       ambientSoundUrl: args.ambientSoundUrl,
+      weatherMode: args.weatherMode ?? "clear",
+      weatherIntensity: args.weatherIntensity ?? "medium",
+      weatherRainSfx: args.weatherRainSfx ?? false,
+      weatherLightningEnabled: args.weatherLightningEnabled ?? false,
+      weatherLightningChancePerSec: args.weatherLightningChancePerSec ?? 0.03,
       combatEnabled: args.combatEnabled ?? false,
       combatSettings: args.combatSettings,
       status: "draft",
@@ -313,6 +335,11 @@ export const saveFullMap = mutation({
     animationUrl: v.optional(v.string()),
     musicUrl: v.optional(v.string()),
     ambientSoundUrl: v.optional(v.string()),
+    weatherMode: v.optional(weatherModeValidator),
+    weatherIntensity: v.optional(weatherIntensityValidator),
+    weatherRainSfx: v.optional(v.boolean()),
+    weatherLightningEnabled: v.optional(v.boolean()),
+    weatherLightningChancePerSec: v.optional(v.number()),
     combatEnabled: v.optional(v.boolean()),
     combatSettings: v.optional(combatSettingsValidator),
     status: v.optional(v.string()),
@@ -344,6 +371,26 @@ export const saveFullMap = mutation({
       mapType = "private";
     }
 
+    // Determine weather mode: explicit arg > existing value > "clear"
+    let weatherMode: "clear" | "rainy" | "scattered_rain";
+    if (args.weatherMode) {
+      weatherMode = args.weatherMode;
+    } else if (existing && (existing as any).weatherMode) {
+      weatherMode = (existing as any).weatherMode as "clear" | "rainy" | "scattered_rain";
+    } else {
+      weatherMode = "clear";
+    }
+
+    // Determine weather intensity: explicit arg > existing value > "medium"
+    let weatherIntensity: "light" | "medium" | "heavy";
+    if (args.weatherIntensity) {
+      weatherIntensity = args.weatherIntensity;
+    } else if (existing && (existing as any).weatherIntensity) {
+      weatherIntensity = (existing as any).weatherIntensity as "light" | "medium" | "heavy";
+    } else {
+      weatherIntensity = "medium";
+    }
+
     const data = {
       name: args.name,
       width: args.width,
@@ -360,6 +407,11 @@ export const saveFullMap = mutation({
       animationUrl: args.animationUrl,
       musicUrl: args.musicUrl,
       ambientSoundUrl: args.ambientSoundUrl,
+      weatherMode,
+      weatherIntensity,
+      weatherRainSfx: args.weatherRainSfx ?? (existing as any)?.weatherRainSfx ?? false,
+      weatherLightningEnabled: args.weatherLightningEnabled ?? (existing as any)?.weatherLightningEnabled ?? false,
+      weatherLightningChancePerSec: args.weatherLightningChancePerSec ?? (existing as any)?.weatherLightningChancePerSec ?? 0.03,
       combatEnabled: args.combatEnabled,
       combatSettings: args.combatSettings,
       status: args.status,
@@ -388,6 +440,11 @@ export const updateMetadata = mutation({
     name: v.string(),
     musicUrl: v.optional(v.string()),
     ambientSoundUrl: v.optional(v.string()),
+    weatherMode: v.optional(weatherModeValidator),
+    weatherIntensity: v.optional(weatherIntensityValidator),
+    weatherRainSfx: v.optional(v.boolean()),
+    weatherLightningEnabled: v.optional(v.boolean()),
+    weatherLightningChancePerSec: v.optional(v.number()),
     combatEnabled: v.optional(v.boolean()),
     combatSettings: v.optional(combatSettingsValidator),
     status: v.optional(v.string()),
@@ -423,6 +480,11 @@ export const updateMetadata = mutation({
     const patch: Record<string, any> = { updatedAt: Date.now() };
     if (updates.musicUrl !== undefined) patch.musicUrl = updates.musicUrl;
     if (updates.ambientSoundUrl !== undefined) patch.ambientSoundUrl = updates.ambientSoundUrl;
+    if (updates.weatherMode !== undefined) patch.weatherMode = updates.weatherMode;
+    if (updates.weatherIntensity !== undefined) patch.weatherIntensity = updates.weatherIntensity;
+    if (updates.weatherRainSfx !== undefined) patch.weatherRainSfx = updates.weatherRainSfx;
+    if (updates.weatherLightningEnabled !== undefined) patch.weatherLightningEnabled = updates.weatherLightningEnabled;
+    if (updates.weatherLightningChancePerSec !== undefined) patch.weatherLightningChancePerSec = updates.weatherLightningChancePerSec;
     if (updates.combatEnabled !== undefined) patch.combatEnabled = updates.combatEnabled;
     if (updates.combatSettings !== undefined) patch.combatSettings = updates.combatSettings;
     if (updates.status !== undefined) patch.status = updates.status;

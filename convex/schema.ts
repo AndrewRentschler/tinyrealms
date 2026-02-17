@@ -67,6 +67,11 @@ export default defineSchema({
     animationUrl: v.optional(v.string()),    // URL to animated-tile descriptor JSON
     musicUrl: v.optional(v.string()),        // background music path
     ambientSoundUrl: v.optional(v.string()), // ambient sound loop (rain, wind)
+    weatherMode: v.optional(v.union(v.literal("clear"), v.literal("rainy"), v.literal("scattered_rain"))),
+    weatherIntensity: v.optional(v.union(v.literal("light"), v.literal("medium"), v.literal("heavy"))),
+    weatherRainSfx: v.optional(v.boolean()),
+    weatherLightningEnabled: v.optional(v.boolean()),
+    weatherLightningChancePerSec: v.optional(v.number()),
     combatEnabled: v.optional(v.boolean()),  // is combat allowed on this map?
     combatSettings: v.optional(v.object({
       attackRangePx: v.optional(v.number()),
@@ -81,6 +86,18 @@ export default defineSchema({
     createdBy: v.optional(v.id("users")),    // user who created this map (for ownership checks)
     updatedAt: v.number(),
   }).index("by_name", ["name"]),
+
+  // ---------------------------------------------------------------------------
+  // Global weather controller (singleton row keyed by "global")
+  // ---------------------------------------------------------------------------
+  weatherGlobal: defineTable({
+    key: v.string(), // always "global"
+    rainyNow: v.boolean(),
+    rainyPercent: v.number(), // 0..1 probability each weather tick
+    tickIntervalMs: v.number(),
+    updatedAt: v.number(),
+    lastTickAt: v.optional(v.number()),
+  }).index("by_key", ["key"]),
 
   // ---------------------------------------------------------------------------
   // Sprite sheets
@@ -161,6 +178,7 @@ export default defineSchema({
   // ---------------------------------------------------------------------------
   npcProfiles: defineTable({
     name: v.string(),                  // unique instance name (e.g. "elara", "bob-merchant")
+    instanceType: v.optional(v.union(v.literal("animal"), v.literal("character"))),
     spriteDefName: v.string(),         // links to spriteDefinitions.name (the sprite)
     mapName: v.optional(v.string()),   // which map this instance lives on
     displayName: v.string(),           // in-world display name (e.g. "Elara the Herbalist")
@@ -168,6 +186,11 @@ export default defineSchema({
     backstory: v.optional(v.string()), // rich backstory text
     personality: v.optional(v.string()),  // personality traits / description
     dialogueStyle: v.optional(v.string()), // how they speak (formal, cryptic, friendly, etc.)
+    moveSpeed: v.optional(v.number()),   // behavior: movement speed (px/sec)
+    wanderRadius: v.optional(v.number()), // behavior: wander radius (px)
+    greeting: v.optional(v.string()),    // behavior: default greeting line for procedural chat
+    logicKey: v.optional(v.string()),    // optional server-side procedural logic registry key
+    logicConfig: v.optional(v.any()),    // optional logic configuration payload
     systemPrompt: v.optional(v.string()), // full LLM system prompt (auto-generated or hand-written)
     faction: v.optional(v.string()),    // affiliation (e.g. "Merchants Guild", "Forest Druids")
     knowledge: v.optional(v.string()), // things this NPC knows about the world
@@ -469,7 +492,9 @@ export default defineSchema({
       }),
       v.object({
         type: v.literal("kill_npc"),
-        targetNpcProfileName: v.string(),
+        targetType: v.optional(v.union(v.literal("npc_instance"), v.literal("npc_class"))),
+        targetNpcProfileName: v.optional(v.string()),
+        targetNpcClassName: v.optional(v.string()),
         requiredCount: v.number(),
       }),
     )),
@@ -523,6 +548,7 @@ export default defineSchema({
     }),
     progress: v.array(v.object({
       type: v.union(v.literal("collect_item"), v.literal("kill_npc")),
+      targetType: v.optional(v.union(v.literal("npc_instance"), v.literal("npc_class"))),
       targetKey: v.string(),
       currentCount: v.number(),
       requiredCount: v.number(),
@@ -618,6 +644,7 @@ export default defineSchema({
     iconTileY: v.optional(v.number()),       // crop Y in px
     iconTileW: v.optional(v.number()),       // crop width in px
     iconTileH: v.optional(v.number()),       // crop height in px
+    iconSpriteDefName: v.optional(v.string()), // optional animated icon from non-toggle object sprite def
     // Stats / properties
     stats: v.optional(v.object({
       atk: v.optional(v.number()),

@@ -25,6 +25,8 @@ type ActiveQuestRow = {
   };
 };
 
+const QUEST_SUCCESS_SFX = "/assets/audio/quest-success.mp3";
+
 type HUDOptions = {
   profileId?: string;
   isGuest?: boolean;
@@ -44,6 +46,9 @@ export class HUD {
   private questsUnsub: (() => void) | null = null;
   private activeQuests: ActiveQuestRow[] = [];
   private questsCollapsed = false;
+  private questBannerTimer: number | null = null;
+  private claimingQuestIds = new Set<string>();
+  private questPickerOverlayEl: HTMLElement | null = null;
 
   constructor(mode: AppMode, options?: HUDOptions) {
     this.el = document.createElement("div");
@@ -119,8 +124,23 @@ export class HUD {
       (rows: any[]) => {
         this.activeQuests = (rows ?? []) as ActiveQuestRow[];
         this.renderQuests();
+        void this.autoClaimCompletedQuests();
       },
     );
+  }
+
+  private async autoClaimCompletedQuests() {
+    for (const q of this.activeQuests) {
+      if (q.status !== "completed") continue;
+      if (q.rewardClaimedAt) continue;
+      if (this.claimingQuestIds.has(q._id)) continue;
+      this.claimingQuestIds.add(q._id);
+      try {
+        await this.claimReward(q._id);
+      } finally {
+        this.claimingQuestIds.delete(q._id);
+      }
+    }
   }
 
   private formatDeadline(deadlineAt?: number): string {
@@ -168,6 +188,21 @@ export class HUD {
       name.textContent = q.questDef?.title ?? q.questDef?.key ?? "Quest";
       card.appendChild(name);
 
+      if (q.status === "active") {
+        const actions = document.createElement("div");
+        actions.className = "hud-quest-actions";
+        const abandonBtn = document.createElement("button");
+        abandonBtn.className = "hud-quest-action-btn danger";
+        abandonBtn.type = "button";
+        abandonBtn.textContent = "Abandon";
+        abandonBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          this.abandonQuest(q._id, q.questDef?.title ?? "this quest");
+        });
+        actions.appendChild(abandonBtn);
+        card.appendChild(actions);
+      }
+
       if (q.questDef?.description) {
         const desc = document.createElement("div");
         desc.className = "hud-quest-desc";
@@ -194,7 +229,6 @@ export class HUD {
         card.appendChild(deadline);
       }
 
-      card.addEventListener("dblclick", () => this.claimReward(q._id));
       this.questsListEl.appendChild(card);
     }
   }
@@ -206,6 +240,29 @@ export class HUD {
     window.setTimeout(() => {
       if (this.questStatusEl?.textContent === text) this.questStatusEl.textContent = "";
     }, 2500);
+  }
+
+  private showQuestRewardBanner(text: string, durationMs = 4200) {
+    const div = document.createElement("div");
+    div.className = "hud-quest-reward-banner";
+    div.textContent = text;
+    document.body.appendChild(div);
+    if (this.questBannerTimer != null) {
+      window.clearTimeout(this.questBannerTimer);
+      this.questBannerTimer = null;
+    }
+    this.questBannerTimer = window.setTimeout(() => {
+      div.remove();
+      this.questBannerTimer = null;
+    }, durationMs);
+  }
+
+  private playQuestSuccessSound() {
+    const audio = new Audio(QUEST_SUCCESS_SFX);
+    audio.volume = 0.8;
+    void audio.play().catch(() => {
+      // Ignore autoplay restrictions/failures.
+    });
   }
 
   private async requestQuest() {
@@ -224,19 +281,121 @@ export class HUD {
         this.showQuestStatus("No quests available right now.");
         return;
       }
-      const pick = available[0];
-      await convex.mutation((api as any).quests.accept, {
-        profileId: this.profileId,
-        questDefKey: pick.key,
-        source: { type: "hud" },
-        mapName,
-      });
-      this.showQuestStatus(`Accepted: ${pick.title}`);
+      this.openQuestPicker(available, mapName);
     } catch (err: any) {
       this.showQuestStatus(err?.message ?? "Failed to request quest", true);
     } finally {
       this.requestBtn.disabled = false;
     }
+  }
+
+  private closeQuestPicker() {
+    if (!this.questPickerOverlayEl) return;
+    this.questPickerOverlayEl.remove();
+    this.questPickerOverlayEl = null;
+  }
+
+  private openQuestPicker(
+    available: Array<{
+      key: string;
+      title: string;
+      description?: string;
+      objectives?: Array<{ type: "collect_item" | "kill_npc"; itemDefName?: string; targetNpcProfileName?: string; requiredCount: number }>;
+    }>,
+    mapName: string | undefined,
+  ) {
+    this.closeQuestPicker();
+
+    const overlay = document.createElement("div");
+    overlay.className = "hud-quest-picker-overlay";
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) this.closeQuestPicker();
+    });
+
+    const modal = document.createElement("div");
+    modal.className = "hud-quest-picker-modal";
+
+    const header = document.createElement("div");
+    header.className = "hud-quest-picker-header";
+    const title = document.createElement("div");
+    title.className = "hud-quest-picker-title";
+    title.textContent = "Choose a Quest";
+    const closeBtn = document.createElement("button");
+    closeBtn.className = "hud-quest-picker-close";
+    closeBtn.type = "button";
+    closeBtn.textContent = "×";
+    closeBtn.addEventListener("click", () => this.closeQuestPicker());
+    header.append(title, closeBtn);
+
+    const list = document.createElement("div");
+    list.className = "hud-quest-picker-list";
+
+    for (const q of available) {
+      const card = document.createElement("div");
+      card.className = "hud-quest-picker-card";
+
+      const name = document.createElement("div");
+      name.className = "hud-quest-picker-card-title";
+      name.textContent = q.title;
+      card.appendChild(name);
+
+      if (q.description) {
+        const desc = document.createElement("div");
+        desc.className = "hud-quest-picker-card-desc";
+        desc.textContent = q.description;
+        card.appendChild(desc);
+      }
+
+      if (Array.isArray(q.objectives) && q.objectives.length > 0) {
+        const objList = document.createElement("div");
+        objList.className = "hud-quest-picker-objectives";
+        for (const obj of q.objectives) {
+          const objRow = document.createElement("div");
+          objRow.className = "hud-quest-picker-objective";
+          if (obj.type === "collect_item") {
+            objRow.textContent = `Collect ${obj.itemDefName} ×${obj.requiredCount}`;
+          } else {
+            objRow.textContent = `Defeat ${obj.targetNpcProfileName} ×${obj.requiredCount}`;
+          }
+          objList.appendChild(objRow);
+        }
+        card.appendChild(objList);
+      }
+
+      const actions = document.createElement("div");
+      actions.className = "hud-quest-picker-actions";
+      const acceptBtn = document.createElement("button");
+      acceptBtn.className = "hud-quest-picker-accept";
+      acceptBtn.type = "button";
+      acceptBtn.textContent = "Accept Quest";
+      acceptBtn.addEventListener("click", async () => {
+        if (!this.profileId) return;
+        acceptBtn.disabled = true;
+        try {
+          const convex = getConvexClient();
+          await convex.mutation((api as any).quests.accept, {
+            profileId: this.profileId,
+            questDefKey: q.key,
+            source: { type: "hud" },
+            mapName,
+          });
+          this.showQuestStatus(`Accepted: ${q.title}`);
+          this.closeQuestPicker();
+        } catch (err: any) {
+          this.showQuestStatus(err?.message ?? "Failed to accept quest", true);
+          acceptBtn.disabled = false;
+        }
+      });
+      actions.appendChild(acceptBtn);
+      card.appendChild(actions);
+
+      list.appendChild(card);
+    }
+
+    modal.append(header, list);
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+    this.questPickerOverlayEl = overlay;
   }
 
   private async claimReward(playerQuestId: string) {
@@ -246,19 +405,57 @@ export class HUD {
     if (quest.status !== "completed" || quest.rewardClaimedAt) return;
     try {
       const convex = getConvexClient();
-      await convex.mutation((api as any).quests.claimReward, {
+      const result = await convex.mutation((api as any).quests.claimReward, {
         profileId: this.profileId,
         playerQuestId,
       });
+      const rewards = result?.rewards ?? {};
+      const gold = Number(rewards.gold ?? 0);
+      const xp = Number(rewards.xp ?? 0);
+      const hp = Number(rewards.hp ?? 0);
+      const parts: string[] = [];
+      if (hp > 0) parts.push(`+${hp} HP`);
+      if (gold > 0) parts.push(`+${gold} gold`);
+      if (xp > 0) parts.push(`+${xp} XP`);
+      if (parts.length > 0) {
+        this.showQuestRewardBanner(`Quest complete: ${parts.join(" • ")}`);
+      } else {
+        this.showQuestRewardBanner("Quest complete");
+      }
+      this.playQuestSuccessSound();
+      // Remove claimed quest from HUD immediately (subscription will also confirm).
+      this.activeQuests = this.activeQuests.filter((q) => q._id !== playerQuestId);
+      this.renderQuests();
       this.showQuestStatus("Reward claimed");
     } catch (err: any) {
       this.showQuestStatus(err?.message ?? "Failed to claim reward", true);
     }
   }
 
+  private async abandonQuest(playerQuestId: string, questTitle: string) {
+    if (!this.profileId) return;
+    const confirm = window.confirm(`Abandon "${questTitle}"?`);
+    if (!confirm) return;
+    try {
+      const convex = getConvexClient();
+      await convex.mutation((api as any).quests.abandon, {
+        profileId: this.profileId,
+        playerQuestId,
+      });
+      this.showQuestStatus(`Abandoned: ${questTitle}`);
+    } catch (err: any) {
+      this.showQuestStatus(err?.message ?? "Failed to abandon quest", true);
+    }
+  }
+
   show() { this.el.style.display = ""; }
   hide() { this.el.style.display = "none"; }
   destroy() {
+    if (this.questBannerTimer != null) {
+      window.clearTimeout(this.questBannerTimer);
+      this.questBannerTimer = null;
+    }
+    this.closeQuestPicker();
     this.questsUnsub?.();
     this.el.remove();
   }

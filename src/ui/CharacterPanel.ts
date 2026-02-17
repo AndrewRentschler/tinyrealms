@@ -34,6 +34,7 @@ export class CharacterPanel {
   private statsGrid!: HTMLElement;
   private itemsGrid!: HTMLElement;
   private npcList!: HTMLElement;
+  private completedQuestList!: HTMLElement;
   private mapInfo!: HTMLElement;
   private saveBtn!: HTMLButtonElement;
   private itemUseStatusEl!: HTMLElement;
@@ -42,6 +43,12 @@ export class CharacterPanel {
   private itemDefsByName = new Map<string, { type: string; displayName: string; consumeHpDelta?: number }>();
   private itemDefsLoadedKey = "";
   private consumingItem = false;
+  private completedQuestRows: Array<{
+    _id: string;
+    questDefKey: string;
+    completedAt?: number;
+    questDef?: { title?: string; key?: string } | null;
+  }> = [];
 
   // Sprite animation
   private spriteCanvas: HTMLCanvasElement | null = null;
@@ -184,11 +191,28 @@ export class CharacterPanel {
     this.npcList.className = "char-npc-list";
     npcSection.append(npcTitle, this.npcList);
 
+    // Completed quests
+    const completedQuestSection = document.createElement("div");
+    const completedQuestTitle = document.createElement("div");
+    completedQuestTitle.className = "char-section-title";
+    completedQuestTitle.textContent = "Completed Quests";
+    this.completedQuestList = document.createElement("div");
+    this.completedQuestList.className = "char-completed-quest-list";
+    completedQuestSection.append(completedQuestTitle, this.completedQuestList);
+
     // Map info
     this.mapInfo = document.createElement("div");
     this.mapInfo.className = "char-map-info";
 
-    body.append(xpSection, statsSection, this.saveBtn, itemsSection, npcSection, this.mapInfo);
+    body.append(
+      xpSection,
+      statsSection,
+      this.saveBtn,
+      itemsSection,
+      npcSection,
+      completedQuestSection,
+      this.mapInfo,
+    );
 
     this.panel.append(header, body);
   }
@@ -250,6 +274,8 @@ export class CharacterPanel {
 
     // ---- NPCs ----
     this.renderNpcs(p.npcsChatted);
+    this.renderCompletedQuests();
+    void this.loadCompletedQuests();
 
     // ---- Map info ----
     this.mapInfo.innerHTML = "";
@@ -365,14 +391,12 @@ export class CharacterPanel {
       const el = document.createElement("div");
       el.className = "char-item";
       const meta = this.itemDefsByName.get(item.name);
-      const consumeHpDelta =
-        meta?.type === "consumable" ? meta.consumeHpDelta : undefined;
-      const isConsumableClickable =
-        consumeHpDelta != null && consumeHpDelta !== 0;
+      const consumeHpDelta = meta?.type === "consumable" ? (meta.consumeHpDelta ?? 0) : undefined;
+      const isConsumableClickable = meta?.type === "consumable";
       if (isConsumableClickable) {
         el.classList.add("char-item--consumable");
-        const sign = consumeHpDelta > 0 ? "+" : "";
-        el.title = `Click to use (${sign}${consumeHpDelta} HP)`;
+        const sign = (consumeHpDelta ?? 0) > 0 ? "+" : "";
+        el.title = `Click to use (${sign}${consumeHpDelta ?? 0} HP)`;
         el.addEventListener("click", () => this.consumeItem(item.name));
       }
 
@@ -388,8 +412,9 @@ export class CharacterPanel {
       if (isConsumableClickable) {
         const effectEl = document.createElement("span");
         effectEl.className = "char-item-effect";
-        const sign = consumeHpDelta > 0 ? "+" : "";
-        effectEl.textContent = `${sign}${consumeHpDelta}HP`;
+        const delta = consumeHpDelta ?? 0;
+        const sign = delta > 0 ? "+" : "";
+        effectEl.textContent = `${sign}${delta}HP`;
         el.appendChild(effectEl);
       }
 
@@ -466,6 +491,53 @@ export class CharacterPanel {
       tag.className = "char-npc-tag";
       tag.textContent = name;
       this.npcList.appendChild(tag);
+    }
+  }
+
+  private renderCompletedQuests() {
+    this.completedQuestList.innerHTML = "";
+    if (this.completedQuestRows.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "char-completed-quests-empty";
+      empty.textContent = "None yet";
+      this.completedQuestList.appendChild(empty);
+      return;
+    }
+    for (const q of this.completedQuestRows) {
+      const row = document.createElement("div");
+      row.className = "char-completed-quest-row";
+      const title = q.questDef?.title ?? q.questDefKey ?? "Quest";
+      const when = q.completedAt
+        ? new Date(q.completedAt).toLocaleString()
+        : "";
+
+      const titleEl = document.createElement("span");
+      titleEl.className = "char-completed-quest-title";
+      titleEl.textContent = title;
+      row.appendChild(titleEl);
+
+      if (when) {
+        const dateEl = document.createElement("span");
+        dateEl.className = "char-completed-quest-date";
+        dateEl.textContent = when;
+        row.appendChild(dateEl);
+      }
+      this.completedQuestList.appendChild(row);
+    }
+  }
+
+  private async loadCompletedQuests() {
+    if (!this.profile) return;
+    try {
+      const convex = getConvexClient();
+      const rows = await convex.query((api as any).quests.listHistory, {
+        profileId: this.profile._id as Id<"profiles">,
+        status: "completed",
+      });
+      this.completedQuestRows = (rows ?? []) as any[];
+      this.renderCompletedQuests();
+    } catch (err) {
+      console.warn("Failed to load completed quests:", err);
     }
   }
 
@@ -623,8 +695,9 @@ export class CharacterPanel {
 
       const sign = result.hpDelta > 0 ? "+" : "";
       this.itemUseStatusEl.textContent = `${result.displayName}: ${sign}${result.hpDelta} HP (${result.hp}/${result.maxHp})`;
-      this.itemUseStatusEl.className =
-        `char-item-use-status ${result.hpDelta > 0 ? "good" : "bad"}`;
+      this.itemUseStatusEl.className = `char-item-use-status ${
+        result.hpDelta > 0 ? "good" : result.hpDelta < 0 ? "bad" : "neutral"
+      }`;
       this.renderStats(this.profile.stats);
       this.renderItems(this.profile.items);
       void this.loadItemMetaForInventory(this.profile.items);

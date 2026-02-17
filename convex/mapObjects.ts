@@ -92,6 +92,19 @@ export const move = mutation({
   handler: async (ctx, { profileId, mapName, id, x, y }) => {
     await requireMapEditor(ctx, profileId, mapName);
     await ctx.db.patch(id, { x, y, updatedAt: Date.now() });
+    // Keep runtime NPC state aligned when moving placed NPC objects in editor.
+    const linkedNpcStates = await ctx.db
+      .query("npcState")
+      .withIndex("by_mapObject", (q) => q.eq("mapObjectId", id))
+      .collect();
+    for (const state of linkedNpcStates) {
+      await ctx.db.patch(state._id, {
+        x,
+        y,
+        spawnX: x,
+        spawnY: y,
+      });
+    }
   },
 });
 

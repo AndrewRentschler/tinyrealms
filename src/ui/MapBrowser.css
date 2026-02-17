@@ -165,6 +165,34 @@
   filter: brightness(1.15);
 }
 
+.map-card-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.map-card-delete {
+  background: #7a2525;
+  color: #fff;
+  border: 1px solid #a53838;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.map-card-delete:hover {
+  filter: brightness(1.1);
+}
+
+.map-card-delete:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 /* New map form */
 .map-create-section {
   margin-top: 16px;

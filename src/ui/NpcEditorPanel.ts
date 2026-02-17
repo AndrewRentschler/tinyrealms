@@ -33,6 +33,8 @@ interface NpcInstance {
     spriteSheetUrl: string;
     frameWidth: number;
     frameHeight: number;
+    npcSpeed?: number;
+    npcWanderRadius?: number;
     npcGreeting?: string;
   } | null;
 }
@@ -55,6 +57,7 @@ interface NpcStats {
 interface NpcProfileData {
   _id?: string;
   name: string;
+  instanceType?: "animal" | "character";
   spriteDefName: string;
   mapName?: string;
   displayName: string;
@@ -62,6 +65,10 @@ interface NpcProfileData {
   backstory?: string;
   personality?: string;
   dialogueStyle?: string;
+  moveSpeed?: number;
+  wanderRadius?: number;
+  greeting?: string;
+  logicKey?: string;
   systemPrompt?: string;
   faction?: string;
   knowledge?: string;
@@ -169,6 +176,7 @@ export class NpcEditorPanel {
 
   // Instance sidebar
   private listEl!: HTMLElement;
+  private collapsedMaps = new Set<string>();
 
   // Instance main area
   private mainEl!: HTMLElement;
@@ -181,22 +189,33 @@ export class NpcEditorPanel {
 
   // Instance form inputs
   private instanceNameInput!: HTMLInputElement;
+  private instanceTypeSelect!: HTMLSelectElement;
+  private instanceTypeHintEl!: HTMLElement;
   private displayNameInput!: HTMLInputElement;
   private titleInput!: HTMLInputElement;
   private backstoryArea!: HTMLTextAreaElement;
   private personalityArea!: HTMLTextAreaElement;
   private dialogueStyleInput!: HTMLInputElement;
+  private moveSpeedInput!: HTMLInputElement;
+  private wanderRadiusInput!: HTMLInputElement;
+  private greetingArea!: HTMLTextAreaElement;
   private factionInput!: HTMLInputElement;
+  private factionFieldEl!: HTMLElement;
   private visibilitySelect!: HTMLSelectElement;
-  private npcTypeSelect!: HTMLSelectElement;
   private aiEnabledCheck!: HTMLInputElement;
-  private aiCanChatCheck!: HTMLInputElement;
-  private hostileTagCheck!: HTMLInputElement;
   private aggressionSelect!: HTMLSelectElement;
   private braintrustSlugInput!: HTMLInputElement;
+  private logicKeyInput!: HTMLInputElement;
   private aiTestMessageInput!: HTMLInputElement;
   private aiTestResultArea!: HTMLTextAreaElement;
   private aiHistoryPane!: HTMLDivElement;
+  private aiSectionEl!: HTMLElement;
+  private narrativeSectionEl!: HTMLElement;
+  private knowledgeSectionEl!: HTMLElement;
+  private relationshipsSectionEl!: HTMLElement;
+  private promptSectionEl!: HTMLElement;
+  private aggressionFieldEl!: HTMLElement;
+  private greetingFieldEl!: HTMLElement;
   private knowledgeArea!: HTMLTextAreaElement;
   private secretsArea!: HTMLTextAreaElement;
   private systemPromptArea!: HTMLTextAreaElement;
@@ -205,6 +224,7 @@ export class NpcEditorPanel {
   // Instance dynamic lists
   private itemsList!: HTMLElement;
   private itemsAddRow!: HTMLElement;
+  private tagsSectionEl!: HTMLElement;
   private tagsList!: HTMLElement;
   private tagsAddRow!: HTMLElement;
   private relList!: HTMLElement;
@@ -238,13 +258,10 @@ export class NpcEditorPanel {
   private nsAnchorYInput!: HTMLInputElement;
   private nsCollidableCheck!: HTMLInputElement;
   private nsVisibilitySelect!: HTMLSelectElement;
-  private nsNpcSpeedInput!: HTMLInputElement;
-  private nsNpcWanderInput!: HTMLInputElement;
   private nsNpcDirDownInput!: HTMLInputElement;
   private nsNpcDirUpInput!: HTMLInputElement;
   private nsNpcDirLeftInput!: HTMLInputElement;
   private nsNpcDirRightInput!: HTMLInputElement;
-  private nsNpcGreetingInput!: HTMLTextAreaElement;
   private nsAmbientSoundSelect!: HTMLSelectElement;
   private nsAmbientRadiusInput!: HTMLInputElement;
   private nsAmbientVolumeInput!: HTMLInputElement;
@@ -480,14 +497,11 @@ export class NpcEditorPanel {
     visField.append(visLabel, this.nsVisibilitySelect);
     form.appendChild(visField);
 
-    // ── NPC Settings (always visible — this IS the NPC editor) ──
+    // ── NPC Sprite Layout ──
     const npcHeader = document.createElement("div");
     npcHeader.className = "sprite-editor-section-label";
-    npcHeader.textContent = "NPC Settings";
+    npcHeader.textContent = "NPC Sprite Layout";
     form.appendChild(npcHeader);
-
-    this.nsNpcSpeedInput = this.nsAddFormField(form, "Move Speed (px/sec)", "number", "30") as HTMLInputElement;
-    this.nsNpcWanderInput = this.nsAddFormField(form, "Wander Radius (px)", "number", "60") as HTMLInputElement;
 
     const dirHeader = document.createElement("div");
     dirHeader.className = "sprite-editor-section-label";
@@ -499,18 +513,6 @@ export class NpcEditorPanel {
     this.nsNpcDirUpInput = this.nsAddFormField(form, "Up", "text", "row1") as HTMLInputElement;
     this.nsNpcDirLeftInput = this.nsAddFormField(form, "Left", "text", "row3") as HTMLInputElement;
     this.nsNpcDirRightInput = this.nsAddFormField(form, "Right", "text", "row2") as HTMLInputElement;
-
-    // Greeting textarea
-    const greetField = document.createElement("div");
-    greetField.className = "sprite-editor-field";
-    const greetLabel = document.createElement("label");
-    greetLabel.textContent = "Greeting";
-    this.nsNpcGreetingInput = document.createElement("textarea");
-    this.nsNpcGreetingInput.className = "sprite-editor-textarea";
-    this.nsNpcGreetingInput.rows = 3;
-    this.nsNpcGreetingInput.placeholder = "Hello there! I don't have much to say yet.";
-    greetField.append(greetLabel, this.nsNpcGreetingInput);
-    form.appendChild(greetField);
 
     // ── Sounds ──
     const soundHeader = document.createElement("div");
@@ -730,13 +732,10 @@ export class NpcEditorPanel {
     this.nsAnchorYInput.value = "1";
     this.nsCollidableCheck.checked = false;
     this.nsRebuildVisibilityOptions("private");
-    this.nsNpcSpeedInput.value = "30";
-    this.nsNpcWanderInput.value = "60";
     this.nsNpcDirDownInput.value = "row0";
     this.nsNpcDirUpInput.value = "row1";
     this.nsNpcDirLeftInput.value = "row3";
     this.nsNpcDirRightInput.value = "row2";
-    this.nsNpcGreetingInput.value = "";
     this.nsAmbientSoundSelect.value = "";
     this.nsAmbientRadiusInput.value = "200";
     this.nsAmbientVolumeInput.value = "0.5";
@@ -754,13 +753,10 @@ export class NpcEditorPanel {
     this.nsAnchorYInput.value = String(def.anchorY);
     this.nsCollidableCheck.checked = def.isCollidable;
     this.nsRebuildVisibilityOptions(def.visibilityType ?? "system");
-    this.nsNpcSpeedInput.value = String(def.npcSpeed ?? 30);
-    this.nsNpcWanderInput.value = String(def.npcWanderRadius ?? 60);
     this.nsNpcDirDownInput.value = def.npcDirDown ?? "row0";
     this.nsNpcDirUpInput.value = def.npcDirUp ?? "row1";
     this.nsNpcDirLeftInput.value = def.npcDirLeft ?? "row3";
     this.nsNpcDirRightInput.value = def.npcDirRight ?? "row2";
-    this.nsNpcGreetingInput.value = def.npcGreeting ?? "";
     this.nsAmbientSoundSelect.value = def.ambientSoundUrl ?? "";
     this.nsAmbientRadiusInput.value = String(def.ambientSoundRadius ?? 200);
     this.nsAmbientVolumeInput.value = String(def.ambientSoundVolume ?? 0.5);
@@ -807,13 +803,10 @@ export class NpcEditorPanel {
         ambientSoundVolume: this.nsAmbientSoundSelect.value ? (parseFloat(this.nsAmbientVolumeInput.value) || 0.5) : undefined,
         interactSoundUrl: this.nsInteractSoundSelect.value || undefined,
         // NPC-specific
-        npcSpeed: parseFloat(this.nsNpcSpeedInput.value) || 30,
-        npcWanderRadius: parseFloat(this.nsNpcWanderInput.value) || 60,
         npcDirDown: this.nsNpcDirDownInput.value || "row0",
         npcDirUp: this.nsNpcDirUpInput.value || "row1",
         npcDirLeft: this.nsNpcDirLeftInput.value || "row3",
         npcDirRight: this.nsNpcDirRightInput.value || "row2",
-        npcGreeting: this.nsNpcGreetingInput.value || undefined,
       });
 
       this.nsShowStatus("Saved ✓");
@@ -1055,16 +1048,25 @@ export class NpcEditorPanel {
 
     const identitySec = this.makeSection("Identity");
     this.instanceNameInput = this.addTextField(identitySec, "Instance Name (auto if blank)", "e.g. elara-herbalist");
+    this.instanceTypeSelect = this.addSelect(identitySec, "Instance Type", [
+      { value: "animal", label: "Animal" },
+      { value: "character", label: "Character" },
+    ]);
+    this.instanceTypeSelect.addEventListener("change", () => this.applyInstanceTypeUI());
+    this.instanceTypeHintEl = document.createElement("div");
+    this.instanceTypeHintEl.className = "npc-editor-help";
+    this.instanceTypeHintEl.style.cssText = "font-size:11px;color:var(--text-muted);line-height:1.35;";
+    this.instanceTypeHintEl.textContent =
+      'Narrative and AI fields are available only for Character instances.';
+    identitySec.appendChild(this.instanceTypeHintEl);
     this.displayNameInput = this.addTextField(identitySec, "Display Name", "e.g. Elara the Herbalist");
     this.titleInput = this.addTextField(identitySec, "Title / Role", "e.g. Village Herbalist");
     this.factionInput = this.addTextField(identitySec, "Faction / Affiliation", "e.g. Forest Druids");
+    this.factionFieldEl = this.factionInput.parentElement as HTMLElement;
     this.visibilitySelect = this.addSelect(identitySec, "Visibility", this.getVisibilityOptions());
 
     const aiSec = this.makeSection("AI");
-    this.npcTypeSelect = this.addSelect(aiSec, "NPC Type", [
-      { value: "procedural", label: "Procedural" },
-      { value: "ai", label: "AI" },
-    ]);
+    this.aiSectionEl = aiSec;
 
     const aiEnabledRow = document.createElement("div");
     aiEnabledRow.className = "npc-editor-field npc-editor-field-row";
@@ -1072,7 +1074,7 @@ export class NpcEditorPanel {
     this.aiEnabledCheck.type = "checkbox";
     this.aiEnabledCheck.id = "npc-ai-enabled-check";
     this.aiEnabledCheck.addEventListener("change", () => {
-      if (this.aiEnabledCheck.checked) this.npcTypeSelect.value = "ai";
+      this.applyAiNpcFieldVisibility();
     });
     const aiEnabledLabel = document.createElement("label");
     aiEnabledLabel.htmlFor = "npc-ai-enabled-check";
@@ -1080,50 +1082,15 @@ export class NpcEditorPanel {
     aiEnabledRow.append(this.aiEnabledCheck, aiEnabledLabel);
     aiSec.appendChild(aiEnabledRow);
 
-    const aiCanChatRow = document.createElement("div");
-    aiCanChatRow.className = "npc-editor-field npc-editor-field-row";
-    this.aiCanChatCheck = document.createElement("input");
-    this.aiCanChatCheck.type = "checkbox";
-    this.aiCanChatCheck.id = "npc-ai-can-chat-check";
-    const aiCanChatLabel = document.createElement("label");
-    aiCanChatLabel.htmlFor = "npc-ai-can-chat-check";
-    aiCanChatLabel.textContent = "Allow chat capability";
-    aiCanChatRow.append(this.aiCanChatCheck, aiCanChatLabel);
-    aiSec.appendChild(aiCanChatRow);
-
-    const hostileTagRow = document.createElement("div");
-    hostileTagRow.className = "npc-editor-field npc-editor-field-row";
-    this.hostileTagCheck = document.createElement("input");
-    this.hostileTagCheck.type = "checkbox";
-    this.hostileTagCheck.id = "npc-hostile-tag-check";
-    this.hostileTagCheck.addEventListener("change", () => {
-      if (!this.currentProfile) return;
-      if (!this.currentProfile.tags) this.currentProfile.tags = [];
-      if (this.hostileTagCheck.checked) {
-        if (!this.currentProfile.tags.includes("hostile")) {
-          this.currentProfile.tags.push("hostile");
-        }
-      } else {
-        this.currentProfile.tags = this.currentProfile.tags.filter((t) => t !== "hostile");
-      }
-      this.renderTags();
-    });
-    const hostileTagLabel = document.createElement("label");
-    hostileTagLabel.htmlFor = "npc-hostile-tag-check";
-    hostileTagLabel.textContent = "Hostile (combat target)";
-    hostileTagRow.append(this.hostileTagCheck, hostileTagLabel);
-    aiSec.appendChild(hostileTagRow);
-
-    this.aggressionSelect = this.addSelect(aiSec, "Aggression", [
-      { value: "low", label: "Low (flee + counter only)" },
-      { value: "medium", label: "Medium (retaliates once engaged)" },
-      { value: "high", label: "High (attacks on proximity)" },
-    ]);
-
     this.braintrustSlugInput = this.addTextField(
       aiSec,
       "Braintrust Slug",
       "e.g. npc-merchant-v1",
+    );
+    this.logicKeyInput = this.addTextField(
+      aiSec,
+      "Logic Key (optional)",
+      'e.g. pilot.single-character',
     );
 
     this.aiTestMessageInput = this.addTextField(
@@ -1148,8 +1115,8 @@ export class NpcEditorPanel {
     aiHint.textContent =
       "Use System Prompt with Braintrust moustache templates in your slug config.";
     aiSec.appendChild(aiHint);
-    leftCol.appendChild(aiSec);
 
+    this.tagsSectionEl = document.createElement("div");
     const tagsLabel = document.createElement("label");
     tagsLabel.style.cssText = "font-size:11px;color:var(--text-muted);";
     tagsLabel.textContent = "Tags";
@@ -1157,16 +1124,38 @@ export class NpcEditorPanel {
     this.tagsList.className = "npc-editor-tags";
     this.tagsAddRow = document.createElement("div");
     this.tagsAddRow.className = "npc-editor-add-row";
-    identitySec.append(tagsLabel, this.tagsList, this.tagsAddRow);
+    this.tagsSectionEl.append(tagsLabel, this.tagsList, this.tagsAddRow);
+    identitySec.appendChild(this.tagsSectionEl);
     leftCol.appendChild(identitySec);
+    leftCol.appendChild(aiSec);
 
     const narrativeSec = this.makeSection("Narrative");
+    this.narrativeSectionEl = narrativeSec;
     this.backstoryArea = this.addTextArea(narrativeSec, "Backstory", "Their history, motivations, how they ended up here\u2026", 5);
     this.personalityArea = this.addTextArea(narrativeSec, "Personality", "Traits, quirks, temperament\u2026", 3);
     this.dialogueStyleInput = this.addTextField(narrativeSec, "Dialogue Style", "e.g. formal, cryptic, cheerful, gruff");
     leftCol.appendChild(narrativeSec);
 
+    const behaviorSec = this.makeSection("Behavior");
+    this.moveSpeedInput = this.addNumberField(behaviorSec, "Move Speed (px/sec)", "30");
+    this.wanderRadiusInput = this.addNumberField(behaviorSec, "Wander Radius (px)", "60");
+    this.greetingArea = this.addTextArea(
+      behaviorSec,
+      "Greetings",
+      "Hello there! I don't have much to say yet.",
+      3,
+    );
+    this.greetingFieldEl = this.greetingArea.parentElement as HTMLElement;
+    this.aggressionSelect = this.addSelect(behaviorSec, "Temperament / Aggression", [
+      { value: "low", label: "Timid / Low (flee + counter only)" },
+      { value: "medium", label: "Neutral / Medium (retaliates once engaged)" },
+      { value: "high", label: "Hostile / High (attacks on proximity)" },
+    ]);
+    this.aggressionFieldEl = this.aggressionSelect.parentElement as HTMLElement;
+    leftCol.appendChild(behaviorSec);
+
     const knowledgeSec = this.makeSection("Knowledge & Secrets");
+    this.knowledgeSectionEl = knowledgeSec;
     this.knowledgeArea = this.addTextArea(knowledgeSec, "Knowledge", "What this NPC knows about the world\u2026", 3);
     this.secretsArea = this.addTextArea(knowledgeSec, "Secrets", "What they hide from players\u2026", 3);
     leftCol.appendChild(knowledgeSec);
@@ -1190,6 +1179,7 @@ export class NpcEditorPanel {
     rightCol.appendChild(itemsSec);
 
     const relSec = this.makeSection("Relationships");
+    this.relationshipsSectionEl = relSec;
     this.relList = document.createElement("div");
     this.relList.className = "npc-editor-rel-list";
     this.relAddRow = document.createElement("div");
@@ -1198,6 +1188,7 @@ export class NpcEditorPanel {
     rightCol.appendChild(relSec);
 
     const promptSec = this.makeSection("LLM System Prompt");
+    this.promptSectionEl = promptSec;
     this.systemPromptArea = this.addTextArea(promptSec, "System Prompt", "Full system prompt for LLM conversations. Leave empty to auto-generate from other fields.", 6);
     const historyLabel = document.createElement("label");
     historyLabel.textContent = "Message History (latest 20)";
@@ -1404,9 +1395,6 @@ export class NpcEditorPanel {
 
   private renderTags() {
     this.tagsList.innerHTML = "";
-    if (this.hostileTagCheck) {
-      this.hostileTagCheck.checked = (this.currentProfile?.tags ?? []).includes("hostile");
-    }
     for (const t of this.currentProfile?.tags ?? []) {
       const el = document.createElement("span");
       el.className = "npc-editor-tag";
@@ -1523,10 +1511,19 @@ export class NpcEditorPanel {
     }
 
     for (const [mapName, insts] of byMap) {
-      const mapLabel = document.createElement("div");
-      mapLabel.className = "npc-editor-section-label";
-      mapLabel.textContent = mapName;
+      const isCollapsed = this.collapsedMaps.has(mapName);
+      const mapLabel = document.createElement("button");
+      mapLabel.className = "npc-editor-section-label npc-editor-map-header";
+      mapLabel.type = "button";
+      mapLabel.textContent = `${isCollapsed ? "▸" : "▾"} ${mapName} (${insts.length})`;
+      mapLabel.addEventListener("click", () => {
+        if (this.collapsedMaps.has(mapName)) this.collapsedMaps.delete(mapName);
+        else this.collapsedMaps.add(mapName);
+        this.renderList();
+      });
       this.listEl.appendChild(mapLabel);
+
+      if (isCollapsed) continue;
 
       for (const inst of insts) {
         const isSelected = this.selected?.mapObjectId === inst.mapObjectId;
@@ -1549,6 +1546,16 @@ export class NpcEditorPanel {
         if (inst.instanceName) {
           subEl.textContent = inst.profile?.title || inst.instanceName;
           if (inst.profile) {
+            const typeTag = document.createElement("span");
+            if (inst.profile.instanceType === "animal") {
+              typeTag.className = "npc-editor-type-tag animal";
+              typeTag.textContent = "🐾 Animal";
+              subEl.appendChild(typeTag);
+            } else {
+              typeTag.className = "npc-editor-type-tag ai";
+              typeTag.textContent = "🤖 AI";
+              subEl.appendChild(typeTag);
+            }
             const vis = visibilityLabel(inst.profile.visibilityType);
             const visTag = document.createElement("span");
             visTag.className = `npc-editor-vis-tag ${vis}`;
@@ -1574,9 +1581,10 @@ export class NpcEditorPanel {
 
   private selectInstance(inst: NpcInstance) {
     this.selected = inst;
+    this.collapsedMaps.delete(inst.mapName);
 
     if (inst.profile) {
-      this.currentProfile = { ...inst.profile };
+      this.currentProfile = { instanceType: "character", ...inst.profile };
       if (inst.profile.relationships) this.currentProfile.relationships = [...inst.profile.relationships];
       if (inst.profile.items) this.currentProfile.items = [...inst.profile.items];
       if (inst.profile.tags) this.currentProfile.tags = [...inst.profile.tags];
@@ -1585,10 +1593,14 @@ export class NpcEditorPanel {
       const defaultName = inst.instanceName || "";
       this.currentProfile = {
         name: defaultName,
+        instanceType: "character",
         spriteDefName: inst.spriteDefName,
         mapName: inst.mapName,
         displayName: inst.spriteDef?.name || inst.spriteDefName,
-        npcType: "procedural",
+        moveSpeed: inst.spriteDef?.npcSpeed ?? 30,
+        wanderRadius: inst.spriteDef?.npcWanderRadius ?? 60,
+        greeting: inst.spriteDef?.npcGreeting,
+        npcType: "ai",
         aiEnabled: false,
         aggression: "medium",
         aiPolicy: { capabilities: { canChat: true } },
@@ -1620,21 +1632,23 @@ export class NpcEditorPanel {
     if (!p) return;
 
     this.instanceNameInput.value = p.name;
+    this.instanceTypeSelect.value = p.instanceType ?? "character";
     this.displayNameInput.value = p.displayName;
     this.titleInput.value = p.title ?? "";
     this.factionInput.value = p.faction ?? "";
     this.rebuildVisibilitySelect(p.visibilityType ?? (p._id ? "system" : "private"));
-    this.npcTypeSelect.value = p.npcType ?? "procedural";
     this.aiEnabledCheck.checked = !!p.aiEnabled;
-    this.aiCanChatCheck.checked = p.aiPolicy?.capabilities?.canChat !== false;
-    this.hostileTagCheck.checked = (p.tags ?? []).includes("hostile");
     this.aggressionSelect.value = p.aggression ?? "medium";
     this.braintrustSlugInput.value = p.braintrustSlug ?? "";
+    this.logicKeyInput.value = p.logicKey ?? "";
     this.aiTestMessageInput.value = this.aiTestMessageInput.value || "Hello there";
     this.aiTestResultArea.value = "";
     this.backstoryArea.value = p.backstory ?? "";
     this.personalityArea.value = p.personality ?? "";
     this.dialogueStyleInput.value = p.dialogueStyle ?? "";
+    this.moveSpeedInput.value = String(p.moveSpeed ?? this.selected?.spriteDef?.npcSpeed ?? 30);
+    this.wanderRadiusInput.value = String(p.wanderRadius ?? this.selected?.spriteDef?.npcWanderRadius ?? 60);
+    this.greetingArea.value = p.greeting ?? this.selected?.spriteDef?.npcGreeting ?? "";
     this.knowledgeArea.value = p.knowledge ?? "";
     this.secretsArea.value = p.secrets ?? "";
     this.systemPromptArea.value = p.systemPrompt ?? "";
@@ -1647,7 +1661,12 @@ export class NpcEditorPanel {
     this.renderItems();
     this.renderTags();
     this.renderRelationships();
-    void this.loadConversationHistory();
+    this.applyInstanceTypeUI();
+    if (!this.isAnimalInstanceType()) {
+      void this.loadConversationHistory();
+    } else if (this.aiHistoryPane) {
+      this.aiHistoryPane.textContent = "Conversation history is disabled for animal instances.";
+    }
   }
 
   private async loadConversationHistory() {
@@ -1678,28 +1697,87 @@ export class NpcEditorPanel {
     }
   }
 
+  private isAnimalInstanceType(): boolean {
+    return this.instanceTypeSelect?.value === "animal";
+  }
+
+  private applyInstanceTypeUI() {
+    const isAnimal = this.isAnimalInstanceType();
+    if (!this.currentProfile) return;
+
+    this.currentProfile.instanceType = isAnimal ? "animal" : "character";
+
+    if (this.instanceTypeHintEl) {
+      this.instanceTypeHintEl.style.display = isAnimal ? "" : "none";
+    }
+    if (this.aiSectionEl) {
+      this.aiSectionEl.style.display = isAnimal ? "none" : "";
+    }
+    if (this.narrativeSectionEl) {
+      this.narrativeSectionEl.style.display = isAnimal ? "none" : "";
+    }
+    if (this.knowledgeSectionEl) {
+      this.knowledgeSectionEl.style.display = isAnimal ? "none" : "";
+    }
+    if (this.relationshipsSectionEl) {
+      this.relationshipsSectionEl.style.display = isAnimal ? "none" : "";
+    }
+    if (this.promptSectionEl) {
+      this.promptSectionEl.style.display = isAnimal ? "none" : "";
+    }
+    if (this.aggressionFieldEl) {
+      this.aggressionFieldEl.style.display = isAnimal ? "" : "none";
+    }
+    if (this.greetingFieldEl) {
+      this.greetingFieldEl.style.display = isAnimal ? "none" : "";
+    }
+
+    if (isAnimal) {
+      this.aiEnabledCheck.checked = false;
+    }
+    this.applyAiNpcFieldVisibility();
+  }
+
+  private applyAiNpcFieldVisibility() {
+    const isAnimal = this.isAnimalInstanceType();
+    const isAi = !isAnimal;
+    if (this.factionFieldEl) this.factionFieldEl.style.display = isAi ? "none" : "";
+    if (this.tagsSectionEl) this.tagsSectionEl.style.display = isAi ? "none" : "";
+  }
+
   private collectForm(): NpcProfileData | null {
     if (!this.currentProfile || !this.selected) return null;
     const p = this.currentProfile;
+    const isAnimal = this.isAnimalInstanceType();
+    const isAiMode = !isAnimal;
 
     p.name = this.instanceNameInput.value.trim().toLowerCase().replace(/\s+/g, "-");
+    p.instanceType = isAnimal ? "animal" : "character";
     p.displayName = this.displayNameInput.value.trim() || this.selected.spriteDefName;
     p.title = this.titleInput.value.trim() || undefined;
-    p.faction = this.factionInput.value.trim() || undefined;
+    p.faction = isAiMode ? undefined : (this.factionInput.value.trim() || undefined);
     p.visibilityType = this.visibilitySelect.value as any;
-    p.aiEnabled = this.aiEnabledCheck.checked;
-    p.aggression = this.aggressionSelect.value as "low" | "medium" | "high";
-    p.npcType = p.aiEnabled || this.npcTypeSelect.value === "ai" ? "ai" : "procedural";
+    p.aiEnabled = isAnimal ? false : this.aiEnabledCheck.checked;
+    if (isAnimal) {
+      p.aggression = this.aggressionSelect.value as "low" | "medium" | "high";
+      p.npcType = "procedural";
+    } else {
+      p.npcType = "ai";
+    }
     p.braintrustSlug = this.braintrustSlugInput.value.trim() || undefined;
+    p.logicKey = this.logicKeyInput.value.trim() || undefined;
     p.aiPolicy = {
       capabilities: {
         ...(p.aiPolicy?.capabilities ?? {}),
-        canChat: this.aiCanChatCheck.checked,
+        canChat: !isAnimal,
       },
     };
     p.backstory = this.backstoryArea.value.trim() || undefined;
     p.personality = this.personalityArea.value.trim() || undefined;
     p.dialogueStyle = this.dialogueStyleInput.value.trim() || undefined;
+    p.moveSpeed = Math.max(0, parseFloat(this.moveSpeedInput.value) || 0);
+    p.wanderRadius = Math.max(0, parseFloat(this.wanderRadiusInput.value) || 0);
+    p.greeting = this.greetingArea.value.trim() || undefined;
     p.knowledge = this.knowledgeArea.value.trim() || undefined;
     p.secrets = this.secretsArea.value.trim() || undefined;
     p.systemPrompt = this.systemPromptArea.value.trim() || undefined;
@@ -1714,6 +1792,10 @@ export class NpcEditorPanel {
       spd: parseInt(this.statInputs.spd.value) || 0,
       level: parseInt(this.statInputs.level.value) || 1,
     };
+
+    if (isAiMode) {
+      p.tags = undefined;
+    }
 
     return p;
   }
@@ -1753,6 +1835,7 @@ export class NpcEditorPanel {
       await convex.mutation((api as any).npcProfiles.save, {
         profileId: adminId,
         name: profile.name,
+        instanceType: profile.instanceType,
         spriteDefName: profile.spriteDefName,
         mapName: profile.mapName,
         displayName: profile.displayName,
@@ -1760,6 +1843,9 @@ export class NpcEditorPanel {
         backstory: profile.backstory,
         personality: profile.personality,
         dialogueStyle: profile.dialogueStyle,
+        moveSpeed: profile.moveSpeed,
+        wanderRadius: profile.wanderRadius,
+        greeting: profile.greeting,
         systemPrompt: profile.systemPrompt,
         faction: profile.faction,
         knowledge: profile.knowledge,
@@ -1772,6 +1858,7 @@ export class NpcEditorPanel {
         npcType: profile.npcType,
         aiEnabled: profile.aiEnabled,
         braintrustSlug: profile.braintrustSlug,
+        logicKey: profile.logicKey,
         aiPolicy: profile.aiPolicy,
         visibilityType: profile.visibilityType,
       });
@@ -1802,6 +1889,11 @@ export class NpcEditorPanel {
   private async testAI() {
     const profile = this.collectForm();
     if (!profile || !this.game || !this.selected) return;
+    if (profile.instanceType === "animal") {
+      this.statusEl.textContent = "AI testing is disabled for animal instances";
+      this.statusEl.style.color = "var(--danger)";
+      return;
+    }
 
     if (!profile.name) {
       this.statusEl.textContent = "Instance name is required before test";
@@ -1809,8 +1901,8 @@ export class NpcEditorPanel {
       this.instanceNameInput.focus();
       return;
     }
-    if (!profile.aiEnabled || profile.npcType !== "ai") {
-      this.statusEl.textContent = "Enable AI and set NPC Type to AI first";
+    if (!profile.aiEnabled) {
+      this.statusEl.textContent = "Enable AI chat first";
       this.statusEl.style.color = "var(--danger)";
       return;
     }

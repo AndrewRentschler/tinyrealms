@@ -40,17 +40,17 @@ export const NPC_SPRITE_SHEETS: SheetEntry[] = [
   { name: "Villager 3", jsonUrl: "/assets/characters/villager3.json" },
   { name: "Villager 4", jsonUrl: "/assets/characters/villager4.json" },
   { name: "Villager 5", jsonUrl: "/assets/characters/villager5.json" },
+  { name: "Foreigner 1", jsonUrl: "/assets/characters/foreigner1.json" },
   { name: "Villager Jane", jsonUrl: "/assets/characters/villager-jane.json" },
   { name: "Guest", jsonUrl: "/assets/characters/guest.json" },
-  { name: "Woman Med", jsonUrl: "/assets/characters/woman-med.json" },
   { name : "Grey Pup", jsonUrl: "/assets/characters/grey-pup.json" },
   { name: "Chicken", jsonUrl: "/assets/characters/chicken.json" },
-  { name: "Goat", jsonUrl: "/assets/characters/goat.json" },
   { name: "Grey Sheep", jsonUrl: "/assets/characters/grey-sheep.json" },
   { name: "Farm chicken", jsonUrl: "/assets/characters/farm-chicken.json" },
   { name: "Farm dog", jsonUrl: "/assets/characters/farm-dog.json" },
   { name: "Farm cow", jsonUrl: "/assets/characters/farm-cow.json" },
   { name: "Farm pig", jsonUrl: "/assets/characters/farm-pig.json" },
+  { name: "Bar lady", jsonUrl: "/assets/characters/bar-lady.json" },
 ];
 
 export const PROFILE_SPRITE_OPTIONS = [
@@ -58,5 +58,5 @@ export const PROFILE_SPRITE_OPTIONS = [
   { label: "Villager 2", url: "/assets/characters/villager3.json" },
   { label: "Villager 3", url: "/assets/characters/villager4.json" },
   { label: "Villager 4", url: "/assets/characters/villager5.json" },
-  { label: "Woman", url: "/assets/characters/woman-med.json" },
+  { label: "Foreigner 1", url: "/assets/characters/foreigner1.json" },
 ];

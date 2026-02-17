@@ -59,6 +59,7 @@ interface ItemDef {
   iconTileY?: number;
   iconTileW?: number;
   iconTileH?: number;
+  iconSpriteDefName?: string;
   stats?: ItemStats;
   effects?: ItemEffect[];
   equipSlot?: string;
@@ -72,6 +73,28 @@ interface ItemDef {
   consumeHpDelta?: number;
   pickupSoundUrl?: string;
   visibilityType?: "public" | "private" | "system";
+}
+
+interface SpriteIconDef {
+  name: string;
+  defaultAnimation: string;
+  spriteSheetUrl: string;
+  animationSpeed: number;
+  scale: number;
+}
+
+interface SpriteIconFrame {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+interface SpriteIconAnimationData {
+  image: HTMLImageElement;
+  frames: SpriteIconFrame[];
+  fps: number;
+  scale: number;
 }
 
 function visibilityLabel(v?: "public" | "private" | "system"): string {
@@ -125,6 +148,9 @@ export class ItemEditorPanel {
   // Data
   private allItems: ItemDef[] = [];
   private filteredItems: ItemDef[] = [];
+  private objectSpriteIconDefs: SpriteIconDef[] = [];
+  private objectSpriteIconDefsByName = new Map<string, SpriteIconDef>();
+  private spriteIconAnimationCache = new Map<string, Promise<SpriteIconAnimationData | null>>();
   private selected: ItemDef | null = null;
   private currentItem: ItemDef | null = null;
 
@@ -149,6 +175,7 @@ export class ItemEditorPanel {
   private raritySelect!: HTMLSelectElement;
   private visibilitySelect!: HTMLSelectElement;
   private iconUrlInput!: HTMLInputElement;
+  private iconSpriteSelect!: HTMLSelectElement;
   private pickupSoundUrlInput!: HTMLInputElement;
   private equipSlotSelect!: HTMLSelectElement;
   private levelReqInput!: HTMLInputElement;
@@ -176,6 +203,7 @@ export class ItemEditorPanel {
   private tilePickerGrid = true;
   private activeTileset: TilesetInfo = TILESETS[0];
   private tilesetImageCache: Map<string, HTMLImageElement> = new Map();
+  private failedTilesetUrls: Set<string> = new Set();
   private tilesetImage: HTMLImageElement | null = null;
   // Drag selection state
   private tsDragStart: { col: number; row: number } | null = null;
@@ -324,6 +352,13 @@ export class ItemEditorPanel {
     this.nameInput = this.addTextField(identitySec, "Name (unique slug)", "e.g. iron-sword");
     this.displayNameInput = this.addTextField(identitySec, "Display Name", "e.g. Iron Sword");
     this.iconUrlInput = this.addTextField(identitySec, "Icon URL (or pick from tileset below)", "/assets/icons/iron-sword.png");
+    this.iconSpriteSelect = this.addSelect(identitySec, "Animated Icon (Object Sprite)", [
+      { value: "", label: "None (use tileset/icon URL)" },
+    ]);
+    const iconSpriteHint = document.createElement("div");
+    iconSpriteHint.style.cssText = "font-size:11px;color:var(--text-muted);";
+    iconSpriteHint.textContent = "Uses non-toggle object sprites only (for example animated mushrooms).";
+    identitySec.appendChild(iconSpriteHint);
     this.pickupSoundUrlInput = this.addTextField(identitySec, "Pickup SFX URL", "/assets/audio/take-item.mp3");
     this.pickupSoundUrlInput.setAttribute("list", "item-pickup-sfx-options");
     const pickupSfxList = document.createElement("datalist");
@@ -592,9 +627,11 @@ export class ItemEditorPanel {
   }
 
   private async loadTilesetImage(ts: TilesetInfo) {
+    this.activeTileset = ts;
     const cached = this.tilesetImageCache.get(ts.url);
     if (cached) {
       this.tilesetImage = cached;
+      this.failedTilesetUrls.delete(ts.url);
       this.drawTileset();
       return;
     }
@@ -604,12 +641,31 @@ export class ItemEditorPanel {
       await new Promise<void>((res, rej) => { img.onload = () => res(); img.onerror = rej; });
       this.tilesetImageCache.set(ts.url, img);
       this.tilesetImage = img;
+      this.failedTilesetUrls.delete(ts.url);
       // Use actual image dimensions
       if (img.naturalWidth) this.activeTileset.imageWidth = img.naturalWidth;
       if (img.naturalHeight) this.activeTileset.imageHeight = img.naturalHeight;
       this.drawTileset();
     } catch {
+      this.failedTilesetUrls.add(ts.url);
+      this.tilesetImage = null;
+      const ctx = this.tilePickerCanvas?.getContext("2d");
+      if (ctx) ctx.clearRect(0, 0, this.tilePickerCanvas.width, this.tilePickerCanvas.height);
+      if (this.tilePreviewLabel) {
+        this.tilePreviewLabel.textContent = `Tileset missing: ${ts.name}`;
+      }
       console.warn("Failed to load tileset image:", ts.url);
+
+      // Auto-fallback so sprite-icon item editing doesn't keep noisy missing-tileset errors.
+      const fallback = TILESETS.find((candidate) =>
+        candidate.url !== ts.url && !this.failedTilesetUrls.has(candidate.url)
+      );
+      if (fallback) {
+        if (this.tilesetSelect) this.tilesetSelect.value = fallback.url;
+        this.activeTileset = fallback;
+        console.warn(`Falling back to available tileset: ${fallback.url}`);
+        this.loadTilesetImage(fallback);
+      }
     }
   }
 
@@ -851,11 +907,146 @@ export class ItemEditorPanel {
     return true;
   }
 
+  private drawSpriteIcon(container: HTMLElement, item: ItemDef, size: number): boolean {
+    if (!item.iconSpriteDefName) return false;
+    const def = this.objectSpriteIconDefsByName.get(item.iconSpriteDefName);
+    if (!def) return false;
+
+    const canvas = document.createElement("canvas");
+    canvas.width = size;
+    canvas.height = size;
+    canvas.style.width = `${size}px`;
+    canvas.style.height = `${size}px`;
+    canvas.style.imageRendering = "pixelated";
+    container.appendChild(canvas);
+
+    const cacheKey = `${def.spriteSheetUrl}::${def.defaultAnimation}`;
+    let promise = this.spriteIconAnimationCache.get(cacheKey);
+    if (!promise) {
+      promise = this.loadSpriteIconAnimation(def);
+      this.spriteIconAnimationCache.set(cacheKey, promise);
+    }
+
+    promise.then((anim) => {
+      if (!anim || !canvas.isConnected) return;
+      this.startSpriteIconAnimation(canvas, anim);
+    }).catch(() => {
+      // Keep fallback icon if loading fails.
+    });
+
+    return true;
+  }
+
+  private async loadSpriteIconAnimation(def: SpriteIconDef): Promise<SpriteIconAnimationData | null> {
+    try {
+      const response = await fetch(def.spriteSheetUrl);
+      if (!response.ok) return null;
+      const data = await response.json();
+      const animationNames: unknown = data?.animations?.[def.defaultAnimation];
+      if (!Array.isArray(animationNames) || animationNames.length === 0) return null;
+      const framesObj: Record<string, any> | undefined = data?.frames;
+      if (!framesObj) return null;
+
+      const frames: SpriteIconFrame[] = [];
+      for (const frameName of animationNames) {
+        if (typeof frameName !== "string") continue;
+        const frameDef = framesObj[frameName]?.frame;
+        if (
+          !frameDef ||
+          typeof frameDef.x !== "number" ||
+          typeof frameDef.y !== "number" ||
+          typeof frameDef.w !== "number" ||
+          typeof frameDef.h !== "number"
+        ) {
+          continue;
+        }
+        frames.push({
+          x: frameDef.x,
+          y: frameDef.y,
+          w: frameDef.w,
+          h: frameDef.h,
+        });
+      }
+      if (frames.length === 0) return null;
+
+      const imagePath = this.resolveSpriteImagePath(def.spriteSheetUrl, String(data?.meta?.image ?? ""));
+      if (!imagePath) return null;
+      const image = await this.loadImage(imagePath);
+      const fps = Math.max(1, Math.round((def.animationSpeed || 0.12) * 60));
+      return {
+        image,
+        frames,
+        fps,
+        scale: def.scale || 1,
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  private resolveSpriteImagePath(jsonPath: string, imageName: string): string | null {
+    if (!imageName) return null;
+    if (imageName.startsWith("/") || /^https?:\/\//.test(imageName)) return imageName;
+    const base = jsonPath.substring(0, jsonPath.lastIndexOf("/") + 1);
+    return `${base}${imageName}`;
+  }
+
+  private loadImage(url: string): Promise<HTMLImageElement> {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.src = url;
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+    });
+  }
+
+  private startSpriteIconAnimation(canvas: HTMLCanvasElement, anim: SpriteIconAnimationData) {
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    let frameIndex = 0;
+    let lastFrameAt = performance.now();
+    const frameMs = 1000 / Math.max(1, anim.fps);
+
+    const render = (now: number) => {
+      if (!canvas.isConnected) return;
+
+      if (now - lastFrameAt >= frameMs) {
+        const steps = Math.max(1, Math.floor((now - lastFrameAt) / frameMs));
+        frameIndex = (frameIndex + steps) % anim.frames.length;
+        lastFrameAt += steps * frameMs;
+      }
+
+      const f = anim.frames[frameIndex];
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.imageSmoothingEnabled = false;
+
+      const scaledW = f.w * anim.scale;
+      const scaledH = f.h * anim.scale;
+      const fitScale = Math.min(canvas.width / scaledW, canvas.height / scaledH);
+      const drawScale = Math.max(1, Math.floor(fitScale));
+      const dw = scaledW * drawScale;
+      const dh = scaledH * drawScale;
+      const dx = Math.floor((canvas.width - dw) / 2);
+      const dy = Math.floor((canvas.height - dh) / 2);
+
+      ctx.drawImage(anim.image, f.x, f.y, f.w, f.h, dx, dy, dw, dh);
+      requestAnimationFrame(render);
+    };
+
+    requestAnimationFrame(render);
+  }
+
+  private getFallbackItemIcon(item: ItemDef): string {
+    if (item.iconSpriteDefName) return "🎞️";
+    return RARITY_ICONS[item.rarity] ?? "⚪";
+  }
+
   private updateHeaderIcon() {
     if (!this.currentItem) return;
     this.headerIcon.innerHTML = "";
-    if (!this.drawTileIcon(this.headerIcon, this.currentItem, 48)) {
-      this.headerIcon.textContent = `${TYPE_ICONS[this.currentItem.type] ?? ""} ${RARITY_ICONS[this.currentItem.rarity] ?? ""}`;
+    if (!this.drawSpriteIcon(this.headerIcon, this.currentItem, 48) && !this.drawTileIcon(this.headerIcon, this.currentItem, 48)) {
+      this.headerIcon.textContent = `${TYPE_ICONS[this.currentItem.type] ?? ""} ${this.getFallbackItemIcon(this.currentItem)}`;
     }
   }
 
@@ -980,9 +1171,24 @@ export class ItemEditorPanel {
   private async loadData() {
     const convex = getConvexClient();
     try {
-      const items = await convex.query(api.items.list, {});
+      const [items, spriteDefs] = await Promise.all([
+        convex.query(api.items.list, {}),
+        convex.query(api.spriteDefinitions.list, {}),
+      ]);
       this.allItems = items as ItemDef[];
+      this.objectSpriteIconDefs = (spriteDefs as any[])
+        .filter((d) => d.category === "object" && !d.toggleable && !d.isDoor)
+        .map((d) => ({
+          name: d.name as string,
+          defaultAnimation: d.defaultAnimation as string,
+          spriteSheetUrl: d.spriteSheetUrl as string,
+          animationSpeed: typeof d.animationSpeed === "number" ? d.animationSpeed : 0.12,
+          scale: typeof d.scale === "number" ? d.scale : 1,
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+      this.objectSpriteIconDefsByName = new Map(this.objectSpriteIconDefs.map((d) => [d.name, d]));
       this.applyFilter();
+      if (this.currentItem) this.refreshIconSpriteOptions();
     } catch (err) {
       console.error("Failed to load items:", err);
     }
@@ -1041,8 +1247,8 @@ export class ItemEditorPanel {
 
         const icon = document.createElement("div");
         icon.className = "item-editor-list-icon";
-        if (!this.drawTileIcon(icon, item, 24)) {
-          icon.textContent = RARITY_ICONS[item.rarity] ?? "\u26AA";
+        if (!this.drawSpriteIcon(icon, item, 24) && !this.drawTileIcon(icon, item, 24)) {
+          icon.textContent = this.getFallbackItemIcon(item);
         }
 
         const info = document.createElement("div");
@@ -1083,8 +1289,8 @@ export class ItemEditorPanel {
 
     this.headerEl.style.display = "";
     this.headerIcon.innerHTML = "";
-    if (!this.drawTileIcon(this.headerIcon, this.currentItem!, 48)) {
-      this.headerIcon.textContent = `${TYPE_ICONS[item.type] ?? ""} ${RARITY_ICONS[item.rarity] ?? ""}`;
+    if (!this.drawSpriteIcon(this.headerIcon, this.currentItem!, 48) && !this.drawTileIcon(this.headerIcon, this.currentItem!, 48)) {
+      this.headerIcon.textContent = `${TYPE_ICONS[item.type] ?? ""} ${this.getFallbackItemIcon(item)}`;
     }
     this.headerName.textContent = item.displayName;
     this.headerName.className = `item-editor-header-name rarity-${item.rarity}`;
@@ -1139,6 +1345,8 @@ export class ItemEditorPanel {
     this.raritySelect.value = item.rarity;
     this.rebuildVisibilitySelect(item.visibilityType ?? (item._id ? "system" : "private"));
     this.iconUrlInput.value = item.iconUrl ?? "";
+    this.refreshIconSpriteOptions();
+    this.iconSpriteSelect.value = item.iconSpriteDefName ?? "";
     this.pickupSoundUrlInput.value = item.pickupSoundUrl ?? "";
     this.equipSlotSelect.value = item.equipSlot ?? "";
     this.levelReqInput.value = String(item.levelRequirement ?? 0);
@@ -1182,6 +1390,7 @@ export class ItemEditorPanel {
     item.rarity = this.raritySelect.value as Rarity;
     item.visibilityType = this.visibilitySelect.value as any;
     item.iconUrl = this.iconUrlInput.value.trim() || undefined;
+    item.iconSpriteDefName = this.iconSpriteSelect.value || undefined;
     item.pickupSoundUrl = this.pickupSoundUrlInput.value.trim() || undefined;
     // iconTileset fields are set directly by the tile picker click handler
     item.equipSlot = this.equipSlotSelect.value || undefined;
@@ -1234,6 +1443,24 @@ export class ItemEditorPanel {
     this.visibilitySelect.value = canSelect ? selected : "private";
   }
 
+  private refreshIconSpriteOptions() {
+    if (!this.iconSpriteSelect) return;
+    const current = this.currentItem?.iconSpriteDefName ?? "";
+    this.iconSpriteSelect.innerHTML = "";
+    const none = document.createElement("option");
+    none.value = "";
+    none.textContent = "None (use tileset/icon URL)";
+    this.iconSpriteSelect.appendChild(none);
+    for (const def of this.objectSpriteIconDefs) {
+      const opt = document.createElement("option");
+      opt.value = def.name;
+      opt.textContent = `${def.name} (${def.defaultAnimation})`;
+      this.iconSpriteSelect.appendChild(opt);
+    }
+    const hasCurrent = this.objectSpriteIconDefs.some((d) => d.name === current);
+    this.iconSpriteSelect.value = hasCurrent ? current : "";
+  }
+
   // =========================================================================
   // SAVE
   // =========================================================================
@@ -1269,6 +1496,7 @@ export class ItemEditorPanel {
         iconTileY: item.iconTileY,
         iconTileW: item.iconTileW,
         iconTileH: item.iconTileH,
+        iconSpriteDefName: item.iconSpriteDefName,
         stats: item.stats,
         effects: item.effects?.length ? item.effects : undefined,
         equipSlot: item.equipSlot,
@@ -1297,8 +1525,8 @@ export class ItemEditorPanel {
         this.headerName.className = `item-editor-header-name rarity-${refreshed.rarity}`;
         this.headerMeta.textContent = `${refreshed.rarity} ${refreshed.type} \u2022 ${refreshed.name}`;
         this.headerIcon.innerHTML = "";
-        if (!this.drawTileIcon(this.headerIcon, refreshed, 48)) {
-          this.headerIcon.textContent = `${TYPE_ICONS[refreshed.type] ?? ""} ${RARITY_ICONS[refreshed.rarity] ?? ""}`;
+        if (!this.drawSpriteIcon(this.headerIcon, refreshed, 48) && !this.drawTileIcon(this.headerIcon, refreshed, 48)) {
+          this.headerIcon.textContent = `${TYPE_ICONS[refreshed.type] ?? ""} ${this.getFallbackItemIcon(refreshed)}`;
         }
       }
       this.renderList();

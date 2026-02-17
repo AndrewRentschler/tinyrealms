@@ -122,6 +122,7 @@ export const save = mutation({
     iconTileY: v.optional(v.number()),
     iconTileW: v.optional(v.number()),
     iconTileH: v.optional(v.number()),
+    iconSpriteDefName: v.optional(v.string()),
     stats: statsValidator,
     effects: v.optional(v.array(effectValidator)),
     equipSlot: v.optional(v.string()),
@@ -149,6 +150,22 @@ export const save = mutation({
       .query("itemDefs")
       .withIndex("by_name", (q) => q.eq("name", args.name))
       .first();
+
+    if (args.iconSpriteDefName) {
+      const spriteDef = await ctx.db
+        .query("spriteDefinitions")
+        .withIndex("by_name", (q) => q.eq("name", args.iconSpriteDefName!))
+        .first();
+      if (!spriteDef) {
+        throw new Error(`Sprite definition "${args.iconSpriteDefName}" was not found.`);
+      }
+      if (spriteDef.category !== "object") {
+        throw new Error(`Item icon sprite must use an object sprite definition.`);
+      }
+      if ((spriteDef as any).toggleable || (spriteDef as any).isDoor) {
+        throw new Error(`Item icon sprite cannot use toggleable or door object definitions.`);
+      }
+    }
 
     if (existing) {
       const existingOwner = (existing as any).createdByUser;

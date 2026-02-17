@@ -33,7 +33,7 @@ export class ProfileScreen {
   private startLabelSelect: HTMLSelectElement | null = null;
   /** Map name → list of label names (populated by loadStartMaps) */
   private mapLabels = new Map<string, string[]>();
-  private selectedSpriteUrl = SPRITE_OPTIONS[0].url;
+  private selectedSpriteUrl = SPRITE_OPTIONS[0]?.url ?? "/assets/characters/villager2.json";
   private statusEl: HTMLElement | null = null;
   private profilesUnsub: (() => void) | null = null;
   private titleEl: HTMLElement | null = null;

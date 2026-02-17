@@ -11,10 +11,12 @@ import {
   Text,
   TextStyle,
   Sprite,
+  AnimatedSprite,
   Texture,
   Rectangle,
   Assets,
 } from "pixi.js";
+import { loadSpriteSheet } from "./SpriteLoader.ts";
 
 const ITEM_INTERACT_RADIUS = 48; // pixels — same as NPC interact radius
 const BOB_AMPLITUDE = 3;         // pixels of vertical bob
@@ -34,6 +36,13 @@ export interface WorldItemDefInfo {
   iconTileY?: number;
   iconTileW?: number;
   iconTileH?: number;
+  iconSpriteDefName?: string;
+  iconSpriteSheetUrl?: string;
+  iconSpriteAnimation?: string;
+  iconSpriteAnimationSpeed?: number;
+  iconSpriteScale?: number;
+  iconSpriteFrameWidth?: number;
+  iconSpriteFrameHeight?: number;
 }
 
 /** A world item instance placed on the map */
@@ -51,7 +60,7 @@ interface RenderedWorldItem {
   id: string;
   defName: string;
   container: Container;
-  sprite: Sprite | Graphics; // the visual
+  sprite: Sprite | AnimatedSprite | Graphics; // the visual
   glow: Graphics;
   prompt: Text;
   baseX: number;
@@ -82,6 +91,7 @@ export class WorldItemLayer {
   private rendered: RenderedWorldItem[] = [];
   private defCache = new Map<string, WorldItemDefInfo>();
   private textureCache = new Map<string, Texture>();
+  private spriteSheetCache = new Map<string, Awaited<ReturnType<typeof loadSpriteSheet>>>();
 
   /** Currently highlighted item (nearest within radius) */
   private nearestItem: RenderedWorldItem | null = null;
@@ -120,9 +130,12 @@ export class WorldItemLayer {
     itemContainer.zIndex = Math.round(item.y);
 
     // Item visual
-    let visual: Sprite | Graphics;
-    const itemH = def.iconTileH ?? 16;
-    if (def.iconTilesetUrl && def.iconTileW && def.iconTileH) {
+    let visual: Sprite | AnimatedSprite | Graphics;
+    const itemH = def.iconTileH ?? def.iconSpriteFrameHeight ?? 16;
+    if (def.iconSpriteSheetUrl && def.iconSpriteAnimation) {
+      const spriteVisual = await this.loadSpriteDefVisual(def);
+      visual = spriteVisual ?? this.createFallbackVisual(def);
+    } else if (def.iconTilesetUrl && def.iconTileW && def.iconTileH) {
       // Create sprite from tileset crop
       const texture = await this.loadCroppedTexture(def);
       if (texture) {
@@ -361,7 +374,7 @@ export class WorldItemLayer {
   // Ghost preview (cursor-following item preview in build mode)
   // =========================================================================
 
-  private ghostSprite: Sprite | Graphics | null = null;
+  private ghostSprite: Sprite | AnimatedSprite | Graphics | null = null;
   private ghostDefName: string | null = null;
 
   /** Show a semi-transparent ghost of an item def at the cursor */
@@ -371,8 +384,11 @@ export class WorldItemLayer {
     this.hideGhost();
     this.ghostDefName = def.name;
 
-    let visual: Sprite | Graphics;
-    if (def.iconTilesetUrl && def.iconTileW && def.iconTileH) {
+    let visual: Sprite | AnimatedSprite | Graphics;
+    if (def.iconSpriteSheetUrl && def.iconSpriteAnimation) {
+      const spriteVisual = await this.loadSpriteDefVisual(def);
+      visual = spriteVisual ?? this.createFallbackVisual(def);
+    } else if (def.iconTilesetUrl && def.iconTileW && def.iconTileH) {
       const texture = await this.loadCroppedTexture(def);
       if (texture) {
         visual = new Sprite(texture);
@@ -431,6 +447,34 @@ export class WorldItemLayer {
       return texture;
     } catch (err) {
       console.warn("Failed to load item texture:", err);
+      return null;
+    }
+  }
+
+  private async loadSpriteDefVisual(
+    def: WorldItemDefInfo,
+  ): Promise<AnimatedSprite | null> {
+    const sheetUrl = def.iconSpriteSheetUrl;
+    const animation = def.iconSpriteAnimation;
+    if (!sheetUrl || !animation) return null;
+
+    try {
+      let sheet = this.spriteSheetCache.get(sheetUrl);
+      if (!sheet) {
+        sheet = await loadSpriteSheet(sheetUrl);
+        this.spriteSheetCache.set(sheetUrl, sheet);
+      }
+      const frames = sheet.animations?.[animation];
+      if (!frames || frames.length === 0) return null;
+
+      const sprite = new AnimatedSprite(frames);
+      sprite.anchor.set(0.5, 1.0);
+      sprite.animationSpeed = def.iconSpriteAnimationSpeed ?? 0.12;
+      sprite.scale.set(def.iconSpriteScale ?? 1);
+      sprite.play();
+      return sprite;
+    } catch (err) {
+      console.warn("Failed to load sprite-def icon for world item:", err);
       return null;
     }
   }

@@ -4,8 +4,9 @@ import { MapRenderer } from "./MapRenderer.ts";
 import { EntityLayer } from "./EntityLayer.ts";
 import { ObjectLayer } from "./ObjectLayer.ts";
 import { WorldItemLayer } from "./WorldItemLayer.ts";
+import { WeatherLayer, type WeatherMode } from "./WeatherLayer.ts";
 import { InputManager } from "./InputManager.ts";
-import { AudioManager } from "./AudioManager.ts";
+import { AudioManager, type SfxHandle } from "./AudioManager.ts";
 import { PresenceManager } from "./PresenceManager.ts";
 import { DEFAULT_ITEM_PICKUP_SFX } from "../config/audio-config.ts";
 import {
@@ -38,6 +39,7 @@ export class Game {
   entityLayer!: EntityLayer;
   objectLayer!: ObjectLayer;
   worldItemLayer!: WorldItemLayer;
+  weatherLayer!: WeatherLayer;
   input: InputManager;
   audio: AudioManager;
   mode: AppMode = "play";
@@ -72,6 +74,11 @@ export class Game {
   private spriteDefCache: Map<string, any> = new Map();
   /** mapObjectId -> instanceName cache (used to heal stale npcState rows) */
   private mapObjectInstanceNameById: Map<string, string> = new Map();
+  private weatherRainHandle: SfxHandle | null = null;
+  private weatherRainVolume = 0;
+  private weatherRainLoading = false;
+  private globalWeatherUnsub: (() => void) | null = null;
+  private globalRainyNow = false;
 
   constructor(canvas: HTMLCanvasElement, profile: ProfileData) {
     this.canvas = canvas;
@@ -106,6 +113,7 @@ export class Game {
     this.objectLayer.setAudio(this.audio);
     this.worldItemLayer = new WorldItemLayer();
     this.entityLayer = new EntityLayer(this);
+    this.weatherLayer = new WeatherLayer();
 
     // Add layers to stage
     // Order: map base -> bg objects -> worldItems -> objects + entities -> obj overlays -> map overlays
@@ -116,6 +124,7 @@ export class Game {
     this.app.stage.addChild(this.entityLayer.container);              // player + NPCs
     this.app.stage.addChild(this.objectLayer.overlayContainer);       // overlay-layer objects (above entities)
     this.app.stage.addChild(this.mapRenderer.overlayLayerContainer);  // overlay tiles (above everything)
+    this.app.stage.addChild(this.weatherLayer.container);             // weather overlay (screen-space)
     this.app.stage.sortableChildren = true;
 
     // Resize handling
@@ -158,6 +167,18 @@ export class Game {
 
     // Auto-load the default map
     await this.loadDefaultMap();
+
+    // Ensure the global weather scheduler is running, then subscribe so
+    // scattered-rain maps can follow the shared on/off signal.
+    const convex = getConvexClient();
+    if (!this.isGuest) {
+      try {
+        await convex.mutation(api.weather.ensureLoop, {});
+      } catch (e) {
+        console.warn("Global weather loop ensure failed:", e);
+      }
+    }
+    this.subscribeToGlobalWeather();
 
     // Clean up any stale presence rows, then start broadcasting
     // (guests are read-only — skip presence mutations but still subscribe)
@@ -278,6 +299,7 @@ export class Game {
       this.currentMapName = mapData!.name || "Cozy Cabin";
       this.currentMapData = mapData!;
       this.currentPortals = mapData!.portals ?? [];
+      this.applyWeatherFromMap(mapData!);
       console.log(`[Init] Map "${this.currentMapName}" loaded — ${this.currentPortals.length} portals, isGuest=${this.isGuest}`,
         this.currentPortals.map(p => `"${p.name}" at (${p.x},${p.y}) ${p.width}x${p.height} -> ${p.targetMap}`)
       );
@@ -385,6 +407,11 @@ export class Game {
       portals: saved.portals ?? [],
       musicUrl: saved.musicUrl,
       ambientSoundUrl: saved.ambientSoundUrl,
+      weatherMode: (saved as any).weatherMode,
+      weatherIntensity: (saved as any).weatherIntensity,
+      weatherRainSfx: (saved as any).weatherRainSfx,
+      weatherLightningEnabled: (saved as any).weatherLightningEnabled,
+      weatherLightningChancePerSec: (saved as any).weatherLightningChancePerSec,
       combatEnabled: saved.combatEnabled,
       combatSettings: (saved as any).combatSettings,
       status: saved.status,
@@ -502,6 +529,7 @@ export class Game {
       this.currentMapName = mapData.name;
       this.currentMapData = mapData;
       this.currentPortals = mapData.portals ?? [];
+      this.applyWeatherFromMap(mapData);
 
       // Clear collision overrides from previous map and set tile size
       this.mapRenderer.clearAllCollisionOverrides();
@@ -615,12 +643,17 @@ export class Game {
       })),
       ...(mapData.animationUrl ? { animationUrl: mapData.animationUrl } : {}),
       musicUrl: mapData.musicUrl,
+      weatherMode: mapData.weatherMode,
+      weatherIntensity: mapData.weatherIntensity,
+      weatherRainSfx: mapData.weatherRainSfx,
+      weatherLightningEnabled: mapData.weatherLightningEnabled,
+      weatherLightningChancePerSec: mapData.weatherLightningChancePerSec,
       combatEnabled: mapData.combatEnabled,
       combatSettings: mapData.combatSettings,
       status: mapData.status ?? "published",
       // Static maps are seeded as "system" maps
       mapType: "system",
-    });
+    } as any);
     console.log(`Map "${mapData.name}" seeded to Convex as system map`);
   }
 
@@ -705,6 +738,16 @@ export class Game {
     this.camera.update();
     this.app.stage.x = -this.camera.x + this.camera.viewportW / 2;
     this.app.stage.y = -this.camera.y + this.camera.viewportH / 2;
+    if (this.currentMapData) {
+      this.applyWeatherFromMap(this.currentMapData);
+    }
+    this.weatherLayer.update(
+      dt,
+      this.camera.x,
+      this.camera.y,
+      this.camera.viewportW,
+      this.camera.viewportH,
+    );
 
     // In build mode, allow panning with keyboard
     if (this.mode === "build") {
@@ -726,6 +769,55 @@ export class Game {
     // Clear just-pressed keys at the very end of the frame, so all systems
     // (entity movement, NPC dialogue, toggle, pickup) can read them first.
     this.input.endFrame();
+  }
+
+  private applyWeatherFromMap(mapData: MapData) {
+    const configuredMode = mapData.weatherMode ?? "clear";
+    const mode: WeatherMode =
+      configuredMode === "rainy"
+        ? "rainy"
+        : configuredMode === "scattered_rain"
+          ? (this.globalRainyNow ? "rainy" : "clear")
+          : "clear";
+    this.weatherLayer?.setMode(mode);
+    this.weatherLayer?.setConfig({
+      intensity: mapData.weatherIntensity ?? "medium",
+      lightningEnabled: !!mapData.weatherLightningEnabled,
+      lightningChancePerSec: mapData.weatherLightningChancePerSec ?? 0.03,
+    });
+    this.updateWeatherAudioFromMap(mapData, mode);
+  }
+
+  private updateWeatherAudioFromMap(mapData: MapData, mode: WeatherMode) {
+    const intensity = mapData.weatherIntensity ?? "medium";
+    const intensityBase = intensity === "light" ? 0.22 : intensity === "heavy" ? 0.55 : 0.38;
+    const wantsRainSfx = mode === "rainy" && !!mapData.weatherRainSfx;
+    const targetVolume = wantsRainSfx ? intensityBase : 0;
+
+    if (wantsRainSfx && !this.weatherRainHandle && this.audio.isStarted) {
+      if (!this.weatherRainLoading) {
+        this.weatherRainLoading = true;
+        void this.audio.playAmbient("/assets/audio/rain.mp3", 0).then((handle) => {
+          this.weatherRainLoading = false;
+          if (!handle) return;
+          this.weatherRainHandle = handle;
+          this.weatherRainVolume = 0;
+        }).catch(() => {
+          this.weatherRainLoading = false;
+        });
+      }
+    }
+
+    if (this.weatherRainHandle) {
+      const lerp = 0.08;
+      this.weatherRainVolume += (targetVolume - this.weatherRainVolume) * lerp;
+      this.weatherRainHandle.setVolume(Math.max(0, Math.min(1, this.weatherRainVolume)));
+      if (!wantsRainSfx && this.weatherRainVolume < 0.01) {
+        this.weatherRainHandle.stop();
+        this.weatherRainHandle = null;
+        this.weatherRainVolume = 0;
+      }
+    }
   }
 
   /** Check if the player is standing in a portal zone and trigger map change */
@@ -1411,6 +1503,21 @@ export class Game {
     );
   }
 
+  private subscribeToGlobalWeather() {
+    this.globalWeatherUnsub?.();
+    const convex = getConvexClient();
+    this.globalWeatherUnsub = convex.onUpdate(
+      api.weather.getGlobal,
+      {},
+      (state) => {
+        this.globalRainyNow = !!(state as any)?.rainyNow;
+      },
+      (err) => {
+        console.warn("Global weather subscription error:", err);
+      },
+    );
+  }
+
   async loadMap(mapData: MapData) {
     if (this.mapRenderer) {
       await this.mapRenderer.loadMap(mapData);
@@ -1425,10 +1532,18 @@ export class Game {
     this.worldItemsUnsub = null;
     this.npcStateUnsub?.();
     this.npcStateUnsub = null;
+    this.globalWeatherUnsub?.();
+    this.globalWeatherUnsub = null;
     if (this.unlockHandler) {
       document.removeEventListener("click", this.unlockHandler);
       document.removeEventListener("keydown", this.unlockHandler);
     }
+    if (this.weatherRainHandle) {
+      this.weatherRainHandle.stop();
+      this.weatherRainHandle = null;
+      this.weatherRainVolume = 0;
+    }
+    this.weatherRainLoading = false;
     this.audio.destroy();
     this.resizeObserver?.disconnect();
     this.input.destroy();

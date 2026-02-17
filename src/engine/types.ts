@@ -60,6 +60,11 @@ export interface MapData {
   portals: Portal[];
   musicUrl?: string;
   ambientSoundUrl?: string;
+  weatherMode?: "clear" | "rainy" | "scattered_rain";
+  weatherIntensity?: "light" | "medium" | "heavy";
+  weatherRainSfx?: boolean;
+  weatherLightningEnabled?: boolean;
+  weatherLightningChancePerSec?: number;
   combatEnabled?: boolean;
   combatSettings?: CombatSettings;
   status?: string;        // "draft" | "published"

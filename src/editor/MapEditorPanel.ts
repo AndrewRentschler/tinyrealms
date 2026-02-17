@@ -25,7 +25,7 @@ import "./MapEditor.css";
 import "./TilesetPicker.css";
 import "./LayerPanel.css";
 
-export type EditorTool = "paint" | "erase" | "collision" | "collision-erase" | "object" | "object-erase" | "npc" | "npc-erase" | "map" | "portal" | "portal-erase" | "label" | "label-erase" | "item" | "item-erase";
+export type EditorTool = "paint" | "erase" | "collision" | "collision-erase" | "object" | "object-erase" | "object-move" | "npc" | "npc-erase" | "npc-move" | "map" | "portal" | "portal-erase" | "label" | "label-erase" | "item" | "item-erase";
 const TOOLS: { key: EditorTool; label: string }[] = [
   { key: "paint",        label: "🖌 Paint" },
   { key: "collision",    label: "🚧 Collision" },
@@ -48,6 +48,12 @@ const DELETE_OPTIONS: { key: EditorTool; label: string }[] = [
   { key: "label-erase",      label: "🏷 Label" },
 ];
 
+/** Move sub-tools shown in the Move dropdown */
+const MOVE_OPTIONS: { key: EditorTool; label: string }[] = [
+  { key: "object-move",      label: "📦 Object" },
+  { key: "npc-move",         label: "🧑 NPC" },
+];
+
 /** Registry of available tilesets */
 export interface TilesetInfo {
   name: string;
@@ -68,6 +74,7 @@ const DISPLAY_TILE_SIZE = 32;
 // ---------------------------------------------------------------------------
 export interface PlacedObject {
   id: string;             // local UUID or Convex _id
+  sourceId?: string;      // Convex _id when this object exists in DB
   spriteDefName: string;
   instanceName?: string;  // unique NPC instance name (links to npcProfiles)
   x: number;              // world px
@@ -116,6 +123,7 @@ function visibilityLabel(v?: "public" | "private" | "system"): "public" | "priva
 // MapEditorPanel
 // ---------------------------------------------------------------------------
 export class MapEditorPanel {
+  private static readonly ITEM_PLACE_DEBUG = true;
   readonly el: HTMLElement;
   private game: Game | null = null;
 
@@ -147,7 +155,9 @@ export class MapEditorPanel {
   // Item placement state
   private itemDefs: { name: string; displayName: string; type: string; rarity: string;
     iconTilesetUrl?: string; iconTileX?: number; iconTileY?: number;
-    iconTileW?: number; iconTileH?: number }[] = [];
+    iconTileW?: number; iconTileH?: number; iconSpriteDefName?: string;
+    iconSpriteSheetUrl?: string; iconSpriteAnimation?: string; iconSpriteAnimationSpeed?: number;
+    iconSpriteScale?: number; iconSpriteFrameWidth?: number; iconSpriteFrameHeight?: number }[] = [];
   private selectedItemDef: typeof this.itemDefs[0] | null = null;
   placedItems: { id: string; sourceId?: string; itemDefName: string; x: number; y: number;
     quantity: number; respawn?: boolean; respawnMs?: number; pickedUpAt?: number }[] = [];
@@ -164,6 +174,7 @@ export class MapEditorPanel {
     direction: string;
     transition: string;
   } = { name: "", targetMap: "", targetSpawn: "start1", direction: "", transition: "fade" };
+  private selectedPortalIndex: number | null = null;
   private portalPlacing = false; // true when in "click-to-place" mode
   private portalStart: { tx: number; ty: number } | null = null;
   private availableMaps: { name: string; labelNames?: string[] }[] = [];
@@ -175,6 +186,7 @@ export class MapEditorPanel {
   // DOM refs
   private toolButtons: HTMLButtonElement[] = [];
   private deleteBtn!: HTMLButtonElement;
+  private moveBtn!: HTMLButtonElement;
   private layerButtons: HTMLButtonElement[] = [];
   private layerListEl!: HTMLElement;
   private tilesetSelect!: HTMLSelectElement;
@@ -190,6 +202,11 @@ export class MapEditorPanel {
   private mapPickerEl!: HTMLElement;
   private mapNameInput!: HTMLInputElement;
   private mapMusicSelect!: HTMLSelectElement;
+  private mapWeatherSelect!: HTMLSelectElement;
+  private mapWeatherIntensitySelect!: HTMLSelectElement;
+  private mapWeatherSfxCheck!: HTMLInputElement;
+  private mapWeatherLightningCheck!: HTMLInputElement;
+  private mapWeatherLightningChanceInput!: HTMLInputElement;
   private mapCombatCheck!: HTMLInputElement;
   private mapCombatRangeInput!: HTMLInputElement;
   private mapCombatCooldownInput!: HTMLInputElement;
@@ -200,6 +217,8 @@ export class MapEditorPanel {
   private portalListEl!: HTMLElement;
   private portalTargetMapSelect!: HTMLSelectElement;
   private portalTargetSpawnSelect!: HTMLSelectElement;
+  private portalNameInput!: HTMLInputElement;
+  private portalDirectionSelect!: HTMLSelectElement;
   private labelPickerEl!: HTMLElement;
   private labelListEl!: HTMLElement;
   private gridBtn!: HTMLButtonElement;
@@ -213,6 +232,7 @@ export class MapEditorPanel {
   private canvasUpHandler: (() => void) | null = null;
   private canvasHoverHandler: ((e: MouseEvent) => void) | null = null;
   private keyHandler: ((e: KeyboardEvent) => void) | null = null;
+  private movingObjectId: string | null = null;
 
   constructor() {
     this.el = document.createElement("div");
@@ -266,6 +286,41 @@ export class MapEditorPanel {
     deleteWrap.appendChild(this.deleteBtn);
     deleteWrap.appendChild(deleteMenu);
     toolbar.appendChild(deleteWrap);
+
+    // Move dropdown button
+    const moveWrap = document.createElement("div");
+    moveWrap.style.cssText = "position:relative;display:inline-block;";
+    this.moveBtn = document.createElement("button");
+    this.moveBtn.className = "editor-tool-btn";
+    this.moveBtn.textContent = "↔ Move ▾";
+    const moveMenu = document.createElement("div");
+    moveMenu.className = "editor-delete-menu";
+    moveMenu.style.display = "none";
+    for (const opt of MOVE_OPTIONS) {
+      const item = document.createElement("button");
+      item.className = "editor-delete-menu-item";
+      item.textContent = opt.label;
+      item.addEventListener("click", (e) => {
+        e.stopPropagation();
+        moveMenu.style.display = "none";
+        this.setTool(opt.key);
+        this.moveBtn.classList.add("active");
+        this.moveBtn.textContent = `↔ Move: ${opt.label}`;
+      });
+      moveMenu.appendChild(item);
+    }
+    this.moveBtn.addEventListener("click", () => {
+      moveMenu.style.display = moveMenu.style.display === "none" ? "" : "none";
+    });
+    // Close menu when clicking elsewhere
+    document.addEventListener("click", (e) => {
+      if (!moveWrap.contains(e.target as Node)) {
+        moveMenu.style.display = "none";
+      }
+    });
+    moveWrap.appendChild(this.moveBtn);
+    moveWrap.appendChild(moveMenu);
+    toolbar.appendChild(moveWrap);
 
     // Separator
     const sep = document.createElement("div");
@@ -831,8 +886,28 @@ export class MapEditorPanel {
   private async loadItemDefs() {
     try {
       const convex = getConvexClient();
-      const defs = await convex.query(api.items.list, {});
-      this.itemDefs = defs as any[];
+      const [defs, spriteDefs] = await Promise.all([
+        convex.query(api.items.list, {}),
+        convex.query(api.spriteDefinitions.list, {}),
+      ]);
+
+      const spriteDefsByName = new Map((spriteDefs as any[]).map((d) => [d.name, d]));
+      this.itemDefs = (defs as any[]).map((def) => {
+        const out: any = { ...def };
+        const spriteDefName = def.iconSpriteDefName as string | undefined;
+        if (spriteDefName) {
+          const spriteDef = spriteDefsByName.get(spriteDefName);
+          if (spriteDef && spriteDef.category === "object" && !spriteDef.toggleable && !spriteDef.isDoor) {
+            out.iconSpriteSheetUrl = spriteDef.spriteSheetUrl;
+            out.iconSpriteAnimation = spriteDef.defaultAnimation;
+            out.iconSpriteAnimationSpeed = spriteDef.animationSpeed;
+            out.iconSpriteScale = spriteDef.scale;
+            out.iconSpriteFrameWidth = spriteDef.frameWidth;
+            out.iconSpriteFrameHeight = spriteDef.frameHeight;
+          }
+        }
+        return out;
+      });
       this.renderItemList();
     } catch (err) {
       console.warn("Failed to load item defs:", err);
@@ -873,6 +948,8 @@ export class MapEditorPanel {
             (20 - dw) / 2, (20 - dh) / 2, dw, dh);
         };
         iconSpan.appendChild(c);
+      } else if (def.iconSpriteDefName) {
+        iconSpan.textContent = "🎞️";
       } else {
         iconSpan.textContent = this.itemTypeIcon(def.type);
       }
@@ -908,8 +985,25 @@ export class MapEditorPanel {
     return icons[type] || "📦";
   }
 
+  private logItemPlacement(message: string, details?: Record<string, unknown>) {
+    if (!MapEditorPanel.ITEM_PLACE_DEBUG) return;
+    const prefix = `[MapEditor:item-place] ${message}`;
+    if (message.startsWith("Skipped") || message.includes("missing") || message.includes("blocked")) {
+      if (details) console.warn(prefix, details);
+      else console.warn(prefix);
+      return;
+    }
+    if (details) console.log(prefix, details);
+    else console.log(prefix);
+  }
+
   private placeItem(worldX: number, worldY: number) {
     if (!this.selectedItemDef) {
+      this.logItemPlacement("Skipped placement: no selected item definition.", {
+        worldX,
+        worldY,
+        tool: this.tool,
+      });
       this.showSaveStatus("Select an item first", true);
       return;
     }
@@ -925,6 +1019,17 @@ export class MapEditorPanel {
       respawnMs: respawn ? Math.round(respawnMin * 60 * 1000) : undefined,
     };
     this.placedItems.push(item);
+    this.logItemPlacement("Placed item.", {
+      itemDefName: item.itemDefName,
+      displayName: this.selectedItemDef.displayName,
+      worldX,
+      worldY,
+      placedX: item.x,
+      placedY: item.y,
+      respawn: item.respawn ?? false,
+      respawnMs: item.respawnMs ?? null,
+      totalPlacedItems: this.placedItems.length,
+    });
     const respawnNote = respawn ? ` (respawns in ${respawnMin}m)` : "";
     this.tileInfoEl.textContent = `Placed: ${this.selectedItemDef.displayName}${respawnNote} (${this.placedItems.length} items total)`;
 
@@ -937,6 +1042,11 @@ export class MapEditorPanel {
         y: item.y,
         quantity: item.quantity,
       }, this.selectedItemDef);
+    } else {
+      this.logItemPlacement("World item layer missing during placement render.", {
+        hasGame: !!this.game,
+        hasWorldItemLayer: !!this.game?.worldItemLayer,
+      });
     }
   }
 
@@ -966,7 +1076,7 @@ export class MapEditorPanel {
 
   /** Show info about an existing world item at the click location */
   private inspectItemAt(worldX: number, worldY: number): boolean {
-    const radius = 64;
+    const radius = 40;
     let bestItem: any = null;
     let bestDist = Infinity;
     for (const item of this.placedItems) {
@@ -979,6 +1089,16 @@ export class MapEditorPanel {
       }
     }
     if (!bestItem) return false;
+    this.logItemPlacement("Placement click intercepted by existing nearby item (inspect mode).", {
+      clickedWorldX: worldX,
+      clickedWorldY: worldY,
+      nearestItemId: bestItem.id,
+      nearestItemDefName: bestItem.itemDefName,
+      nearestItemX: bestItem.x,
+      nearestItemY: bestItem.y,
+      nearestDistancePx: Math.round(bestDist),
+      inspectRadiusPx: radius,
+    });
 
     const parts: string[] = [`Item: ${bestItem.itemDefName}`];
     parts.push(`qty: ${bestItem.quantity}`);
@@ -991,6 +1111,7 @@ export class MapEditorPanel {
       parts.push(`picked up ${ago}s ago`);
     }
     parts.push(`pos: (${Math.round(bestItem.x)}, ${Math.round(bestItem.y)})`);
+    parts.push("hold Shift to force place");
     this.tileInfoEl.textContent = parts.join("  |  ");
     return true;
   }
@@ -1301,10 +1422,14 @@ export class MapEditorPanel {
   // =========================================================================
 
   private setTool(t: EditorTool) {
+    if (this.movingObjectId && t !== this.tool) {
+      this.cancelMoveSelection();
+    }
     this.tool = t;
 
     // Highlight the matching TOOLS button (deactivate all first)
     const isDeleteTool = DELETE_OPTIONS.some(d => d.key === t);
+    const isMoveTool = MOVE_OPTIONS.some(m => m.key === t);
     TOOLS.forEach((tool, i) => {
       this.toolButtons[i].classList.toggle("active", tool.key === t);
     });
@@ -1317,10 +1442,19 @@ export class MapEditorPanel {
       this.deleteBtn.classList.remove("active");
       this.deleteBtn.textContent = "🗑 Delete ▾";
     }
+    // Update move button state
+    if (isMoveTool) {
+      this.moveBtn.classList.add("active");
+      const opt = MOVE_OPTIONS.find(m => m.key === t);
+      this.moveBtn.textContent = `↔ Move: ${opt?.label ?? ""}`;
+    } else {
+      this.moveBtn.classList.remove("active");
+      this.moveBtn.textContent = "↔ Move ▾";
+    }
 
     // Swap visible picker
-    const isObjTool = t === "object" || t === "object-erase";
-    const isNpcTool = t === "npc" || t === "npc-erase";
+    const isObjTool = t === "object" || t === "object-erase" || t === "object-move";
+    const isNpcTool = t === "npc" || t === "npc-erase" || t === "npc-move";
     const isItemTool = t === "item" || t === "item-erase";
     const isMap = t === "map";
     const isPortal = t === "portal";
@@ -1380,6 +1514,12 @@ export class MapEditorPanel {
 
     // Show/hide ghost preview
     this.updateGhostForCurrentSelection();
+
+    if (t === "object-move") {
+      this.tileInfoEl.textContent = "Move Object: click an object to pick it up";
+    } else if (t === "npc-move") {
+      this.tileInfoEl.textContent = "Move NPC: click an NPC to pick it up";
+    }
   }
 
   private setLayer(index: number) {
@@ -1472,7 +1612,7 @@ export class MapEditorPanel {
       if (!this.isPainting || game.mode !== "build") return;
       // Only allow drag-paint for tile tools, not object/npc/item/portal/label
       const noDrag: EditorTool[] = ["object", "object-erase", "npc", "npc-erase",
-        "item", "item-erase", "map", "portal", "portal-erase", "label"];
+        "object-move", "npc-move", "item", "item-erase", "map", "portal", "portal-erase", "label"];
       if (!noDrag.includes(this.tool)) {
         this.handleCanvasAction(e, game, canvas);
       }
@@ -1516,6 +1656,9 @@ export class MapEditorPanel {
       } else if (this.tool === "object" || this.tool === "npc") {
         game.mapRenderer.hideTileGhost();
         game.objectLayer?.updateGhost(worldX, worldY);
+      } else if (this.tool === "object-move" || this.tool === "npc-move") {
+        game.mapRenderer.hideTileGhost();
+        game.objectLayer?.hideGhost();
       } else if (this.tool === "item" || this.tool === "item-erase") {
         game.mapRenderer.hideTileGhost();
         game.objectLayer?.hideGhost();
@@ -1558,6 +1701,15 @@ export class MapEditorPanel {
       // Ignore if focus is in an input/select/textarea
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") return;
+      if (e.key === "Escape" && this.movingObjectId) {
+        this.cancelMoveSelection();
+        this.showSaveStatus("Move cancelled", false);
+        this.tileInfoEl.textContent =
+          this.tool === "npc-move"
+            ? "Move NPC: click an NPC to pick it up"
+            : "Move Object: click an object to pick it up";
+        return;
+      }
       if (e.key === "g" || e.key === "G") {
         const on = game.mapRenderer.toggleGrid();
         this.gridBtn.classList.toggle("active", on);
@@ -1589,12 +1741,32 @@ export class MapEditorPanel {
       }
     } else if (this.tool === "object" || this.tool === "npc") {
       this.placeObject(worldX, worldY);
+    } else if (this.tool === "object-move" || this.tool === "npc-move") {
+      this.moveObjectAt(worldX, worldY);
     } else if (this.tool === "object-erase" || this.tool === "npc-erase") {
       this.removeObjectAt(worldX, worldY);
     } else if (this.tool === "item") {
-      // If clicking near an existing item, inspect it; otherwise place
-      if (!this.inspectItemAt(worldX, worldY)) {
+      this.logItemPlacement("Canvas action for item tool.", {
+        worldX,
+        worldY,
+        shiftKey: e.shiftKey,
+        selectedItemDefName: this.selectedItemDef?.name ?? null,
+      });
+      // If Shift is held, force placement even if near an existing item.
+      const forcePlace = e.shiftKey;
+      if (forcePlace) {
+        this.logItemPlacement("Force placement enabled (Shift held).", { worldX, worldY });
+      }
+      // If clicking near an existing item, inspect it; otherwise place.
+      const inspectedExisting = forcePlace ? false : this.inspectItemAt(worldX, worldY);
+      if (!inspectedExisting) {
         this.placeItem(worldX, worldY);
+      } else {
+        this.logItemPlacement("Placement blocked by nearby item (inspect mode).", {
+          worldX,
+          worldY,
+        });
+        this.showSaveStatus("Blocked by nearby item. Hold Shift + click to force place.", true);
       }
     } else if (this.tool === "item-erase") {
       this.removeItemAt(worldX, worldY);
@@ -1686,55 +1858,135 @@ export class MapEditorPanel {
     this.game?.objectLayer?.addPlacedObject(obj, this.selectedSpriteDef as any);
   }
 
-  private removeObjectAt(worldX: number, worldY: number) {
-    // Objects are anchored at bottom-center (0.5, 1.0), so the stored Y is
-    // the sprite's feet.  When the user clicks on the sprite's body they'll
-    // click above the anchor.  We use an asymmetric hit-test based on the
-    // actual sprite dimensions: full height upward, half-width horizontal,
-    // and a small margin below.
-    const defByName = new Map(this.spriteDefs.map(d => [d.name, d]));
+  private isNpcObject(spriteDefName: string): boolean {
+    const def = this.spriteDefs.find((d) => d.name === spriteDefName);
+    return def?.category === "npc";
+  }
 
+  private restoreMovingObjectRender() {
+    if (!this.movingObjectId) return;
+    const obj = this.placedObjects.find((o) => o.id === this.movingObjectId);
+    if (!obj) return;
+    const def = this.spriteDefs.find((d) => d.name === obj.spriteDefName) as any;
+    this.game?.objectLayer?.removePlacedObject(obj.id);
+    void this.game?.objectLayer?.addPlacedObject(obj, def);
+  }
+
+  private cancelMoveSelection() {
+    if (!this.movingObjectId) return;
+    this.restoreMovingObjectRender();
+    this.movingObjectId = null;
+  }
+
+  private findPlacedObjectIndexAt(worldX: number, worldY: number, mode: "object" | "npc"): number {
+    // Objects are anchored at bottom-center (0.5, 1.0), so the stored Y is
+    // the sprite's feet. Use an asymmetric hit-test to capture body clicks.
+    const defByName = new Map(this.spriteDefs.map(d => [d.name, d]));
     const hitTest = (objX: number, objY: number, spriteDefName: string): boolean => {
       const def = defByName.get(spriteDefName);
-      // Large fallback keeps erase usable even if a definition is missing
-      // from the local cache.
       const hitAbove = def ? def.frameHeight * def.scale : 384;
-      const hitSide  = def ? (def.frameWidth * def.scale) / 2 : 192;
+      const hitSide = def ? (def.frameWidth * def.scale) / 2 : 192;
       const hitBelow = 16;
       const dx = Math.abs(objX - worldX);
       const dy = objY - worldY; // positive = click is above anchor
       return dx <= hitSide && dy >= -hitBelow && dy <= hitAbove;
     };
-
-    // Manhattan-ish score for picking the best candidate
     const hitScore = (objX: number, objY: number): number => {
       return Math.abs(objX - worldX) + Math.abs(objY - worldY);
     };
 
-    const isNpcDef = (spriteDefName: string): boolean => {
-      const def = defByName.get(spriteDefName);
-      return def?.category === "npc";
-    };
-
-    const mode: "object" | "npc" = this.tool === "npc-erase" ? "npc" : "object";
-
-    // In object-erase mode, ONLY remove non-NPC objects.
-    // In npc-erase mode, ONLY remove NPC objects.
     let bestIdx = -1;
     let bestScore = Infinity;
     for (let i = 0; i < this.placedObjects.length; i++) {
       const obj = this.placedObjects[i];
-      const isNpc = isNpcDef(obj.spriteDefName);
+      const isNpc = this.isNpcObject(obj.spriteDefName);
       if (mode === "object" && isNpc) continue;
       if (mode === "npc" && !isNpc) continue;
       if (!hitTest(obj.x, obj.y, obj.spriteDefName)) continue;
-
       const s = hitScore(obj.x, obj.y);
       if (s < bestScore) {
         bestScore = s;
         bestIdx = i;
       }
     }
+    return bestIdx;
+  }
+
+  private getPersistedMapObjectId(obj: PlacedObject): string | null {
+    if (obj.sourceId) return obj.sourceId;
+    // Backward compatibility for already-loaded editor state without sourceId.
+    if (obj.id && !obj.id.includes("-")) return obj.id;
+    return null;
+  }
+
+  private async persistMovedObject(obj: PlacedObject) {
+    if (!this.game) return;
+    const existingId = this.getPersistedMapObjectId(obj);
+    if (!existingId) {
+      this.showSaveStatus("Moved locally. Click Save to persist.");
+      return;
+    }
+    try {
+      const convex = getConvexClient();
+      const mapData = this.game.mapRenderer.getMapData();
+      const mapName = mapData?.name || this.game.currentMapName || "cozy-cabin";
+      const profileId = this.game.profile._id as any;
+      await convex.mutation(api.mapObjects.move, {
+        profileId,
+        mapName,
+        id: existingId as any,
+        x: obj.x,
+        y: obj.y,
+      });
+      this.showSaveStatus("Move saved");
+    } catch (err) {
+      console.error("Failed to persist moved object:", err);
+      this.showSaveStatus("Move not persisted. Click Save.", true);
+    }
+  }
+
+  private moveObjectAt(worldX: number, worldY: number) {
+    const mode: "object" | "npc" = this.tool === "npc-move" ? "npc" : "object";
+
+    if (!this.movingObjectId) {
+      const idx = this.findPlacedObjectIndexAt(worldX, worldY, mode);
+      if (idx < 0) {
+        this.showSaveStatus(mode === "npc" ? "Click an NPC to move" : "Click an object to move", true);
+        return;
+      }
+      const selected = this.placedObjects[idx];
+      this.movingObjectId = selected.id;
+      this.game?.objectLayer?.removePlacedObject(selected.id);
+      if (mode === "npc" && this.game?.entityLayer) {
+        const npcHit = this.game.entityLayer.findNearestNPCAt(worldX, worldY, 320);
+        if (npcHit) this.game.entityLayer.removeNPC(npcHit.id);
+      }
+      this.tileInfoEl.textContent = `Picked ${selected.spriteDefName}. Click destination to place.`;
+      return;
+    }
+
+    const idx = this.placedObjects.findIndex((o) => o.id === this.movingObjectId);
+    if (idx < 0) {
+      this.movingObjectId = null;
+      this.showSaveStatus("Move selection expired. Pick again.", true);
+      return;
+    }
+
+    const obj = this.placedObjects[idx];
+    obj.x = Math.round(worldX);
+    obj.y = Math.round(worldY);
+    this.movingObjectId = null;
+    this.tileInfoEl.textContent = `Moved ${obj.spriteDefName} (${this.placedObjects.length} total)`;
+
+    const def = this.spriteDefs.find((d) => d.name === obj.spriteDefName) as any;
+    this.game?.objectLayer?.removePlacedObject(obj.id);
+    void this.game?.objectLayer?.addPlacedObject(obj, def);
+    void this.persistMovedObject(obj);
+  }
+
+  private removeObjectAt(worldX: number, worldY: number) {
+    const mode: "object" | "npc" = this.tool === "npc-erase" ? "npc" : "object";
+    const bestIdx = this.findPlacedObjectIndexAt(worldX, worldY, mode);
 
     if (bestIdx < 0) return;
 
@@ -1812,6 +2064,108 @@ export class MapEditorPanel {
     this.mapMusicSelect = musicSelect;
     musicRow.append(musicLabel, musicSelect);
     form.appendChild(musicRow);
+
+    const weatherRow = document.createElement("div");
+    weatherRow.style.cssText = "display:flex;gap:4px;align-items:center;";
+    const weatherLabel = document.createElement("span");
+    weatherLabel.textContent = "Weather:";
+    weatherLabel.style.minWidth = "80px";
+    const weatherSelect = document.createElement("select");
+    weatherSelect.style.cssText = "flex:1;padding:4px;background:#181825;color:#eee;border:1px solid #444;border-radius:4px;font-size:12px;";
+    for (const optDef of [
+      { value: "clear", label: "Clear" },
+      { value: "rainy", label: "Rainy" },
+      { value: "scattered_rain", label: "Scattered rain" },
+    ]) {
+      const opt = document.createElement("option");
+      opt.value = optDef.value;
+      opt.textContent = optDef.label;
+      weatherSelect.appendChild(opt);
+    }
+    weatherSelect.addEventListener("change", () => {
+      const mapData = this.game?.mapRenderer.getMapData();
+      if (mapData) mapData.weatherMode = weatherSelect.value as any;
+    });
+    this.mapWeatherSelect = weatherSelect;
+    weatherRow.append(weatherLabel, weatherSelect);
+    form.appendChild(weatherRow);
+
+    const weatherIntensityRow = document.createElement("div");
+    weatherIntensityRow.style.cssText = "display:flex;gap:4px;align-items:center;";
+    const weatherIntensityLabel = document.createElement("span");
+    weatherIntensityLabel.textContent = "Rain Intensity:";
+    weatherIntensityLabel.style.minWidth = "80px";
+    const weatherIntensitySelect = document.createElement("select");
+    weatherIntensitySelect.style.cssText = "flex:1;padding:4px;background:#181825;color:#eee;border:1px solid #444;border-radius:4px;font-size:12px;";
+    for (const optDef of [
+      { value: "light", label: "Light" },
+      { value: "medium", label: "Medium" },
+      { value: "heavy", label: "Heavy" },
+    ]) {
+      const opt = document.createElement("option");
+      opt.value = optDef.value;
+      opt.textContent = optDef.label;
+      weatherIntensitySelect.appendChild(opt);
+    }
+    weatherIntensitySelect.addEventListener("change", () => {
+      const mapData = this.game?.mapRenderer.getMapData();
+      if (mapData) mapData.weatherIntensity = weatherIntensitySelect.value as any;
+    });
+    this.mapWeatherIntensitySelect = weatherIntensitySelect;
+    weatherIntensityRow.append(weatherIntensityLabel, weatherIntensitySelect);
+    form.appendChild(weatherIntensityRow);
+
+    const weatherSfxRow = document.createElement("div");
+    weatherSfxRow.style.cssText = "display:flex;gap:4px;align-items:center;";
+    const weatherSfxLabel = document.createElement("span");
+    weatherSfxLabel.textContent = "Rain SFX:";
+    weatherSfxLabel.style.minWidth = "80px";
+    const weatherSfxCheck = document.createElement("input");
+    weatherSfxCheck.type = "checkbox";
+    weatherSfxCheck.addEventListener("change", () => {
+      const mapData = this.game?.mapRenderer.getMapData();
+      if (mapData) mapData.weatherRainSfx = weatherSfxCheck.checked;
+    });
+    this.mapWeatherSfxCheck = weatherSfxCheck;
+    weatherSfxRow.append(weatherSfxLabel, weatherSfxCheck);
+    form.appendChild(weatherSfxRow);
+
+    const weatherLightningRow = document.createElement("div");
+    weatherLightningRow.style.cssText = "display:flex;gap:4px;align-items:center;";
+    const weatherLightningLabel = document.createElement("span");
+    weatherLightningLabel.textContent = "Lightning:";
+    weatherLightningLabel.style.minWidth = "80px";
+    const weatherLightningCheck = document.createElement("input");
+    weatherLightningCheck.type = "checkbox";
+    weatherLightningCheck.addEventListener("change", () => {
+      const mapData = this.game?.mapRenderer.getMapData();
+      if (mapData) mapData.weatherLightningEnabled = weatherLightningCheck.checked;
+    });
+    this.mapWeatherLightningCheck = weatherLightningCheck;
+    weatherLightningRow.append(weatherLightningLabel, weatherLightningCheck);
+    form.appendChild(weatherLightningRow);
+
+    const weatherLightningChanceRow = document.createElement("div");
+    weatherLightningChanceRow.style.cssText = "display:flex;gap:4px;align-items:center;";
+    const weatherLightningChanceLabel = document.createElement("span");
+    weatherLightningChanceLabel.textContent = "Lightning/sec:";
+    weatherLightningChanceLabel.style.minWidth = "80px";
+    const weatherLightningChanceInput = document.createElement("input");
+    weatherLightningChanceInput.type = "number";
+    weatherLightningChanceInput.min = "0";
+    weatherLightningChanceInput.max = "1";
+    weatherLightningChanceInput.step = "0.01";
+    weatherLightningChanceInput.style.cssText = "flex:1;padding:4px;background:#181825;color:#eee;border:1px solid #444;border-radius:4px;font-size:12px;";
+    weatherLightningChanceInput.addEventListener("input", () => {
+      const mapData = this.game?.mapRenderer.getMapData();
+      if (!mapData) return;
+      const n = Number(weatherLightningChanceInput.value);
+      if (!Number.isFinite(n)) return;
+      mapData.weatherLightningChancePerSec = Math.max(0, Math.min(1, n));
+    });
+    this.mapWeatherLightningChanceInput = weatherLightningChanceInput;
+    weatherLightningChanceRow.append(weatherLightningChanceLabel, weatherLightningChanceInput);
+    form.appendChild(weatherLightningChanceRow);
 
     const combatRow = document.createElement("div");
     combatRow.style.cssText = "display:flex;gap:4px;align-items:center;";
@@ -1980,7 +2334,10 @@ export class MapEditorPanel {
     form.style.cssText = "padding:8px;display:flex;flex-direction:column;gap:6px;font-size:12px;";
 
     // Name
-    const nameRow = this.portalFormRow("Name:", "text", "door-1", (v) => { this.portalDraft.name = v; });
+    const nameRow = this.portalFormRow("Name:", "text", "door-1", (v) => {
+      this.portalDraft.name = v;
+      this.applyPortalDraftToSelected();
+    });
 
     // Target map (select)
     const mapRow = document.createElement("div");
@@ -1993,6 +2350,7 @@ export class MapEditorPanel {
     mapSelect.addEventListener("change", () => {
       this.portalDraft.targetMap = mapSelect.value;
       void this.refreshPortalTargetSpawnOptions(mapSelect.value);
+      this.applyPortalDraftToSelected();
     });
     this.portalTargetMapSelect = mapSelect;
     mapRow.append(mapLabel, mapSelect);
@@ -2007,6 +2365,7 @@ export class MapEditorPanel {
     spawnSelect.style.cssText = "flex:1;padding:4px;background:#181825;color:#eee;border:1px solid #444;border-radius:4px;font-size:12px;";
     spawnSelect.addEventListener("change", () => {
       this.portalDraft.targetSpawn = spawnSelect.value || "start1";
+      this.applyPortalDraftToSelected();
     });
     this.portalTargetSpawnSelect = spawnSelect;
     spawnRow.append(spawnLabel, spawnSelect);
@@ -2025,7 +2384,11 @@ export class MapEditorPanel {
       opt.textContent = d || "(auto)";
       dirSelect.appendChild(opt);
     }
-    dirSelect.addEventListener("change", () => { this.portalDraft.direction = dirSelect.value; });
+    dirSelect.addEventListener("change", () => {
+      this.portalDraft.direction = dirSelect.value;
+      this.applyPortalDraftToSelected();
+    });
+    this.portalDirectionSelect = dirSelect;
     dirRow.append(dirLabel, dirSelect);
 
     // Help text — clicking the map directly now starts placement
@@ -2067,6 +2430,7 @@ export class MapEditorPanel {
     onChange(placeholder); // set default
     inp.style.cssText = "flex:1;padding:4px;background:#181825;color:#eee;border:1px solid #444;border-radius:4px;font-size:12px;";
     inp.addEventListener("input", () => onChange(inp.value));
+    if (labelText === "Name:") this.portalNameInput = inp;
     row.append(lbl, inp);
     return row;
   }
@@ -2076,6 +2440,21 @@ export class MapEditorPanel {
     if (!mapData) return;
     if (this.mapNameInput) this.mapNameInput.value = mapData.name ?? "";
     if (this.mapMusicSelect) this.mapMusicSelect.value = mapData.musicUrl ?? "";
+    if (this.mapWeatherSelect) this.mapWeatherSelect.value = mapData.weatherMode ?? "clear";
+    if (this.mapWeatherIntensitySelect) {
+      this.mapWeatherIntensitySelect.value = mapData.weatherIntensity ?? "medium";
+    }
+    if (this.mapWeatherSfxCheck) {
+      this.mapWeatherSfxCheck.checked = !!mapData.weatherRainSfx;
+    }
+    if (this.mapWeatherLightningCheck) {
+      this.mapWeatherLightningCheck.checked = !!mapData.weatherLightningEnabled;
+    }
+    if (this.mapWeatherLightningChanceInput) {
+      this.mapWeatherLightningChanceInput.value = String(
+        mapData.weatherLightningChancePerSec ?? 0.03,
+      );
+    }
     if (this.mapCombatCheck) this.mapCombatCheck.checked = mapData.combatEnabled ?? false;
     if (this.mapCombatRangeInput) {
       this.mapCombatRangeInput.value = String(
@@ -2220,17 +2599,27 @@ export class MapEditorPanel {
       const row = document.createElement("div");
       row.style.cssText =
         "display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid #222;font-size:11px;";
+      row.style.cursor = "pointer";
 
       const info = document.createElement("span");
       info.style.flex = "1";
       info.textContent = `🚪 ${p.name} → ${p.targetMap}:${p.targetSpawn} (${p.x},${p.y} ${p.width}x${p.height})`;
+      if (this.selectedPortalIndex === i) {
+        info.style.color = "#7ee7ff";
+      }
 
       const delBtn = document.createElement("button");
       delBtn.textContent = "✕";
       delBtn.style.cssText = "background:none;border:none;color:#e74c3c;cursor:pointer;font-size:13px;";
-      delBtn.addEventListener("click", () => {
+      row.addEventListener("click", () => {
+        this.selectPortalForEditing(i);
+      });
+      delBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
         if (mapData && mapData.portals) {
           mapData.portals.splice(i, 1);
+          if (this.selectedPortalIndex === i) this.selectedPortalIndex = null;
+          else if (this.selectedPortalIndex != null && this.selectedPortalIndex > i) this.selectedPortalIndex--;
           if (this.game) this.game.currentPortals = mapData.portals;
           void this.refreshPortalList();
           this.game?.mapRenderer.renderPortalOverlay();
@@ -2244,7 +2633,22 @@ export class MapEditorPanel {
 
   /** Called from the canvas click handler when portal tool is active */
   private handlePortalClick(tileX: number, tileY: number) {
-    // Validate required fields
+    const mapData = this.game?.mapRenderer.getMapData();
+    if (!mapData) return;
+
+    // Priority: click existing portal to edit it.
+    if (!this.portalStart) {
+      const hitIdx = this.findPortalIndexAtTile(tileX, tileY);
+      if (hitIdx >= 0) {
+        this.selectPortalForEditing(hitIdx);
+        this.portalPlacing = false;
+        this.portalStart = null;
+        this.game?.mapRenderer.hidePortalGhost();
+        return;
+      }
+    }
+
+    // Validate required fields for creating a new portal.
     if (!this.portalDraft.name || !this.portalDraft.targetMap) {
       this.tileInfoEl.textContent = "⚠ Fill in Name and Target Map first";
       return;
@@ -2254,6 +2658,7 @@ export class MapEditorPanel {
       // First click = start corner
       this.portalStart = { tx: tileX, ty: tileY };
       this.portalPlacing = true;
+      this.selectedPortalIndex = null;
       this.tileInfoEl.textContent = `Portal start: (${tileX},${tileY}) — click to set end corner`;
     } else {
       // Second click = end corner
@@ -2275,24 +2680,77 @@ export class MapEditorPanel {
       };
 
       // Add to map data
-      const mapData = this.game?.mapRenderer.getMapData();
-      if (mapData) {
-        if (!mapData.portals) mapData.portals = [];
-        mapData.portals.push(portal);
-        // Also update Game's runtime portals
-        if (this.game) {
-          this.game.currentPortals = mapData.portals;
-        }
+      if (!mapData.portals) mapData.portals = [];
+      mapData.portals.push(portal);
+      // Also update Game's runtime portals
+      if (this.game) {
+        this.game.currentPortals = mapData.portals;
       }
 
       this.portalPlacing = false;
       this.portalStart = null;
+      this.selectedPortalIndex = mapData.portals.length - 1;
       this.tileInfoEl.textContent = `Portal "${portal.name}" placed at (${x},${y}) ${w}x${h}`;
       void this.refreshPortalList();
       // Update the visual overlay + hide ghost
       this.game?.mapRenderer.renderPortalOverlay();
       this.game?.mapRenderer.hidePortalGhost();
     }
+  }
+
+  private findPortalIndexAtTile(tileX: number, tileY: number): number {
+    const portals = this.game?.mapRenderer.getMapData()?.portals ?? [];
+    return portals.findIndex((p) =>
+      tileX >= p.x && tileX < p.x + p.width &&
+      tileY >= p.y && tileY < p.y + p.height
+    );
+  }
+
+  private selectPortalForEditing(index: number) {
+    const mapData = this.game?.mapRenderer.getMapData();
+    const portal = mapData?.portals?.[index];
+    if (!mapData || !portal) return;
+
+    this.selectedPortalIndex = index;
+    this.portalDraft.name = portal.name ?? "";
+    this.portalDraft.targetMap = portal.targetMap ?? "";
+    this.portalDraft.targetSpawn = portal.targetSpawn ?? "start1";
+    this.portalDraft.direction = portal.direction ?? "";
+    this.portalDraft.transition = portal.transition ?? "fade";
+
+    if (this.portalNameInput) this.portalNameInput.value = this.portalDraft.name;
+    if (this.portalTargetMapSelect) this.portalTargetMapSelect.value = this.portalDraft.targetMap;
+    void this.refreshPortalTargetSpawnOptions(this.portalDraft.targetMap).then(() => {
+      if (this.portalTargetSpawnSelect) {
+        this.portalTargetSpawnSelect.value = this.portalDraft.targetSpawn;
+      }
+    });
+    if (this.portalDirectionSelect) this.portalDirectionSelect.value = this.portalDraft.direction;
+
+    this.tileInfoEl.textContent =
+      `Editing portal "${portal.name}" (${portal.x},${portal.y} ${portal.width}x${portal.height})`;
+    void this.refreshPortalList();
+  }
+
+  private applyPortalDraftToSelected() {
+    if (this.selectedPortalIndex == null) return;
+    const mapData = this.game?.mapRenderer.getMapData();
+    if (!mapData?.portals || this.selectedPortalIndex < 0 || this.selectedPortalIndex >= mapData.portals.length) {
+      this.selectedPortalIndex = null;
+      return;
+    }
+    const existing = mapData.portals[this.selectedPortalIndex];
+    mapData.portals[this.selectedPortalIndex] = {
+      ...existing,
+      name: this.portalDraft.name,
+      targetMap: this.portalDraft.targetMap,
+      targetSpawn: this.portalDraft.targetSpawn || "start1",
+      direction: this.portalDraft.direction || undefined,
+      transition: this.portalDraft.transition || "fade",
+    };
+    if (this.game) this.game.currentPortals = mapData.portals;
+    this.game?.mapRenderer.renderPortalOverlay();
+    void this.refreshPortalList();
   }
 
   /** Remove the portal at the clicked tile position */
@@ -2313,6 +2771,8 @@ export class MapEditorPanel {
 
     if (idx >= 0) {
       const removed = mapData.portals.splice(idx, 1)[0];
+      if (this.selectedPortalIndex === idx) this.selectedPortalIndex = null;
+      else if (this.selectedPortalIndex != null && this.selectedPortalIndex > idx) this.selectedPortalIndex--;
       // Update Game's runtime portals
       if (this.game) {
         this.game.currentPortals = mapData.portals;
@@ -2551,6 +3011,11 @@ export class MapEditorPanel {
       };
       if (mapData.animationUrl != null) saveArgs.animationUrl = mapData.animationUrl;
       if (mapData.musicUrl != null) saveArgs.musicUrl = mapData.musicUrl;
+      if (mapData.weatherMode != null) saveArgs.weatherMode = mapData.weatherMode;
+      if (mapData.weatherIntensity != null) saveArgs.weatherIntensity = mapData.weatherIntensity;
+      if (mapData.weatherRainSfx != null) saveArgs.weatherRainSfx = mapData.weatherRainSfx;
+      if (mapData.weatherLightningEnabled != null) saveArgs.weatherLightningEnabled = mapData.weatherLightningEnabled;
+      if (mapData.weatherLightningChancePerSec != null) saveArgs.weatherLightningChancePerSec = mapData.weatherLightningChancePerSec;
       if (mapData.combatEnabled != null) saveArgs.combatEnabled = mapData.combatEnabled;
       if (mapData.combatSettings != null) saveArgs.combatSettings = mapData.combatSettings;
       if (mapData.status != null) saveArgs.status = mapData.status;
@@ -2569,9 +3034,9 @@ export class MapEditorPanel {
             layer: o.layer,
           };
           if (o.instanceName) obj.instanceName = o.instanceName;
-          // Send existingId for objects loaded from Convex (they have non-UUID ids).
-          // This lets bulkSave patch them in place, preserving runtime state (isOn).
-          if (o.id && !o.id.includes("-")) obj.existingId = o.id;
+          // Send existingId for objects loaded from Convex so bulkSave patches in place.
+          const existingId = this.getPersistedMapObjectId(o);
+          if (existingId) obj.existingId = existingId;
           return obj;
         }),
       } as any);
@@ -2611,6 +3076,7 @@ export class MapEditorPanel {
       const objs = await convex.query(api.mapObjects.listByMap, { mapName });
       this.placedObjects = objs.map((o: any) => ({
         id: o._id,
+        sourceId: o._id,
         spriteDefName: o.spriteDefName,
         instanceName: o.instanceName,
         x: o.x,
