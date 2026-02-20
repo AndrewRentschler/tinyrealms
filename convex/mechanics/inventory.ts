@@ -29,11 +29,12 @@ export const addItem = mutation({
         profileId,
         slots: [{ itemDefName, quantity, metadata: {} }],
       });
-      await ctx.runMutation(internal.quests.recordItemProgress, {
-        profileId,
-        itemDefName,
-        quantity,
-      });
+      // TODO: Uncomment this when quests are implemented
+      // await ctx.runMutation(internal.quests.recordItemProgress, {
+      //   profileId,
+      //   itemDefName,
+      //   quantity,
+      // });
       return id;
     }
 
@@ -56,11 +57,12 @@ export const addItem = mutation({
     }
 
     await ctx.db.patch(inv._id, { slots });
-    await ctx.runMutation(internal.quests.recordItemProgress, {
-      profileId,
-      itemDefName,
-      quantity,
-    });
+    // TODO: Uncomment this when quests are implemented
+    // await ctx.runMutation(internal.quests.recordItemProgress, {
+    //   profileId,
+    //   itemDefName,
+    //   quantity,
+    // });
     return inv._id;
   },
 });

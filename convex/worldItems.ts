@@ -1,8 +1,8 @@
-import { v } from "convex/values";
-import { mutation, query, internalMutation } from "./_generated/server";
-import { internal } from "./_generated/api";
-import { requireSuperuser } from "./lib/requireSuperuser";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { v } from "convex/values";
+import { internal } from "./_generated/api";
+import { internalMutation, mutation, query } from "./_generated/server";
+import { requireSuperuser } from "./lib/requireSuperuser";
 
 // ---------------------------------------------------------------------------
 // Queries
@@ -25,7 +25,10 @@ export const listByMap = query({
     for (const d of allDefs) {
       if (!defNames.includes(d.name)) continue;
       defsMap[d.name] = d;
-      if (typeof (d as any).iconSpriteDefName === "string" && (d as any).iconSpriteDefName.length > 0) {
+      if (
+        typeof (d as any).iconSpriteDefName === "string" &&
+        (d as any).iconSpriteDefName.length > 0
+      ) {
         iconSpriteDefNames.add((d as any).iconSpriteDefName);
       }
     }
@@ -106,7 +109,7 @@ export const bulkSave = mutation({
         quantity: v.optional(v.number()),
         respawn: v.optional(v.boolean()),
         respawnMs: v.optional(v.number()),
-      })
+      }),
     ),
   },
   handler: async (ctx, { profileId, mapName, items }) => {
@@ -120,7 +123,7 @@ export const bulkSave = mutation({
     const existingById = new Map(existing.map((e) => [String(e._id), e]));
     const incomingIds = new Set(
       items
-        .map((i) => i.sourceId ? String(i.sourceId) : null)
+        .map((i) => (i.sourceId ? String(i.sourceId) : null))
         .filter((id): id is string => id !== null),
     );
 
@@ -198,7 +201,10 @@ export const pickup = mutation({
     const profile = await ctx.db.get(profileId);
     if (!profile) return { success: false, reason: "Profile not found" };
     if (profile.userId !== userId) {
-      return { success: false, reason: "Cannot pick up items for another profile" };
+      return {
+        success: false,
+        reason: "Cannot pick up items for another profile",
+      };
     }
 
     const items = [...profile.items];
@@ -211,11 +217,12 @@ export const pickup = mutation({
     await ctx.db.patch(profileId, { items });
 
     // Quest progress: item pickup/objective tracking.
-    await ctx.runMutation(internal.quests.recordItemProgress, {
-      profileId,
-      itemDefName: worldItem.itemDefName,
-      quantity: worldItem.quantity,
-    });
+    // TODO: Uncomment this when quests are implemented
+    // await ctx.runMutation(internal.quests.recordItemProgress, {
+    //   profileId,
+    //   itemDefName: worldItem.itemDefName,
+    //   quantity: worldItem.quantity,
+    // });
 
     // Mark as picked up (or delete if non-respawning)
     if (worldItem.respawn) {
