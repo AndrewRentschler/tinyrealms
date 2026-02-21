@@ -95,7 +95,11 @@ export default defineSchema({
     creatorProfileId: v.optional(v.id("profiles")),
     createdBy: v.optional(v.id("users")), // user who created this map (for ownership checks)
     updatedAt: v.number(),
-  }).index("by_name", ["name"]),
+  })
+    .index("by_name", ["name"])
+    .index("by_status", ["status"])
+    .index("by_mapType", ["mapType"])
+    .index("by_createdBy", ["createdBy"]),
 
   // ---------------------------------------------------------------------------
   // Global weather controller (singleton row keyed by "global")
@@ -192,7 +196,8 @@ export default defineSchema({
   })
     .index("by_name", ["name"])
     .index("by_visibilityType", ["visibilityType"])
-    .index("by_createdByUser", ["createdByUser"]),
+    .index("by_createdByUser", ["createdByUser"])
+    .index("by_category", ["category"]),
 
   // ---------------------------------------------------------------------------
   // NPC profiles (identity, backstory, personality — for LLM feeding)
@@ -299,7 +304,8 @@ export default defineSchema({
   })
     .index("by_map", ["mapName"])
     .index("by_map_sprite", ["mapName", "spriteDefName"])
-    .index("by_storage", ["storageId"]),
+    .index("by_storage", ["storageId"])
+    .index("by_instanceName", ["instanceName"]),
 
   // ---------------------------------------------------------------------------
   // Storages (item containers for map objects and banks)
@@ -607,7 +613,11 @@ export default defineSchema({
     .index("by_key", ["key"])
     .index("by_sourceType", ["sourceType"])
     .index("by_offeredByNpc", ["offeredByNpcInstanceName"])
-    .index("by_enabled", ["enabled"]),
+    .index("by_enabled", ["enabled"])
+    .index("by_sourceType_and_offeredByNpc", [
+      "sourceType",
+      "offeredByNpcInstanceName",
+    ]),
 
   playerQuests: defineTable({
     profileId: v.id("profiles"),
@@ -686,7 +696,9 @@ export default defineSchema({
     discoverable: v.boolean(),
     discoveredBy: v.array(v.id("profiles")),
     draft: v.optional(v.boolean()),
-  }).index("by_key", ["key"]),
+  })
+    .index("by_key", ["key"])
+    .index("by_category", ["category"]),
 
   storyEvents: defineTable({
     mapId: v.optional(v.id("maps")),
