@@ -9,6 +9,8 @@
 
 This document aggregates findings from a parallel review of the Tiny Realms Convex setup. Findings are appended as subagents complete their analysis.
 
+**Related:** See [CONVEX_VALIDATOR_TYPE_HARDENING_CHECKLIST.md](./CONVEX_VALIDATOR_TYPE_HARDENING_CHECKLIST.md) for the baseline snapshot and progress tracking for validator/type hardening work.
+
 ---
 
 ## 1. Query Anti-Patterns
