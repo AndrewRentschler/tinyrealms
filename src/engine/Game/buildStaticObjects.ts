@@ -1,4 +1,4 @@
-import type { SpriteDefInfo } from "../ObjectLayer.ts";
+import type { SpriteDefInfo } from "../ObjectLayer/index.ts";
 
 /** Map object from Convex (mapObjects table). */
 export interface MapObjectRow {

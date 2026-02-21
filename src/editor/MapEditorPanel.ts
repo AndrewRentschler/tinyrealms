@@ -3,7 +3,7 @@
  * layer panel, tileset picker, object picker, and canvas painting.
  */
 import { api } from "../../convex/_generated/api";
-import type { SpriteDefInfo } from "../engine/ObjectLayer.ts";
+import type { SpriteDefInfo } from "../engine/ObjectLayer/index.ts";
 import type { Game } from "../engine/Game/index.ts";
 import { getConvexClient } from "../lib/convexClient.ts";
 // TODO: Uncomment this when music is implemented

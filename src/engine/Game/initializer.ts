@@ -1,7 +1,7 @@
 import type { Game } from "./index.ts";
 import { MapRenderer } from "../MapRenderer/index.ts";
 import { EntityLayer } from "../EntityLayer/index.ts";
-import { ObjectLayer } from "../ObjectLayer.ts";
+import { ObjectLayer } from "../ObjectLayer/index.ts";
 import { WorldItemLayer } from "../WorldItemLayer.ts";
 import { WeatherLayer } from "../WeatherLayer.ts";
 import { GAME_BACKGROUND } from "../../constants/colors.ts";
