@@ -102,7 +102,7 @@ export class MapBrowser {
     try {
       const convex = getConvexClient();
       this.maps = (await convex.query(
-        api.maps.listSummaries,
+        api.maps.queries.listSummaries,
         {},
       )) as MapSummary[];
       this.render();
@@ -475,7 +475,7 @@ export class MapBrowser {
 
       try {
         const convex = getConvexClient();
-        await convex.mutation(api.maps.create, {
+        await convex.mutation(api.maps.mutations.create, {
           profileId: this.callbacks.getProfileId() as Id<"profiles">,
           name,
           width: parseInt(widthInput.value) || 30,

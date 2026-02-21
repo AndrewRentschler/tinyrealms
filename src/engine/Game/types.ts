@@ -66,6 +66,8 @@ export interface IGame {
   aggroResolving: boolean;
   lastAggroTickAt: number;
   activeCombatNotifications: HTMLDivElement[];
+  accessingStorage?: boolean;
+  storagePanel: import("../../ui/StoragePanel.ts").StoragePanel | null;
 
   loadMap(mapData: MapData): Promise<void>;
   applyWeatherFromMap(mapData: MapData): void;

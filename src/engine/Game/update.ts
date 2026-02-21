@@ -6,6 +6,7 @@ import { handleCombatInput } from "./handleCombatInput.ts";
 import { handleHostileAggroTick } from "./handleHostileAggroTick.ts";
 import { handleItemPickup } from "./handleItemPickup.ts";
 import { handleObjectToggle } from "./handleObjectToggle.ts";
+import { handleStorageInteraction } from "./handleStorageInteraction.ts";
 
 /**
  * Main game loop update. Called every frame.
@@ -29,7 +30,12 @@ export function update(game: IGame): void {
       void handleCombatInput(game);
       void handleHostileAggroTick(game);
       if (!game.objectLayer.getNearestToggleableId()) {
-        void handleItemPickup(game);
+        // Check for storage interaction first (more specific than item pickup)
+        handleStorageInteraction(game);
+        // Only allow item pickup if not accessing storage
+        if (!(game as IGame & { accessingStorage?: boolean }).accessingStorage) {
+          void handleItemPickup(game);
+        }
       } else {
         void handleObjectToggle(game);
       }

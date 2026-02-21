@@ -53,7 +53,7 @@ export class AuthManager {
   async validateSession(): Promise<boolean> {
     if (!this.token) return false;
     try {
-      const user = await this.client.query(api.admin.currentUser, {});
+      const user = await this.client.query(api.admin.users.currentUser, {});
       if (user) return true;
     } catch {
       // Fall through to clear local token state

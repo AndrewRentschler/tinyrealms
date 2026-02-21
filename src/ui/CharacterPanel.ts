@@ -530,7 +530,7 @@ export class CharacterPanel {
     if (!this.profile) return;
     try {
       const convex = getConvexClient();
-      const rows = await convex.query((api as any).quests.listHistory, {
+      const rows = await convex.query(api["story/quests"].listHistory, {
         profileId: this.profile._id as Id<"profiles">,
         status: "completed",
       });
@@ -681,7 +681,7 @@ export class CharacterPanel {
     this.consumingItem = true;
     const convex = getConvexClient();
     try {
-      const result = await convex.mutation((api as any).profiles.consumeConsumable, {
+      const result = await convex.mutation(api.profiles.consumeConsumable, {
         id: this.profile._id as Id<"profiles">,
         itemName,
       });

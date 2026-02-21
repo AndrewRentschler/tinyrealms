@@ -104,7 +104,37 @@ Collision integration:
 - `ObjectLayer` sends changes via callback
 - `MapRenderer` applies collision overrides at runtime
 
-## 6) Permissions
+## 6) Storage-Enabled Objects
+
+Objects can optionally have item storage (chests, barrels, etc.).
+
+### Creating Storage Objects
+
+1. In sprite definition or editor, enable "Has Storage"
+2. Set capacity (number of slots)
+3. Set owner type: "public" (shared) or "player" (private)
+4. Place object and save
+
+### Runtime Behavior
+
+- Press E near storage object to open
+- Storage UI shows contents and player inventory
+- Click items to transfer
+- Capacity enforced server-side
+
+### Backend Tables
+
+- `storages`: Contains slots, capacity, owner
+- `mapObjects.storageId`: Links to storage
+
+### API
+
+- `storage.create` — Create storage instance
+- `storage.get` — Fetch storage contents
+- `storage.deposit` — Move item to storage
+- `storage.withdraw` — Move item from storage
+
+## 7) Permissions
 
 Object definition permissions (`spriteDefinitions`):
 
@@ -117,7 +147,7 @@ Map object placement permissions (`mapObjects`):
 - superuser, map owner, or map editor (profile listed in map editors)
 - enforced server-side on placement and bulk-save operations
 
-## 7) Save Pipeline and State Safety
+## 8) Save Pipeline and State Safety
 
 Object save uses bulk semantics:
 
@@ -134,7 +164,7 @@ Build mode safety:
 
 - live subscription churn is guarded so unsaved drafts are less likely to be clobbered.
 
-## 8) Common Gotchas
+## 9) Common Gotchas
 
 - Toggle and door modes should not be mixed on the same definition
 - Wrong animation keys cause invisible/incorrect states
@@ -143,7 +173,7 @@ Build mode safety:
 - Layer choice affects draw order; verify overlay objects render above entities
 - Private sprite definitions are only visible to owners
 
-## 9) Debug Checklist
+## 10) Debug Checklist
 
 If object behavior is wrong:
 

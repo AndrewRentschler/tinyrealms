@@ -3,7 +3,8 @@
  * These are static or animated sprites placed via the editor's object tool.
  * Supports toggleable on/off state (e.g. fireplaces, lamps) with glow + prompt.
  */
-import { Container, AnimatedSprite, Text } from "pixi.js";
+import { Container, AnimatedSprite, Text, Graphics } from "pixi.js";
+import type { Id } from "../../../convex/_generated/dataModel";
 import type { Spritesheet } from "pixi.js";
 import type { AudioManager } from "../AudioManager/index.ts";
 import type {
@@ -37,6 +38,7 @@ import { parentForLayer } from "./parentForLayer.ts";
 import { updateAmbientVolumes as updateAmbientVolumesFn } from "./updateAmbientVolumes.ts";
 import { refreshSoundsForDef as refreshSoundsForDefFn } from "./refreshSoundsForDef.ts";
 import { updateToggleAndAmbient as updateToggleAndAmbientFn } from "./updateToggleAndAmbient.ts";
+import { updateStorageInteraction as updateStorageInteractionFn } from "./updateStorageInteraction.ts";
 
 export class ObjectLayer {
   /** Main container for obj-layer objects (y-sorted, same tier as entities) */
@@ -132,6 +134,8 @@ export class ObjectLayer {
     updateToggleAndAmbientFn(ctx, dt, playerX, playerY);
     this.elapsed = ctx.elapsed;
     this.nearestToggleable = ctx.nearestToggleable;
+    // Also update storage interaction hints
+    updateStorageInteractionFn(ctx, playerX, playerY);
   }
 
   private getLayerContext(): ObjectLayerContext {
@@ -266,6 +270,40 @@ export class ObjectLayer {
     }
     this.rendered = [];
     this.nearestToggleable = null;
+  }
+
+  /**
+   * Find nearby storage object within range of player position.
+   * Returns the first storage object found within rangePx, or null if none.
+   */
+  findNearbyStorage(playerX: number, playerY: number, rangePx: number = 48): RenderedObject | null {
+    for (const obj of this.rendered) {
+      if (obj.storageId) {
+        const dx = obj.x - playerX;
+        const dy = obj.y - playerY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist <= rangePx) {
+          return obj;
+        }
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Check if object has storage capability.
+   */
+  hasStorage(objectId: string): boolean {
+    const obj = this.rendered.find((r) => r.id === objectId);
+    return !!obj?.storageId;
+  }
+
+  /**
+   * Get storage ID for object.
+   */
+  getStorageId(objectId: string): Id<"storages"> | undefined {
+    const obj = this.rendered.find((r) => r.id === objectId);
+    return obj?.storageId;
   }
 
   destroy() {

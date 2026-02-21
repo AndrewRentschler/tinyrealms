@@ -63,6 +63,11 @@ export const PROMPT_OPEN = `${INTERACT_PROMPT_PREFIX}Open`;
 export const PROMPT_CLOSE = `${INTERACT_PROMPT_PREFIX}Close`;
 export const PROMPT_TURN_ON = `${INTERACT_PROMPT_PREFIX}Turn On`;
 export const PROMPT_TURN_OFF = `${INTERACT_PROMPT_PREFIX}Turn Off`;
+export const PROMPT_STORAGE = `${INTERACT_PROMPT_PREFIX}Open`;
+
+/** Pixels — range for storage interaction */
+export const STORAGE_INTERACT_RADIUS = 48;
+export const STORAGE_INTERACT_RADIUS_SQ = STORAGE_INTERACT_RADIUS * STORAGE_INTERACT_RADIUS;
 
 /** Prompt anchor (0.5 = center x, 1 = bottom y) */
 export const PROMPT_ANCHOR_X = 0.5;
