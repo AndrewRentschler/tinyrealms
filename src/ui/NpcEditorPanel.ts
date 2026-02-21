@@ -1923,22 +1923,16 @@ export class NpcEditorPanel {
         return;
       }
 
-      const result = await convex.action(api.npc.chat.chatTurn, {
+      const result = await convex.action(api.npc.braintrust.generateResponse, {
         npcProfileName: profile.name,
-        userMessage: message,
-        mapName: this.selected.mapName,
-        actorProfileId: this.game.profile._id as Id<"profiles">,
+        playerMessage: message,
       });
 
-      const accepted = !!(result as any)?.accepted;
-      const reply = String((result as any)?.reply ?? "").trim();
-      const reason = (result as any)?.reason ? String((result as any).reason) : "";
-      this.aiTestResultArea.value = accepted
-        ? reply || "(No reply text)"
-        : `Rejected: ${reason || "unknown"}\n${reply || ""}`.trim();
+      const reply = String((result as { response?: string })?.response ?? "").trim();
+      this.aiTestResultArea.value = reply || "(No reply text)";
       await this.loadConversationHistory();
-      this.statusEl.textContent = accepted ? "AI test OK" : "AI test rejected";
-      this.statusEl.style.color = accepted ? "var(--success)" : "var(--warning)";
+      this.statusEl.textContent = "AI test OK";
+      this.statusEl.style.color = "var(--success)";
     } catch (err: any) {
       const msg = err?.message || "AI test failed";
       this.aiTestResultArea.value = msg;

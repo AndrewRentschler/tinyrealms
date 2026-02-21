@@ -773,7 +773,7 @@ export class EntityLayer {
           ? createAiChatSplash({
               ...props,
               npcName: mode.npcName,
-              onSend: (message) =>
+              onSend: (message: string) =>
                 this.npcDialogueController.sendAiMessage({
                   npcProfileName: mode.npcProfileName,
                   userMessage: message,

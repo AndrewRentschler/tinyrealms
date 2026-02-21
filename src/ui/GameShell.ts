@@ -2,17 +2,18 @@
  * GameShell – creates the PixiJS canvas, initialises the Game engine,
  * and hosts all overlay UI panels (HUD, ModeToggle, ChatPanel, editors).
  */
-import { Game } from "../engine/Game.ts";
-import { HUD } from "./HUD.ts";
-import { ModeToggle } from "./ModeToggle.ts";
-import { ChatPanel } from "./ChatPanel.ts";
-import { MapBrowser } from "./MapBrowser.ts";
 import { MapEditorPanel } from "../editor/MapEditorPanel.ts";
+import { Game } from "../engine/Game.ts";
 import { SpriteEditorPanel } from "../sprited/SpriteEditorPanel.ts";
 import { CharacterPanel } from "./CharacterPanel.ts";
-import { NpcEditorPanel } from "./NpcEditorPanel.ts";
+import { ChatPanel } from "./ChatPanel.ts";
+import { HUD } from "./HUD.ts";
 import { ItemEditorPanel } from "./ItemEditorPanel.ts";
-import { QuestEditorPanel } from "./QuestEditorPanel.ts";
+import { MapBrowser } from "./MapBrowser.ts";
+import { ModeToggle } from "./ModeToggle.ts";
+import { NpcEditorPanel } from "./NpcEditorPanel.ts";
+//TODO: Uncomment this when quests are implemented
+// import { QuestEditorPanel } from "./QuestEditorPanel.ts";
 import type { AppMode, ProfileData } from "../engine/types.ts";
 import "./GameShell.css";
 
@@ -32,7 +33,8 @@ export class GameShell {
   private spriteEditor!: SpriteEditorPanel;
   private npcEditor!: NpcEditorPanel;
   private itemEditor!: ItemEditorPanel;
-  private questEditor!: QuestEditorPanel;
+  // TODO: Uncomment this when quests are implemented
+  // private questEditor!: QuestEditorPanel;
   private characterPanel!: CharacterPanel;
 
   private muteKeyHandler: ((e: KeyboardEvent) => void) | null = null;
@@ -58,7 +60,7 @@ export class GameShell {
     } catch (err) {
       console.error("Game initialization failed:", err);
       this.showError(
-        err instanceof Error ? err.message : "Failed to initialize game engine"
+        err instanceof Error ? err.message : "Failed to initialize game engine",
       );
     }
   }
@@ -149,9 +151,10 @@ export class GameShell {
       this.el.appendChild(this.itemEditor.el);
 
       // Quest editor panel (quest-edit mode only)
-      this.questEditor = new QuestEditorPanel();
-      this.questEditor.setGame(game);
-      this.el.appendChild(this.questEditor.el);
+      // TODO: Uncomment this when quests are implemented
+      // this.questEditor = new QuestEditorPanel();
+      // this.questEditor.setGame(game);
+      // this.el.appendChild(this.questEditor.el);
 
       // Character panel (available in play mode)
       this.characterPanel = new CharacterPanel();
@@ -176,7 +179,8 @@ export class GameShell {
     this.spriteEditor?.toggle(this.mode === "sprite-edit");
     this.npcEditor?.toggle(this.mode === "npc-edit");
     this.itemEditor?.toggle(this.mode === "item-edit");
-    this.questEditor?.toggle(this.mode === "quest-edit");
+    // TODO: Uncomment this when quests are implemented
+    // this.questEditor?.toggle(this.mode === "quest-edit");
     this.characterPanel?.toggle(this.mode === "play");
   }
 
@@ -202,8 +206,12 @@ export class GameShell {
     this.el.appendChild(wrap);
   }
 
-  show() { this.el.style.display = ""; }
-  hide() { this.el.style.display = "none"; }
+  show() {
+    this.el.style.display = "";
+  }
+  hide() {
+    this.el.style.display = "none";
+  }
 
   destroy() {
     if (this.muteKeyHandler) {

@@ -1,11 +1,12 @@
 /**
  * MapBrowser – overlay to browse, travel to, and create maps.
  */
-import { getConvexClient } from "../lib/convexClient.ts";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { MAP_BROWSER_TILESET_OPTIONS } from "../config/tilesheet-config.ts";
-import { MUSIC_OPTIONS } from "../config/music-config.ts";
+import { getConvexClient } from "../lib/convexClient.ts";
+// TODO: Uncomment this when music is implemented
+// import { MUSIC_OPTIONS } from "../config/music-config.ts";
 import "./MapBrowser.css";
 
 // Available tilesets for the "New Map" form
@@ -95,11 +96,15 @@ export class MapBrowser {
   }
 
   private async refresh() {
-    this.bodyEl.innerHTML = '<div style="padding:20px;text-align:center;color:#888;">Loading maps...</div>';
+    this.bodyEl.innerHTML =
+      '<div style="padding:20px;text-align:center;color:#888;">Loading maps...</div>';
 
     try {
       const convex = getConvexClient();
-      this.maps = (await convex.query(api.maps.listSummaries, {})) as MapSummary[];
+      this.maps = (await convex.query(
+        api.maps.listSummaries,
+        {},
+      )) as MapSummary[];
       this.render();
     } catch (err) {
       this.bodyEl.innerHTML = `<div style="padding:20px;color:#e74c3c;">Failed to load maps: ${err}</div>`;
@@ -111,7 +116,8 @@ export class MapBrowser {
     const currentMap = this.callbacks.getCurrentMap();
 
     if (this.maps.length === 0) {
-      this.bodyEl.innerHTML = '<div style="padding:20px;text-align:center;color:#888;">No maps yet. Create one below!</div>';
+      this.bodyEl.innerHTML =
+        '<div style="padding:20px;text-align:center;color:#888;">No maps yet. Create one below!</div>';
     } else {
       const legend = document.createElement("div");
       legend.className = "map-visibility-legend";
@@ -132,7 +138,12 @@ export class MapBrowser {
         // Icon
         const iconEl = document.createElement("div");
         iconEl.className = "map-card-icon";
-        iconEl.textContent = m.mapType === "system" ? "\uD83C\uDFE0" : m.combatEnabled ? "\u2694" : "\uD83D\uDDFA"; // 🏠⚔🗺
+        iconEl.textContent =
+          m.mapType === "system"
+            ? "\uD83C\uDFE0"
+            : m.combatEnabled
+              ? "\u2694"
+              : "\uD83D\uDDFA"; // 🏠⚔🗺
 
         // Info
         const info = document.createElement("div");
@@ -183,7 +194,8 @@ export class MapBrowser {
         // Type controls: owners can set public/private on their own maps.
         // System maps can only be changed by superusers via CLI.
         const isSystemMap = m.mapType === "system";
-        const canEditType = !isSystemMap && (!!m.ownedByCurrentUser || this.callbacks.isAdmin);
+        const canEditType =
+          !isSystemMap && (!!m.ownedByCurrentUser || this.callbacks.isAdmin);
         if (canEditType) {
           const typeWrap = document.createElement("div");
           typeWrap.className = "map-card-badges";
@@ -380,7 +392,8 @@ export class MapBrowser {
 
     // Tile size indicator (read-only, derived from tileset)
     const tileSizeEl = document.createElement("div");
-    tileSizeEl.style.cssText = "font-size:11px;color:var(--text-muted);margin-top:4px;";
+    tileSizeEl.style.cssText =
+      "font-size:11px;color:var(--text-muted);margin-top:4px;";
     const updateTileSizeDisplay = () => {
       const sel = tsSelect.options[tsSelect.selectedIndex];
       tileSizeEl.textContent = `Tile size: ${sel.dataset.tw}×${sel.dataset.th}px`;
@@ -396,12 +409,13 @@ export class MapBrowser {
     musicLabel.className = "full-width";
     musicLabel.textContent = "Background Music";
     const musicSelect = document.createElement("select");
-    for (const m of MUSIC_OPTIONS) {
-      const opt = document.createElement("option");
-      opt.value = m.url;
-      opt.textContent = m.label;
-      musicSelect.appendChild(opt);
-    }
+    // TODO: Uncomment this when music is implemented
+    // for (const m of MUSIC_OPTIONS) {
+    //   const opt = document.createElement("option");
+    //   opt.value = m.url;
+    //   opt.textContent = m.label;
+    //   musicSelect.appendChild(opt);
+    // }
     musicLabel.appendChild(musicSelect);
 
     // Combat toggle
@@ -448,7 +462,8 @@ export class MapBrowser {
 
       const selectedTileset = tsSelect.options[tsSelect.selectedIndex];
       // Use Fantasy Interior as fallback when no tileset is explicitly picked
-      const tilesetUrl = tsSelect.value || "/assets/tilesets/fantasy-interior.png";
+      const tilesetUrl =
+        tsSelect.value || "/assets/tilesets/fantasy-interior.png";
       const tilesetPxW = parseInt(selectedTileset.dataset.pw ?? "768");
       const tilesetPxH = parseInt(selectedTileset.dataset.ph ?? "7056");
       // Tile size is derived from the tileset — not user-editable
@@ -493,7 +508,8 @@ export class MapBrowser {
 
     form.append(
       nameLabel,
-      widthLabel, heightLabel,
+      widthLabel,
+      heightLabel,
       tsLabel,
       musicLabel,
       combatLabel,
