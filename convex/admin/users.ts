@@ -27,7 +27,7 @@ async function deleteUserAuthData(
   }
   const accounts = await ctx.db
     .query("authAccounts")
-    .filter((q) => q.eq(q.field("userId"), userId))
+    .withIndex("userIdAndProvider", (q) => q.eq("userId", userId))
     .collect();
   for (const a of accounts) await ctx.db.delete(a._id);
   return { sessions: sessions.length, accounts: accounts.length };
@@ -116,8 +116,9 @@ export const removeProfile = mutation({
     if (!user) throw new Error(`No user found with email "${email}"`);
     const profile = await ctx.db
       .query("profiles")
-      .withIndex("by_user", (q) => q.eq("userId", user._id))
-      .filter((q) => q.eq(q.field("name"), name))
+      .withIndex("by_user_and_name", (q) =>
+        q.eq("userId", user._id).eq("name", name)
+      )
       .first();
     if (!profile) throw new Error(`No profile "${name}" found for "${email}"`);
     const presenceRows = await ctx.db
@@ -226,7 +227,7 @@ export const myAccountInfo = query({
     if (!user) return null;
     const accounts = await ctx.db
       .query("authAccounts")
-      .filter((q) => q.eq(q.field("userId"), userId))
+      .withIndex("userIdAndProvider", (q) => q.eq("userId", userId))
       .collect();
     const providers = accounts.map((a) => (a as { provider: string }).provider);
     const profiles = await ctx.db

@@ -143,7 +143,7 @@ export const removeUser = mutation({
     // Remove auth accounts
     const accounts = await ctx.db
       .query("authAccounts")
-      .filter((q: any) => q.eq(q.field("userId"), user._id))
+      .withIndex("userIdAndProvider", (q) => q.eq("userId", user._id))
       .collect();
     for (const a of accounts) await ctx.db.delete(a._id);
 
@@ -221,8 +221,9 @@ export const setMapEditors = mutation({
       if (!user) continue;
       const p = await ctx.db
         .query("profiles")
-        .withIndex("by_user", (q) => q.eq("userId", user._id))
-        .filter((q) => q.eq(q.field("name"), spec.name))
+        .withIndex("by_user_and_name", (q) =>
+          q.eq("userId", user._id).eq("name", spec.name)
+        )
         .first();
       if (p) editorIds.push(p._id);
     }

@@ -373,7 +373,8 @@ export default defineSchema({
     createdAt: v.number(),
   })
     .index("by_name", ["name"])
-    .index("by_user", ["userId"]),
+    .index("by_user", ["userId"])
+    .index("by_user_and_name", ["userId", "name"]),
 
   // ---------------------------------------------------------------------------
   // Players (auth-linked – kept for future real auth)
