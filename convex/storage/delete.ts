@@ -14,6 +14,18 @@ export default mutation({
     const storage = await ctx.db.get(storageId);
     if (!storage) return { success: false, reason: "Storage not found" };
 
+    // Check ownership for player-owned storage
+    if (storage.ownerType === "player") {
+      if (!storage.ownerId) {
+        return { success: false, reason: "Invalid storage configuration" };
+      }
+      const profile = await ctx.db.get(storage.ownerId);
+      if (!profile || profile.userId !== userId) {
+        return { success: false, reason: "Access denied" };
+      }
+    }
+    // Public storage can be deleted by any authenticated user (for cleanup purposes)
+
     // Check if storage has items
     if (storage.slots.length > 0) {
       return { success: false, reason: "Cannot delete non-empty storage" };
