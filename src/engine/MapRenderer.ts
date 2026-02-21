@@ -1,7 +1,32 @@
-import { Container, Sprite, Texture, Rectangle, Assets, Graphics, Text, TextStyle } from "pixi.js";
+import { Container, Sprite, Texture, Rectangle, Graphics } from "pixi.js";
 import type { Game } from "./Game.ts";
-import type { MapData, MapLayer, Portal, MapLabel } from "./types.ts";
+import type { MapData, MapLayer } from "./types.ts";
 import { TileAnimator } from "./animations/TileAnimator.ts";
+import { renderLayer } from "./MapRenderer/renderLayer.ts";
+import { loadTilesetTexture } from "./MapRenderer/loadTileset.ts";
+import { renderGrid } from "./MapRenderer/grid.ts";
+import {
+  isCollision as isCollisionAt,
+  setCollisionOverride as setCollisionOverrideAt,
+  clearCollisionOverride as clearCollisionOverrideAt,
+  clearAllCollisionOverrides as clearAllCollisionOverridesAt,
+  worldToTile as worldToTileAt,
+  tileToWorld as tileToWorldAt,
+} from "./MapRenderer/collision.ts";
+import {
+  COLLISION_OVERLAY_Z_INDEX,
+  HIGHLIGHT_LAYER_ACTIVE_ALPHA,
+  HIGHLIGHT_LAYER_INACTIVE_ALPHA,
+  LABEL_OVERLAY_Z_INDEX,
+  OVERLAY_LAYER_Z_INDEX,
+  PORTAL_OVERLAY_Z_INDEX,
+} from "./MapRenderer/constants.ts";
+import {
+  renderCollisionOverlay as renderCollisionOverlayFn,
+  renderPortalOverlay as renderPortalOverlayFn,
+  renderLabelOverlay as renderLabelOverlayFn,
+} from "./MapRenderer/overlays.ts";
+import { GhostManager } from "./MapRenderer/ghosts.ts";
 
 /**
  * Renders a multi-layer tile map using PixiJS.
@@ -23,6 +48,7 @@ export class MapRenderer {
   private collisionOverrides = new Map<string, boolean>();
   private overlaysVisible = false;
   private tileAnimator: TileAnimator | null = null;
+  private ghostManager: GhostManager;
 
   constructor(game: Game) {
     this.game = game;
@@ -30,16 +56,21 @@ export class MapRenderer {
     this.container.label = "map";
     this.overlayLayerContainer = new Container();
     this.overlayLayerContainer.label = "map-overlays";
-    this.overlayLayerContainer.zIndex = 60; // above entities (50) so characters walk "under" overlay tiles
+    this.overlayLayerContainer.zIndex = OVERLAY_LAYER_Z_INDEX;
     this.overlayLayerContainer.sortableChildren = true;
     this.portalOverlay = new Container();
     this.portalOverlay.label = "portal-overlay";
-    this.portalOverlay.zIndex = 150;
+    this.portalOverlay.zIndex = PORTAL_OVERLAY_Z_INDEX;
     this.portalOverlay.visible = false;
     this.labelOverlay = new Container();
     this.labelOverlay.label = "label-overlay";
-    this.labelOverlay.zIndex = 149;
+    this.labelOverlay.zIndex = LABEL_OVERLAY_Z_INDEX;
     this.labelOverlay.visible = false;
+    this.ghostManager = new GhostManager({
+      mapData: null,
+      container: this.container,
+      tilesetTextures: this.tilesetTextures,
+    });
   }
 
   async loadMap(mapData: MapData) {
@@ -52,10 +83,8 @@ export class MapRenderer {
     // Clear existing — null out overlay/ghost refs so they're recreated on demand
     this.container.removeChildren();
     this.layerContainers = [];
-    this.tileGhostContainer = null;
-    this.tileCursorOutline = null;
-    this.portalGhost = null;
-    this.labelGhost = null;
+    this.ghostManager.reset();
+    this.ghostManager.setMapData(mapData);
     this.gridOverlay = null;
     this.mapData = mapData;
 
@@ -65,7 +94,7 @@ export class MapRenderer {
     for (const layer of mapData.layers) {
       urls.add(layer.tilesetUrl ?? mapData.tilesetUrl);
     }
-    await Promise.all([...urls].map((url) => this.loadTilesetTexture(url)));
+    await Promise.all([...urls].map((url) => loadTilesetTexture(this.tilesetTextures, url)));
 
     // Render each layer
     this.overlayLayerContainer.removeChildren();
@@ -76,7 +105,7 @@ export class MapRenderer {
       const layerTilesetUrl = layer.tilesetUrl ?? mapData.tilesetUrl;
       const layerTilesetTexture = this.tilesetTextures.get(layerTilesetUrl);
 
-      this.renderLayer(layerContainer, layer, mapData, layerTilesetTexture);
+      renderLayer(layerContainer, layer, mapData, layerTilesetTexture);
       this.layerContainers.push(layerContainer);
 
       if (layer.type === "overlay") {
@@ -123,44 +152,6 @@ export class MapRenderer {
     }
   }
 
-  private renderLayer(
-    container: Container,
-    layer: MapLayer,
-    mapData: MapData,
-    tilesetTexture?: Texture
-  ) {
-    if (!tilesetTexture) return;
-
-    const sourceWidth = (tilesetTexture.source as any)?.width ?? mapData.tilesetPxW;
-    const tilesPerRow = Math.floor(sourceWidth / mapData.tileWidth);
-
-    for (let y = 0; y < mapData.height; y++) {
-      for (let x = 0; x < mapData.width; x++) {
-        const tileIndex = layer.tiles[y * mapData.width + x];
-        if (tileIndex < 0) continue;
-
-        const srcX = (tileIndex % tilesPerRow) * mapData.tileWidth;
-        const srcY = Math.floor(tileIndex / tilesPerRow) * mapData.tileHeight;
-
-        const frame = new Rectangle(
-          srcX,
-          srcY,
-          mapData.tileWidth,
-          mapData.tileHeight
-        );
-        const texture = new Texture({
-          source: tilesetTexture.source,
-          frame,
-        });
-
-        const sprite = new Sprite(texture);
-        sprite.x = x * mapData.tileWidth;
-        sprite.y = y * mapData.tileHeight;
-        container.addChild(sprite);
-      }
-    }
-  }
-
   /** Update a single tile in a layer (for editor) */
   setTile(layerIndex: number, x: number, y: number, tileIndex: number) {
     if (!this.mapData) return;
@@ -175,7 +166,7 @@ export class MapRenderer {
     const tilesetTexture = this.tilesetTextures.get(tilesetUrl);
     if (container) {
       container.removeChildren();
-      this.renderLayer(container, layer, this.mapData, tilesetTexture);
+      renderLayer(container, layer, this.mapData, tilesetTexture);
     }
   }
 
@@ -193,60 +184,38 @@ export class MapRenderer {
    */
   highlightLayer(activeIndex: number) {
     for (let i = 0; i < this.layerContainers.length; i++) {
-      this.layerContainers[i].alpha = (activeIndex < 0 || i === activeIndex) ? 1.0 : 0.25;
+      this.layerContainers[i].alpha = (activeIndex < 0 || i === activeIndex) ? HIGHLIGHT_LAYER_ACTIVE_ALPHA : HIGHLIGHT_LAYER_INACTIVE_ALPHA;
     }
   }
 
   /** Check collision at a tile coordinate */
   isCollision(tileX: number, tileY: number): boolean {
-    if (!this.mapData) return false;
-    if (
-      tileX < 0 ||
-      tileY < 0 ||
-      tileX >= this.mapData.width ||
-      tileY >= this.mapData.height
-    ) {
-      return true;
-    }
-    // Check runtime overrides first (e.g. doors)
-    const key = `${tileX},${tileY}`;
-    if (this.collisionOverrides.has(key)) {
-      return this.collisionOverrides.get(key)!;
-    }
-    return this.mapData.collisionMask[tileY * this.mapData.width + tileX];
+    return isCollisionAt(this.mapData, this.collisionOverrides, tileX, tileY);
   }
 
   /** Set a runtime collision override for a tile (used by doors) */
   setCollisionOverride(tileX: number, tileY: number, blocked: boolean) {
-    this.collisionOverrides.set(`${tileX},${tileY}`, blocked);
+    setCollisionOverrideAt(this.collisionOverrides, tileX, tileY, blocked);
   }
 
   /** Remove a runtime collision override (reverts to base collision mask) */
   clearCollisionOverride(tileX: number, tileY: number) {
-    this.collisionOverrides.delete(`${tileX},${tileY}`);
+    clearCollisionOverrideAt(this.collisionOverrides, tileX, tileY);
   }
 
   /** Remove all runtime collision overrides */
   clearAllCollisionOverrides() {
-    this.collisionOverrides.clear();
+    clearAllCollisionOverridesAt(this.collisionOverrides);
   }
 
   /** Convert world position to tile coordinates */
   worldToTile(worldX: number, worldY: number) {
-    if (!this.mapData) return { tileX: 0, tileY: 0 };
-    return {
-      tileX: Math.floor(worldX / this.mapData.tileWidth),
-      tileY: Math.floor(worldY / this.mapData.tileHeight),
-    };
+    return worldToTileAt(this.mapData, worldX, worldY);
   }
 
   /** Convert tile coordinates to world position (center of tile) */
   tileToWorld(tileX: number, tileY: number) {
-    if (!this.mapData) return { x: 0, y: 0 };
-    return {
-      x: tileX * this.mapData.tileWidth + this.mapData.tileWidth / 2,
-      y: tileY * this.mapData.tileHeight + this.mapData.tileHeight / 2,
-    };
+    return tileToWorldAt(this.mapData, tileX, tileY);
   }
 
   getMapData() {
@@ -267,33 +236,20 @@ export class MapRenderer {
     }
   }
 
-  /** Redraw the collision overlay from current collisionMask */
+  /** Redraw the collision overlay from current collisionMask and overrides */
   renderCollisionOverlay() {
     if (!this.mapData) return;
-    const { width, height, tileWidth, tileHeight, collisionMask } = this.mapData;
-
-    if (!this.collisionOverlay) {
-      this.collisionOverlay = new Graphics();
+    const prev = this.collisionOverlay;
+    this.collisionOverlay = renderCollisionOverlayFn(
+      this.collisionOverlay,
+      this.mapData,
+      this.collisionOverrides
+    );
+    if (prev === null && this.collisionOverlay) {
       this.collisionOverlay.label = "collision-overlay";
-      this.collisionOverlay.zIndex = 148; // below portal/label overlays
+      this.collisionOverlay.zIndex = COLLISION_OVERLAY_Z_INDEX;
       this.container.addChild(this.collisionOverlay);
     }
-
-    this.collisionOverlay.clear();
-    for (let y = 0; y < height; y++) {
-      for (let x = 0; x < width; x++) {
-        if (collisionMask[y * width + x]) {
-          this.collisionOverlay.rect(
-            x * tileWidth,
-            y * tileHeight,
-            tileWidth,
-            tileHeight,
-          );
-        }
-      }
-    }
-    this.collisionOverlay.fill({ color: 0xff2222, alpha: 0.25 });
-    this.collisionOverlay.visible = true;
   }
 
   // =========================================================================
@@ -309,110 +265,32 @@ export class MapRenderer {
 
   // ---- Portal ghost (editor preview during placement) ----
 
-  private portalGhost: Graphics | null = null;
-
   /**
    * Show a semi-transparent green rectangle spanning from (startTile) to (cursorTile).
    * Call with null to hide the ghost.
    */
   showPortalGhost(start: { tx: number; ty: number } | null, cursor: { tx: number; ty: number } | null) {
-    if (!start || !cursor || !this.mapData) {
-      if (this.portalGhost) {
-        this.portalGhost.clear();
-        this.portalGhost.visible = false;
-      }
-      return;
-    }
-
-    const tw = this.mapData.tileWidth;
-    const th = this.mapData.tileHeight;
-
-    const x = Math.min(start.tx, cursor.tx) * tw;
-    const y = Math.min(start.ty, cursor.ty) * th;
-    const w = (Math.abs(cursor.tx - start.tx) + 1) * tw;
-    const h = (Math.abs(cursor.ty - start.ty) + 1) * th;
-
-    if (!this.portalGhost) {
-      this.portalGhost = new Graphics();
-      this.portalGhost.zIndex = 160;
-      this.container.addChild(this.portalGhost);
-    }
-
-    this.portalGhost.clear();
-    this.portalGhost.rect(x, y, w, h);
-    this.portalGhost.fill({ color: 0x00ff88, alpha: 0.3 });
-    this.portalGhost.stroke({ color: 0x00ff88, alpha: 0.9, width: 2 });
-    this.portalGhost.visible = true;
+    this.ghostManager.showPortalGhost(start, cursor);
   }
 
-  /**
-   * Show a single-tile cursor ghost at the given tile position (before first click).
-   */
+  /** Show a single-tile cursor ghost at the given tile position (before first click). */
   showPortalCursor(tx: number, ty: number) {
-    if (!this.mapData) return;
-    const tw = this.mapData.tileWidth;
-    const th = this.mapData.tileHeight;
-
-    if (!this.portalGhost) {
-      this.portalGhost = new Graphics();
-      this.portalGhost.zIndex = 160;
-      this.container.addChild(this.portalGhost);
-    }
-
-    this.portalGhost.clear();
-    this.portalGhost.rect(tx * tw, ty * th, tw, th);
-    this.portalGhost.fill({ color: 0x00ff88, alpha: 0.25 });
-    this.portalGhost.stroke({ color: 0x00ff88, alpha: 0.7, width: 2 });
-    this.portalGhost.visible = true;
+    this.ghostManager.showPortalCursor(tx, ty);
   }
 
   hidePortalGhost() {
-    if (this.portalGhost) {
-      this.portalGhost.clear();
-      this.portalGhost.visible = false;
-    }
+    this.ghostManager.hidePortalGhost();
   }
 
   /** Re-render portal zones (call after adding/removing portals) */
   renderPortalOverlay() {
-    this.portalOverlay.removeChildren();
     if (!this.mapData) return;
-
-    const portals: Portal[] = this.mapData.portals ?? [];
-    const tw = this.mapData.tileWidth;
-    const th = this.mapData.tileHeight;
-
-    const labelStyle = new TextStyle({
-      fontFamily: "monospace",
-      fontSize: Math.max(10, Math.min(tw * 0.6, 14)),
-      fill: 0xffffff,
-      stroke: { color: 0x000000, width: 2 },
-      align: "center",
-    });
-
-    for (const p of portals) {
-      const px = p.x * tw;
-      const py = p.y * th;
-      const pw = p.width * tw;
-      const ph = p.height * th;
-
-      // Semi-transparent rectangle
-      const rect = new Graphics();
-      rect.rect(px, py, pw, ph);
-      rect.fill({ color: 0x00ccff, alpha: 0.3 });
-      rect.stroke({ color: 0x00ccff, alpha: 0.8, width: 2 });
-      this.portalOverlay.addChild(rect);
-
-      // Label
-      const label = new Text({
-        text: `🚪 ${p.name}\n→ ${p.targetMap}`,
-        style: labelStyle,
-      });
-      label.anchor.set(0.5, 0.5);
-      label.x = px + pw / 2;
-      label.y = py + ph / 2;
-      this.portalOverlay.addChild(label);
-    }
+    renderPortalOverlayFn(
+      this.portalOverlay,
+      this.mapData,
+      this.mapData.tileWidth,
+      this.mapData.tileHeight
+    );
   }
 
   // =========================================================================
@@ -421,107 +299,34 @@ export class MapRenderer {
 
   /** Re-render label zones (call after adding/removing labels) */
   renderLabelOverlay() {
-    this.labelOverlay.removeChildren();
     if (!this.mapData) return;
-
-    const labels: MapLabel[] = this.mapData.labels ?? [];
-    const tw = this.mapData.tileWidth;
-    const th = this.mapData.tileHeight;
-
-    const labelStyle = new TextStyle({
-      fontFamily: "monospace",
-      fontSize: Math.max(10, Math.min(tw * 0.6, 14)),
-      fill: 0xffffff,
-      stroke: { color: 0x000000, width: 2 },
-      align: "center",
-    });
-
-    for (const l of labels) {
-      const px = l.x * tw;
-      const py = l.y * th;
-      const pw = (l.width ?? 1) * tw;
-      const ph = (l.height ?? 1) * th;
-
-      // Semi-transparent yellow rectangle
-      const rect = new Graphics();
-      rect.rect(px, py, pw, ph);
-      rect.fill({ color: 0xffcc00, alpha: 0.2 });
-      rect.stroke({ color: 0xffcc00, alpha: 0.7, width: 1.5 });
-      this.labelOverlay.addChild(rect);
-
-      // Label text
-      const text = new Text({
-        text: `🏷 ${l.name}`,
-        style: labelStyle,
-      });
-      text.anchor.set(0.5, 0.5);
-      text.x = px + pw / 2;
-      text.y = py + ph / 2;
-      this.labelOverlay.addChild(text);
-    }
+    renderLabelOverlayFn(
+      this.labelOverlay,
+      this.mapData,
+      this.mapData.tileWidth,
+      this.mapData.tileHeight
+    );
   }
 
   // ---- Label ghost (editor preview during placement) ----
 
-  private labelGhost: Graphics | null = null;
-
   /** Show a ghost rectangle for label placement (from start to cursor) */
   showLabelGhost(start: { tx: number; ty: number }, cursor: { tx: number; ty: number }, name?: string) {
-    if (!this.mapData) return;
-
-    const tw = this.mapData.tileWidth;
-    const th = this.mapData.tileHeight;
-
-    const x = Math.min(start.tx, cursor.tx) * tw;
-    const y = Math.min(start.ty, cursor.ty) * th;
-    const w = (Math.abs(cursor.tx - start.tx) + 1) * tw;
-    const h = (Math.abs(cursor.ty - start.ty) + 1) * th;
-
-    if (!this.labelGhost) {
-      this.labelGhost = new Graphics();
-      this.labelGhost.zIndex = 160;
-      this.container.addChild(this.labelGhost);
-    }
-
-    this.labelGhost.clear();
-    this.labelGhost.rect(x, y, w, h);
-    this.labelGhost.fill({ color: 0xffcc00, alpha: 0.25 });
-    this.labelGhost.stroke({ color: 0xffcc00, alpha: 0.9, width: 2 });
-    this.labelGhost.visible = true;
+    this.ghostManager.showLabelGhost(start, cursor, name);
   }
 
   /** Show a single-tile yellow cursor for label placement */
   showLabelCursor(tx: number, ty: number) {
-    if (!this.mapData) return;
-    const tw = this.mapData.tileWidth;
-    const th = this.mapData.tileHeight;
-
-    if (!this.labelGhost) {
-      this.labelGhost = new Graphics();
-      this.labelGhost.zIndex = 160;
-      this.container.addChild(this.labelGhost);
-    }
-
-    this.labelGhost.clear();
-    this.labelGhost.rect(tx * tw, ty * th, tw, th);
-    this.labelGhost.fill({ color: 0xffcc00, alpha: 0.2 });
-    this.labelGhost.stroke({ color: 0xffcc00, alpha: 0.7, width: 2 });
-    this.labelGhost.visible = true;
+    this.ghostManager.showLabelCursor(tx, ty);
   }
 
   hideLabelGhost() {
-    if (this.labelGhost) {
-      this.labelGhost.clear();
-      this.labelGhost.visible = false;
-    }
+    this.ghostManager.hideLabelGhost();
   }
 
   // =========================================================================
   // Tile ghost (paint tool hover preview)
   // =========================================================================
-
-  private tileGhostContainer: Container | null = null;
-  private tileCursorOutline: Graphics | null = null;
 
   /**
    * Show a semi-transparent preview of the selected tile region at the cursor position.
@@ -539,64 +344,7 @@ export class MapRenderer {
     tsCols: number,
     tilesetUrl?: string,
   ) {
-    if (!this.mapData) return;
-    const tw = this.mapData.tileWidth;
-    const th = this.mapData.tileHeight;
-
-    if (!region) {
-      // Erase / collision — show an outline cursor
-      if (this.tileGhostContainer) this.tileGhostContainer.visible = false;
-      if (!this.tileCursorOutline) {
-        this.tileCursorOutline = new Graphics();
-        this.tileCursorOutline.zIndex = 155;
-        this.container.addChild(this.tileCursorOutline);
-      }
-      this.tileCursorOutline.clear();
-      this.tileCursorOutline.rect(tx * tw, ty * th, tw, th);
-      this.tileCursorOutline.fill({ color: 0xff4444, alpha: 0.15 });
-      this.tileCursorOutline.stroke({ color: 0xff4444, alpha: 0.7, width: 2 });
-      this.tileCursorOutline.visible = true;
-      return;
-    }
-
-    // Hide outline cursor
-    if (this.tileCursorOutline) this.tileCursorOutline.visible = false;
-
-    const sourceTilesetUrl = tilesetUrl ?? this.mapData.tilesetUrl;
-    const tilesetTexture = this.tilesetTextures.get(sourceTilesetUrl);
-    if (!tilesetTexture) return;
-
-    // Rebuild the ghost container with the correct tiles
-    if (!this.tileGhostContainer) {
-      this.tileGhostContainer = new Container();
-      this.tileGhostContainer.alpha = 0.55;
-      this.tileGhostContainer.zIndex = 155;
-      this.container.addChild(this.tileGhostContainer);
-    }
-
-    // Only rebuild sprites when the region or position changes
-    const key = `${region.col},${region.row},${region.w},${region.h}`;
-    if ((this.tileGhostContainer as any).__regionKey !== key) {
-      this.tileGhostContainer.removeChildren();
-      for (let dy = 0; dy < region.h; dy++) {
-        for (let dx = 0; dx < region.w; dx++) {
-          const tileIdx = (region.row + dy) * tsCols + (region.col + dx);
-          const srcX = (tileIdx % tsCols) * tw;
-          const srcY = Math.floor(tileIdx / tsCols) * th;
-          const frame = new Rectangle(srcX, srcY, tw, th);
-          const tex = new Texture({ source: tilesetTexture.source, frame });
-          const s = new Sprite(tex);
-          s.x = dx * tw;
-          s.y = dy * th;
-          this.tileGhostContainer.addChild(s);
-        }
-      }
-      (this.tileGhostContainer as any).__regionKey = key;
-    }
-
-    this.tileGhostContainer.x = tx * tw;
-    this.tileGhostContainer.y = ty * th;
-    this.tileGhostContainer.visible = true;
+    this.ghostManager.showTileGhost(tx, ty, region, tsCols, tilesetUrl);
   }
 
   /**
@@ -613,51 +361,11 @@ export class MapRenderer {
     tsCols: number,
     tilesetUrl?: string,
   ) {
-    if (!this.mapData) return;
-    const tw = this.mapData.tileWidth;
-    const th = this.mapData.tileHeight;
-    const sourceTilesetUrl = tilesetUrl ?? this.mapData.tilesetUrl;
-    const tilesetTexture = this.tilesetTextures.get(sourceTilesetUrl);
-    if (!tilesetTexture) return;
-
-    if (this.tileCursorOutline) this.tileCursorOutline.visible = false;
-
-    if (!this.tileGhostContainer) {
-      this.tileGhostContainer = new Container();
-      this.tileGhostContainer.alpha = 0.55;
-      this.tileGhostContainer.zIndex = 155;
-      this.container.addChild(this.tileGhostContainer);
-    }
-
-    // Build a cache key from the tile set
-    const key = "irr:" + tiles.map((t) => `${t.dx},${t.dy},${t.tileIdx}`).join(";");
-    if ((this.tileGhostContainer as any).__regionKey !== key) {
-      this.tileGhostContainer.removeChildren();
-      for (const t of tiles) {
-        const srcX = (t.tileIdx % tsCols) * tw;
-        const srcY = Math.floor(t.tileIdx / tsCols) * th;
-        const frame = new Rectangle(srcX, srcY, tw, th);
-        const tex = new Texture({ source: tilesetTexture.source, frame });
-        const s = new Sprite(tex);
-        s.x = t.dx * tw;
-        s.y = t.dy * th;
-        this.tileGhostContainer.addChild(s);
-      }
-      (this.tileGhostContainer as any).__regionKey = key;
-    }
-
-    this.tileGhostContainer.x = tx * tw;
-    this.tileGhostContainer.y = ty * th;
-    this.tileGhostContainer.visible = true;
+    this.ghostManager.showIrregularTileGhost(tx, ty, tiles, tsCols, tilesetUrl);
   }
 
   hideTileGhost() {
-    if (this.tileGhostContainer) {
-      this.tileGhostContainer.visible = false;
-    }
-    if (this.tileCursorOutline) {
-      this.tileCursorOutline.visible = false;
-    }
+    this.ghostManager.hideTileGhost();
   }
 
   // =========================================================================
@@ -685,40 +393,6 @@ export class MapRenderer {
 
   private renderGrid() {
     if (!this.mapData) return;
-    const tw = this.mapData.tileWidth;
-    const th = this.mapData.tileHeight;
-    const w = this.mapData.width * tw;
-    const h = this.mapData.height * th;
-
-    if (!this.gridOverlay) {
-      this.gridOverlay = new Graphics();
-      this.gridOverlay.label = "grid-overlay";
-      this.gridOverlay.zIndex = 145;
-      this.container.addChild(this.gridOverlay);
-    }
-
-    this.gridOverlay.clear();
-
-    // Draw vertical lines
-    for (let x = 0; x <= this.mapData.width; x++) {
-      this.gridOverlay.moveTo(x * tw, 0);
-      this.gridOverlay.lineTo(x * tw, h);
-    }
-    // Draw horizontal lines
-    for (let y = 0; y <= this.mapData.height; y++) {
-      this.gridOverlay.moveTo(0, y * th);
-      this.gridOverlay.lineTo(w, y * th);
-    }
-
-    this.gridOverlay.stroke({ color: 0xffffff, alpha: 0.15, width: 1 });
-    this.gridOverlay.visible = true;
-  }
-
-  private async loadTilesetTexture(url: string): Promise<Texture> {
-    const existing = this.tilesetTextures.get(url);
-    if (existing) return existing;
-    const loaded = await Assets.load(url);
-    this.tilesetTextures.set(url, loaded);
-    return loaded;
+    this.gridOverlay = renderGrid(this.mapData, this.container, this.gridOverlay);
   }
 }
