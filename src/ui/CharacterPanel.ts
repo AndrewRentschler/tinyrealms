@@ -2,11 +2,11 @@
  * CharacterPanel – displays and allows editing of the current player's
  * character sprite, stats, items, and other profile info.
  */
-import { getConvexClient } from "../lib/convexClient.ts";
 import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
 import type { Game } from "../engine/Game/index.ts";
 import type { ProfileData } from "../engine/types.ts";
-import type { Id } from "../../convex/_generated/dataModel";
+import { getConvexClient } from "../lib/convexClient.ts";
 import "./CharacterPanel.css";
 
 /** XP required for a given level (simple curve) */
@@ -40,7 +40,10 @@ export class CharacterPanel {
   private itemUseStatusEl!: HTMLElement;
   // Editing state (admin)
   private editedStats: ProfileData["stats"] | null = null;
-  private itemDefsByName = new Map<string, { type: string; displayName: string; consumeHpDelta?: number }>();
+  private itemDefsByName = new Map<
+    string,
+    { type: string; displayName: string; consumeHpDelta?: number }
+  >();
   private itemDefsLoadedKey = "";
   private consumingItem = false;
   private completedQuestRows: Array<{
@@ -99,8 +102,12 @@ export class CharacterPanel {
     if (!visible) this.close();
   }
 
-  show() { this.toggle(true); }
-  hide() { this.toggle(false); }
+  show() {
+    this.toggle(true);
+  }
+  hide() {
+    this.toggle(false);
+  }
   destroy() {
     this.stopSpriteAnim();
     this.el.remove();
@@ -257,9 +264,9 @@ export class CharacterPanel {
 
     // ---- XP bar ----
     const xpNeeded = xpForLevel(p.stats.level);
-    const xpPct = xpNeeded > 0 ? Math.min(100, (p.stats.xp / xpNeeded) * 100) : 0;
-    this.xpLabel.innerHTML =
-      `<span>Experience</span><span>${p.stats.xp} / ${xpNeeded}</span>`;
+    const xpPct =
+      xpNeeded > 0 ? Math.min(100, (p.stats.xp / xpNeeded) * 100) : 0;
+    this.xpLabel.innerHTML = `<span>Experience</span><span>${p.stats.xp} / ${xpNeeded}</span>`;
     this.xpBarFill.style.width = `${xpPct}%`;
 
     // ---- Stats ----
@@ -281,8 +288,7 @@ export class CharacterPanel {
     this.mapInfo.innerHTML = "";
     const currentMap = this.game?.currentMapName ?? p.mapName;
     if (currentMap) {
-      this.mapInfo.innerHTML =
-        `Current map: <span class="char-map-name">${currentMap}</span>`;
+      this.mapInfo.innerHTML = `Current map: <span class="char-map-name">${currentMap}</span>`;
     }
 
     // ---- Sprite ----
@@ -296,7 +302,12 @@ export class CharacterPanel {
   private renderStats(stats: ProfileData["stats"]) {
     this.statsGrid.innerHTML = "";
 
-    const statDefs: { key: keyof ProfileData["stats"]; label: string; color: string; max: number }[] = [
+    const statDefs: {
+      key: keyof ProfileData["stats"];
+      label: string;
+      color: string;
+      max: number;
+    }[] = [
       { key: "hp", label: "HP", color: "hp", max: stats.maxHp || 100 },
       { key: "atk", label: "ATK", color: "atk", max: 50 },
       { key: "def", label: "DEF", color: "def", max: 50 },
@@ -334,14 +345,18 @@ export class CharacterPanel {
           }
           this.editedStats[def.key] = parseInt(input.value) || 0;
           // Update bar live
-          const newPct = Math.min(100, (this.editedStats[def.key] / def.max) * 100);
+          const newPct = Math.min(
+            100,
+            (this.editedStats[def.key] / def.max) * 100,
+          );
           fill.style.width = `${newPct}%`;
         });
         row.append(label, track, input);
       } else {
         const valueEl = document.createElement("span");
         valueEl.className = "char-stat-value";
-        valueEl.textContent = def.key === "hp" ? `${val}/${stats.maxHp}` : String(val);
+        valueEl.textContent =
+          def.key === "hp" ? `${val}/${stats.maxHp}` : String(val);
         row.append(label, track, valueEl);
       }
 
@@ -391,7 +406,8 @@ export class CharacterPanel {
       const el = document.createElement("div");
       el.className = "char-item";
       const meta = this.itemDefsByName.get(item.name);
-      const consumeHpDelta = meta?.type === "consumable" ? (meta.consumeHpDelta ?? 0) : undefined;
+      const consumeHpDelta =
+        meta?.type === "consumable" ? (meta.consumeHpDelta ?? 0) : undefined;
       const isConsumableClickable = meta?.type === "consumable";
       if (isConsumableClickable) {
         el.classList.add("char-item--consumable");
@@ -434,7 +450,9 @@ export class CharacterPanel {
     }
   }
 
-  private async loadItemMetaForInventory(items: { name: string; quantity: number }[]) {
+  private async loadItemMetaForInventory(
+    items: { name: string; quantity: number }[],
+  ) {
     const names = [...new Set(items.map((i) => i.name))].sort();
     const key = names.join("|");
     if (key === this.itemDefsLoadedKey) return;
@@ -453,7 +471,10 @@ export class CharacterPanel {
         displayName: string;
         consumeHpDelta?: number;
       }>;
-      const byName = new Map<string, { type: string; displayName: string; consumeHpDelta?: number }>();
+      const byName = new Map<
+        string,
+        { type: string; displayName: string; consumeHpDelta?: number }
+      >();
       for (const def of defs) {
         if (names.includes(def.name)) {
           byName.set(def.name, {
@@ -471,7 +492,6 @@ export class CharacterPanel {
       console.warn("Failed to load item definitions for character panel:", err);
     }
   }
-
 
   /* ------------------------------------------------------------------ */
   /*  NPCs list                                                          */
@@ -530,7 +550,7 @@ export class CharacterPanel {
     if (!this.profile) return;
     try {
       const convex = getConvexClient();
-      const rows = await convex.query(api["story/quests"].listHistory, {
+      const rows = await convex.query(api.story.quests.listHistory, {
         profileId: this.profile._id as Id<"profiles">,
         status: "completed",
       });
@@ -567,9 +587,10 @@ export class CharacterPanel {
 
       // Gather frames for the default "down" animation (row0)
       const animName = json.animations ? Object.keys(json.animations)[0] : null;
-      const frameNames: string[] = animName && json.animations[animName]
-        ? json.animations[animName]
-        : Object.keys(json.frames).slice(0, 3);
+      const frameNames: string[] =
+        animName && json.animations[animName]
+          ? json.animations[animName]
+          : Object.keys(json.frames).slice(0, 3);
 
       this.spriteFrames = frameNames.map((name: string) => {
         const f = json.frames[name];
@@ -597,7 +618,8 @@ export class CharacterPanel {
 
       // Animate at ~4fps
       this.spriteAnimTimer = setInterval(() => {
-        this.spriteAnimFrame = (this.spriteAnimFrame + 1) % this.spriteFrames.length;
+        this.spriteAnimFrame =
+          (this.spriteAnimFrame + 1) % this.spriteFrames.length;
         this.drawSpriteFrame();
       }, 250);
     } catch {
@@ -610,7 +632,12 @@ export class CharacterPanel {
   }
 
   private drawSpriteFrame() {
-    if (!this.spriteCanvas || !this.spriteImage || this.spriteFrames.length === 0) return;
+    if (
+      !this.spriteCanvas ||
+      !this.spriteImage ||
+      this.spriteFrames.length === 0
+    )
+      return;
     const ctx = this.spriteCanvas.getContext("2d");
     if (!ctx) return;
     const f = this.spriteFrames[this.spriteAnimFrame];

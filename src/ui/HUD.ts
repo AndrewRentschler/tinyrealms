@@ -1,9 +1,10 @@
 /**
  * HUD overlay – shows the current mode label.
  */
+import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
 import type { AppMode } from "../engine/types.ts";
 import { getConvexClient } from "../lib/convexClient.ts";
-import { api } from "../../convex/_generated/api";
 import "./HUD.css";
 
 type ActiveQuestRow = {
@@ -28,7 +29,7 @@ type ActiveQuestRow = {
 const QUEST_SUCCESS_SFX = "/assets/audio/quest-success.mp3";
 
 type HUDOptions = {
-  profileId?: string;
+  profileId?: Id<"profiles">;
   isGuest?: boolean;
   getMapName?: () => string | undefined;
 };
@@ -36,7 +37,7 @@ type HUDOptions = {
 export class HUD {
   readonly el: HTMLElement;
   private label: HTMLElement;
-  private profileId: string | null = null;
+  private profileId: Id<"profiles"> | null = null;
   private getMapName: (() => string | undefined) | null = null;
   private questsListEl: HTMLElement | null = null;
   private questStatusEl: HTMLElement | null = null;
@@ -119,8 +120,8 @@ export class HUD {
     this.questsUnsub?.();
     const convex = getConvexClient();
     this.questsUnsub = convex.onUpdate(
-      api["story/quests"].listActive,
-      { profileId: this.profileId },
+      api.story.quests.listActive,
+      { profileId: this.profileId as Id<"profiles"> },
       (rows: any[]) => {
         this.activeQuests = (rows ?? []) as ActiveQuestRow[];
         this.renderQuests();
@@ -163,8 +164,13 @@ export class HUD {
     }
     if (this.questCollapseBtn) {
       this.questCollapseBtn.textContent = collapsed ? "▸" : "▾";
-      this.questCollapseBtn.title = collapsed ? "Expand quests" : "Collapse quests";
-      this.questCollapseBtn.setAttribute("aria-label", this.questCollapseBtn.title);
+      this.questCollapseBtn.title = collapsed
+        ? "Expand quests"
+        : "Collapse quests";
+      this.questCollapseBtn.setAttribute(
+        "aria-label",
+        this.questCollapseBtn.title,
+      );
     }
   }
 
@@ -197,7 +203,10 @@ export class HUD {
         abandonBtn.textContent = "Abandon";
         abandonBtn.addEventListener("click", (e) => {
           e.stopPropagation();
-          this.abandonQuest(q._id, q.questDef?.title ?? "this quest");
+          this.abandonQuest(
+            q._id as Id<"playerQuests">,
+            q.questDef?.title ?? "this quest",
+          );
         });
         actions.appendChild(abandonBtn);
         card.appendChild(actions);
@@ -238,7 +247,8 @@ export class HUD {
     this.questStatusEl.textContent = text;
     this.questStatusEl.style.color = isError ? "#ff8080" : "#9fd6ff";
     window.setTimeout(() => {
-      if (this.questStatusEl?.textContent === text) this.questStatusEl.textContent = "";
+      if (this.questStatusEl?.textContent === text)
+        this.questStatusEl.textContent = "";
     }, 2500);
   }
 
@@ -272,8 +282,8 @@ export class HUD {
     try {
       const convex = getConvexClient();
       const mapName = this.getMapName?.();
-      const available = await convex.query(api["story/quests"].listAvailable, {
-        profileId: this.profileId,
+      const available = await convex.query(api.story.quests.listAvailable, {
+        profileId: this.profileId as Id<"profiles">,
         sourceType: "hud",
         mapName,
       });
@@ -300,7 +310,12 @@ export class HUD {
       key: string;
       title: string;
       description?: string;
-      objectives?: Array<{ type: "collect_item" | "kill_npc"; itemDefName?: string; targetNpcProfileName?: string; requiredCount: number }>;
+      objectives?: Array<{
+        type: "collect_item" | "kill_npc";
+        itemDefName?: string;
+        targetNpcProfileName?: string;
+        requiredCount: number;
+      }>;
     }>,
     mapName: string | undefined,
   ) {
@@ -373,8 +388,8 @@ export class HUD {
         acceptBtn.disabled = true;
         try {
           const convex = getConvexClient();
-          await convex.mutation(api["story/quests"].accept, {
-            profileId: this.profileId,
+          await convex.mutation(api.story.quests.accept, {
+            profileId: this.profileId as Id<"profiles">,
             questDefKey: q.key,
             source: { type: "hud" },
             mapName,
@@ -405,9 +420,9 @@ export class HUD {
     if (quest.status !== "completed" || quest.rewardClaimedAt) return;
     try {
       const convex = getConvexClient();
-      const result = await convex.mutation(api["story/quests"].claimReward, {
-        profileId: this.profileId,
-        playerQuestId,
+      const result = await convex.mutation(api.story.quests.claimReward, {
+        profileId: this.profileId as Id<"profiles">,
+        playerQuestId: playerQuestId as Id<"playerQuests">,
       });
       const rewards = result?.rewards ?? {};
       const gold = Number(rewards.gold ?? 0);
@@ -424,7 +439,9 @@ export class HUD {
       }
       this.playQuestSuccessSound();
       // Remove claimed quest from HUD immediately (subscription will also confirm).
-      this.activeQuests = this.activeQuests.filter((q) => q._id !== playerQuestId);
+      this.activeQuests = this.activeQuests.filter(
+        (q) => q._id !== playerQuestId,
+      );
       this.renderQuests();
       this.showQuestStatus("Reward claimed");
     } catch (err: any) {
@@ -432,14 +449,17 @@ export class HUD {
     }
   }
 
-  private async abandonQuest(playerQuestId: string, questTitle: string) {
+  private async abandonQuest(
+    playerQuestId: Id<"playerQuests">,
+    questTitle: string,
+  ) {
     if (!this.profileId) return;
     const confirm = window.confirm(`Abandon "${questTitle}"?`);
     if (!confirm) return;
     try {
       const convex = getConvexClient();
-      await convex.mutation(api["story/quests"].abandon, {
-        profileId: this.profileId,
+      await convex.mutation(api.story.quests.abandon, {
+        profileId: this.profileId as Id<"profiles">,
         playerQuestId,
       });
       this.showQuestStatus(`Abandoned: ${questTitle}`);
@@ -448,8 +468,12 @@ export class HUD {
     }
   }
 
-  show() { this.el.style.display = ""; }
-  hide() { this.el.style.display = "none"; }
+  show() {
+    this.el.style.display = "";
+  }
+  hide() {
+    this.el.style.display = "none";
+  }
   destroy() {
     if (this.questBannerTimer != null) {
       window.clearTimeout(this.questBannerTimer);

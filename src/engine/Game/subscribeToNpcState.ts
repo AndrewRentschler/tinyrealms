@@ -1,9 +1,12 @@
-import { getConvexClient } from "../../lib/convexClient.ts";
 import { api } from "../../../convex/_generated/api";
+import { getConvexClient } from "../../lib/convexClient.ts";
 import type { IGame } from "./types.ts";
 
 /** Sprite def shape expected by EntityLayer.updateNpcStates */
-type SpriteDefForNpc = Map<string, { name: string; spriteSheetUrl: string; [key: string]: unknown }>;
+type SpriteDefForNpc = Map<
+  string,
+  { name: string; spriteSheetUrl: string; [key: string]: unknown }
+>;
 
 /**
  * Subscribe to server-authoritative NPC state for a map.
@@ -32,7 +35,7 @@ export function subscribeToNpcState(game: IGame, mapName: string): void {
           y: s.y,
           vx: s.vx,
           vy: s.vy,
-          direction: s.direction,
+          direction: s.direction ?? "down",
           speed: s.speed,
           wanderRadius: s.wanderRadius,
         })),

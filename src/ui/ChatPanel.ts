@@ -1,16 +1,16 @@
 /**
  * Chat panel – collapsible message list and input, wired to Convex.
  */
-import { getConvexClient } from "../lib/convexClient.ts";
 import { api } from "../../convex/_generated/api";
-import type { ProfileData } from "../engine/types.ts";
 import type { Id } from "../../convex/_generated/dataModel";
+import type { ProfileData } from "../engine/types.ts";
+import { getConvexClient } from "../lib/convexClient.ts";
 import "./ChatPanel.css";
 
 interface ChatMessage {
   _id: string;
   senderName: string;
-  profileId?: string;
+  profileId?: Id<"profiles">;
   text: string;
   type: "chat" | "npc" | "system";
   timestamp: number;
@@ -224,8 +224,7 @@ export class ChatPanel {
       const row = document.createElement("div");
       row.className = `chat-msg chat-msg--${msg.type}`;
 
-      const isMe =
-        this.profile && msg.profileId === this.profile._id;
+      const isMe = this.profile && msg.profileId === this.profile._id;
 
       if (msg.type === "system") {
         row.classList.add("chat-msg--system");
@@ -255,7 +254,11 @@ export class ChatPanel {
   }
 
   /** Add a local-only message (not sent to Convex) */
-  private addLocalMessage(type: "system" | "chat", text: string, sender: string) {
+  private addLocalMessage(
+    type: "system" | "chat",
+    text: string,
+    sender: string,
+  ) {
     this.messages.push({
       _id: `local-${Date.now()}`,
       senderName: sender,
@@ -282,12 +285,24 @@ export class ChatPanel {
   private formatDateDivider(ts: number): string {
     const d = new Date(ts);
     const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-    const msgDay = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+    const today = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+    ).getTime();
+    const msgDay = new Date(
+      d.getFullYear(),
+      d.getMonth(),
+      d.getDate(),
+    ).getTime();
     const diffDays = Math.floor((today - msgDay) / 86_400_000);
     if (diffDays === 0) return "Today";
     if (diffDays === 1) return "Yesterday";
-    return d.toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" });
+    return d.toLocaleDateString([], {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
   }
 
   // ---------------------------------------------------------------------------
@@ -327,8 +342,12 @@ export class ChatPanel {
     this.el.style.display = visible ? "" : "none";
   }
 
-  show() { this.el.style.display = ""; }
-  hide() { this.el.style.display = "none"; }
+  show() {
+    this.el.style.display = "";
+  }
+  hide() {
+    this.el.style.display = "none";
+  }
 
   destroy() {
     this.unsub?.();

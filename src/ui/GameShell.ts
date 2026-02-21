@@ -15,6 +15,7 @@ import { ModeToggle } from "./ModeToggle.ts";
 import { NpcEditorPanel } from "./NpcEditorPanel.ts";
 //TODO: Uncomment this when quests are implemented
 // import { QuestEditorPanel } from "./QuestEditorPanel.ts";
+import type { Id } from "../../convex/_generated/dataModel";
 import type { AppMode, ProfileData } from "../engine/types.ts";
 import "./GameShell.css";
 
@@ -116,7 +117,7 @@ export class GameShell {
 
     // HUD overlay
     this.hud = new HUD(this.mode, {
-      profileId: isGuest ? undefined : (this.profile._id as string),
+      profileId: isGuest ? undefined : (this.profile._id as Id<"profiles">),
       isGuest,
       getMapName: () => this.game?.currentMapName,
     });

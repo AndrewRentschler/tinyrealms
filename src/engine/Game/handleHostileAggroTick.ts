@@ -1,9 +1,12 @@
-import { COMBAT_AGGRO } from "../../constants/colors.ts";
-import { COMBAT_AGGRO_TICK_INTERVAL_MS } from "../../config/combat-config.ts";
-import { getConvexClient } from "../../lib/convexClient.ts";
 import { api } from "../../../convex/_generated/api";
+import { COMBAT_AGGRO_TICK_INTERVAL_MS } from "../../config/combat-config.ts";
+import { COMBAT_AGGRO } from "../../constants/colors.ts";
+import { getConvexClient } from "../../lib/convexClient.ts";
+import {
+  showCombatNotification,
+  type CombatNotificationState,
+} from "./showCombatNotification.ts";
 import type { IGame } from "./types.ts";
-import { showCombatNotification, type CombatNotificationState } from "./showCombatNotification.ts";
 
 /**
  * Periodically resolve hostile NPC aggro attacks.
@@ -23,8 +26,11 @@ export async function handleHostileAggroTick(game: IGame): Promise<void> {
 
   try {
     const convex = getConvexClient();
-    const result = await convex.mutation(api["mechanics/combat"].resolveAggroAttack, {
-        profileId: game.profile._id as import("../../../convex/_generated/dataModel").Id<"profiles">,
+    const result = await convex.mutation(
+      api.mechanics.combat.aggro.resolveAggroAttack,
+      {
+        profileId: game.profile
+          ._id as import("../../../convex/_generated/dataModel").Id<"profiles">,
         mapName: game.currentMapName,
         x: game.entityLayer.playerX,
         y: game.entityLayer.playerY,
@@ -34,7 +40,11 @@ export async function handleHostileAggroTick(game: IGame): Promise<void> {
     const attacker = String(result.attackerName ?? "Hostile");
     const took = Number(result.took ?? 0);
     if (took > 0) {
-      showCombatNotification(state, `${attacker} attacks you for ${took}`, COMBAT_AGGRO);
+      showCombatNotification(
+        state,
+        `${attacker} attacks you for ${took}`,
+        COMBAT_AGGRO,
+      );
       game.entityLayer.playPlayerHitEffect();
     }
     if (typeof result.playerHp === "number") {

@@ -74,7 +74,7 @@ export async function handleCombatInput(game: IGame): Promise<void> {
 
   try {
     const convex = getConvexClient();
-    const result = await convex.mutation(api["mechanics/combat"].attackNearestHostile, {
+    const result = await convex.mutation(api.mechanics.combat.playerAttack.attackNearestHostile, {
         profileId: game.profile._id as import("../../../convex/_generated/dataModel").Id<"profiles">,
         mapName: game.currentMapName,
         x: game.entityLayer.playerX,
