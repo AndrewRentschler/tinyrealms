@@ -1,6 +1,15 @@
 import { v } from "convex/values";
 import { action } from "../_generated/server";
 
+const conversationMessageValidator = v.object({
+  role: v.union(
+    v.literal("system"),
+    v.literal("user"),
+    v.literal("assistant"),
+  ),
+  content: v.string(),
+});
+
 // Braintrust AI Proxy for LLM-assisted narrative generation
 // Uses the Braintrust proxy endpoint for chat completions
 
@@ -8,17 +17,19 @@ export const generateDialogue = action({
   args: {
     systemPrompt: v.string(),
     userMessage: v.string(),
-    conversationHistory: v.optional(v.any()),
+    conversationHistory: v.optional(v.array(conversationMessageValidator)),
   },
   returns: v.string(),
   handler: async (_ctx, { systemPrompt, userMessage, conversationHistory }) => {
     const apiKey = (globalThis as any)?.process?.env?.BRAINTRUST_API_KEY as string | undefined;
     if (!apiKey) throw new Error("BRAINTRUST_API_KEY not configured");
 
-    const messages: any[] = [{ role: "system", content: systemPrompt }];
+    const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
+      { role: "system", content: systemPrompt },
+    ];
 
     if (conversationHistory) {
-      messages.push(...(conversationHistory as any[]));
+      messages.push(...conversationHistory);
     }
     messages.push({ role: "user", content: userMessage });
 

@@ -3,6 +3,22 @@ import type { Doc } from "../_generated/dataModel";
 import { mutation, query } from "../_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 
+const questStepValidator = v.object({
+  description: v.string(),
+  type: v.optional(v.string()),
+  target: v.optional(v.string()),
+  count: v.optional(v.number()),
+  optional: v.optional(v.boolean()),
+});
+
+const questRewardsValidator = v.object({
+  items: v.optional(
+    v.array(v.object({ name: v.string(), quantity: v.number() })),
+  ),
+  xp: v.optional(v.number()),
+  currency: v.optional(v.record(v.string(), v.number())),
+});
+
 // ---------------------------------------------------------------------------
 // Legacy API (quests / questProgress tables)
 // ---------------------------------------------------------------------------
@@ -27,9 +43,9 @@ export const create = mutation({
   args: {
     name: v.string(),
     description: v.string(),
-    steps: v.any(),
+    steps: v.array(questStepValidator),
     prerequisites: v.array(v.id("quests")),
-    rewards: v.any(),
+    rewards: questRewardsValidator,
   },
   returns: v.id("quests"),
   handler: async (ctx, args) => {
@@ -79,7 +95,7 @@ export const startQuest = mutation({
 export const advanceQuest = mutation({
   args: {
     progressId: v.id("questProgress"),
-    choice: v.optional(v.any()),
+    choice: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, { progressId, choice }) => {

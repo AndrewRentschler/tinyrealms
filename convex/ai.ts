@@ -40,9 +40,18 @@ export const invokeStream = httpAction(async (_ctx, _request) => {
   );
 });
 
+// Context for AI: string or record of dynamic key-value pairs (e.g. npcName, recentMessages)
+const aiContextValidator = v.optional(
+  v.union(v.string(), v.record(v.string(), v.any())),
+);
+
 // Stub actions that AI functionality expects
 export const generateNpcResponse = action({
-  args: { npcId: v.id("npcProfiles"), message: v.string(), context: v.optional(v.any()) },
+  args: {
+    npcId: v.id("npcProfiles"),
+    message: v.string(),
+    context: aiContextValidator,
+  },
   returns: v.object({
     response: v.string(),
     actions: v.array(v.any()),
@@ -57,7 +66,10 @@ export const generateNpcResponse = action({
 });
 
 export const generateStoryBranch = action({
-  args: { questId: v.id("quests"), context: v.optional(v.any()) },
+  args: {
+    questId: v.id("quests"),
+    context: aiContextValidator,
+  },
   returns: v.object({ content: v.string() }),
   handler: async (ctx, args) => {
     console.warn("AI not configured - returning stub response");
