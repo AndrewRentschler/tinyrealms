@@ -15,6 +15,16 @@ export default mutation({
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
 
+    // Validate capacity
+    if (capacity <= 0 || capacity > 100) {
+      throw new Error("Capacity must be between 1 and 100");
+    }
+
+    // Validate ownerId is required for player-owned storage
+    if (ownerType === "player" && !ownerId) {
+      throw new Error("ownerId is required for player-owned storage");
+    }
+
     // Validate ownerId if player-owned
     if (ownerType === "player" && ownerId) {
       const profile = await ctx.db.get(ownerId);
