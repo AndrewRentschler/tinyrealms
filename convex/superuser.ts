@@ -129,12 +129,12 @@ export const removeUser = mutation({
     // Remove auth sessions + tokens
     const sessions = await ctx.db
       .query("authSessions")
-      .withIndex("userId", (q: any) => q.eq("userId", user._id))
+      .withIndex("userId", (q) => q.eq("userId", user._id))
       .collect();
     for (const s of sessions) {
       const tokens = await ctx.db
         .query("authRefreshTokens")
-        .withIndex("sessionId", (q: any) => q.eq("sessionId", s._id))
+        .withIndex("sessionId", (q) => q.eq("sessionId", s._id))
         .collect();
       for (const t of tokens) await ctx.db.delete(t._id);
       await ctx.db.delete(s._id);

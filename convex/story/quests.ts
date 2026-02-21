@@ -106,12 +106,16 @@ export const advanceQuest = mutation({
     if (!quest) return null;
 
     const nextStep = progress.currentStep + 1;
-    const steps = quest.steps as any[];
+    const steps = quest.steps;
 
-    const updates: any = { currentStep: nextStep };
+    const updates: {
+      currentStep: number;
+      choices?: Record<string, string>;
+      status?: "completed";
+    } = { currentStep: nextStep };
     if (choice !== undefined) {
       updates.choices = {
-        ...(progress.choices as any),
+        ...progress.choices,
         [`step_${progress.currentStep}`]: choice,
       };
     }
