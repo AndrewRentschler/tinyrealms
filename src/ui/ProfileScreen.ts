@@ -2,17 +2,22 @@
  * ProfileScreen -- displayed on startup. Lists existing profiles,
  * allows creating new ones, deleting them, and viewing account info.
  */
-import { getConvexClient } from "../lib/convexClient.ts";
 import { api } from "../../convex/_generated/api";
-import type { ProfileData } from "../engine/types.ts";
 import { PROFILE_SPRITE_OPTIONS } from "../config/spritesheet-config.ts";
+import type { ProfileData } from "../engine/types.ts";
+import { getConvexClient } from "../lib/convexClient.ts";
 import "./ProfileScreen.css";
 
 // Available character sprites the player can pick from
 const SPRITE_OPTIONS = PROFILE_SPRITE_OPTIONS;
 
 const PROFILE_COLORS = [
-  "#6c5ce7", "#e74c3c", "#2ecc71", "#f39c12", "#00cec9", "#fd79a8",
+  "#6c5ce7",
+  "#e74c3c",
+  "#2ecc71",
+  "#f39c12",
+  "#00cec9",
+  "#fd79a8",
 ];
 
 // Trash icon SVG
@@ -33,7 +38,8 @@ export class ProfileScreen {
   private startLabelSelect: HTMLSelectElement | null = null;
   /** Map name → list of label names (populated by loadStartMaps) */
   private mapLabels = new Map<string, string[]>();
-  private selectedSpriteUrl = SPRITE_OPTIONS[0]?.url ?? "/assets/characters/villager2.json";
+  private selectedSpriteUrl =
+    SPRITE_OPTIONS[0]?.url ?? "/assets/characters/villager2.json";
   private statusEl: HTMLElement | null = null;
   private profilesUnsub: (() => void) | null = null;
   private titleEl: HTMLElement | null = null;
@@ -73,7 +79,9 @@ export class ProfileScreen {
     this.superuserBtn.style.fontSize = "12px";
     this.superuserBtn.style.padding = "6px 14px";
     this.superuserBtn.style.display = "none";
-    this.superuserBtn.addEventListener("click", () => this.toggleSuperuserPanel());
+    this.superuserBtn.addEventListener("click", () =>
+      this.toggleSuperuserPanel(),
+    );
     topBar.appendChild(this.superuserBtn);
 
     if (this.onSignOut) {
@@ -167,9 +175,12 @@ export class ProfileScreen {
     this.listEl.innerHTML = "";
 
     const superusers = profiles.filter((p) => p.role === "superuser");
-    this.actingSuperuserProfileId = superusers.length > 0 ? String(superusers[0]._id) : null;
+    this.actingSuperuserProfileId =
+      superusers.length > 0 ? String(superusers[0]._id) : null;
     if (this.superuserBtn) {
-      this.superuserBtn.style.display = this.actingSuperuserProfileId ? "" : "none";
+      this.superuserBtn.style.display = this.actingSuperuserProfileId
+        ? ""
+        : "none";
     }
 
     for (const p of profiles) {
@@ -270,7 +281,9 @@ export class ProfileScreen {
     const deleteBtn = document.createElement("button");
     deleteBtn.className = "profile-btn danger";
     deleteBtn.textContent = "Delete";
-    deleteBtn.addEventListener("click", () => this.doDelete(profile, deleteBtn));
+    deleteBtn.addEventListener("click", () =>
+      this.doDelete(profile, deleteBtn),
+    );
 
     btnRow.append(cancelBtn, deleteBtn);
     dialog.appendChild(btnRow);
@@ -336,7 +349,8 @@ export class ProfileScreen {
     try {
       const resp = await fetch(spriteUrl);
       const json = await resp.json();
-      const imgPath = spriteUrl.replace(/[^/]+$/, "") + (json.meta?.image ?? "");
+      const imgPath =
+        spriteUrl.replace(/[^/]+$/, "") + (json.meta?.image ?? "");
       const img = new Image();
       img.src = imgPath;
       await new Promise<void>((resolve, reject) => {
@@ -410,9 +424,9 @@ export class ProfileScreen {
       this.renderSpritePreview(btn, opt.url);
       btn.addEventListener("click", () => {
         this.selectedSpriteUrl = opt.url;
-        picker.querySelectorAll(".sprite-option").forEach((el) =>
-          el.classList.remove("selected"),
-        );
+        picker
+          .querySelectorAll(".sprite-option")
+          .forEach((el) => el.classList.remove("selected"));
         btn.classList.add("selected");
       });
       picker.appendChild(btn);
@@ -485,7 +499,7 @@ export class ProfileScreen {
     try {
       const convex = getConvexClient();
       // listStartMaps returns system maps + current user's own maps
-      const maps = await convex.query(api.maps.listStartMaps, {});
+      const maps = await convex.query(api.maps.queries.listStartMaps, {});
 
       // Build label lookup and deduplicate map names
       this.mapLabels.clear();
@@ -501,7 +515,7 @@ export class ProfileScreen {
 
       const preferred = names.includes("cozy-cabin")
         ? "cozy-cabin"
-        : names[0] ?? "cozy-cabin";
+        : (names[0] ?? "cozy-cabin");
 
       this.startMapSelect.innerHTML = "";
       for (const name of names.length ? names : ["cozy-cabin"]) {
@@ -567,7 +581,8 @@ export class ProfileScreen {
 
     try {
       const convex = getConvexClient();
-      const color = PROFILE_COLORS[Math.floor(Math.random() * PROFILE_COLORS.length)];
+      const color =
+        PROFILE_COLORS[Math.floor(Math.random() * PROFILE_COLORS.length)];
       const startMapName = this.startMapSelect?.value?.trim() || "cozy-cabin";
       const startLabel = this.startLabelSelect?.value?.trim() || "start1";
       const profileId = await convex.mutation(api.profiles.create, {
@@ -580,7 +595,10 @@ export class ProfileScreen {
 
       const profile = await convex.query(api.profiles.get, { id: profileId });
       if (profile) {
-        const p = { ...profile, role: (profile as any).role ?? "player" } as unknown as ProfileData;
+        const p = {
+          ...profile,
+          role: (profile as any).role ?? "player",
+        } as unknown as ProfileData;
         this.onSelect(p);
       }
     } catch (err: any) {
@@ -611,7 +629,7 @@ export class ProfileScreen {
 
     try {
       const convex = getConvexClient();
-      const info = await convex.query(api.admin.myAccountInfo, {});
+      const info = await convex.query(api.admin.users.myAccountInfo, {});
       if (!info) {
         this.accountEl.innerHTML = `<div class="profile-status error">Could not load account info.</div>`;
         return;
@@ -647,9 +665,10 @@ export class ProfileScreen {
         for (const p of info.profiles) {
           const row = document.createElement("div");
           row.className = "account-row";
-          const roleTag = p.role === "superuser"
-            ? ` <span class="role-badge admin">superuser</span>`
-            : "";
+          const roleTag =
+            p.role === "superuser"
+              ? ` <span class="role-badge admin">superuser</span>`
+              : "";
           row.innerHTML = `<span class="account-label">${p.name}${roleTag}</span><span class="account-value">Lv ${p.level}</span>`;
           this.accountEl.appendChild(row);
         }
@@ -665,8 +684,10 @@ export class ProfileScreen {
           const row = document.createElement("div");
           row.className = "account-row";
           const tags: string[] = [];
-          if (m.mapType === "system") tags.push(`<span class="role-badge admin">system</span>`);
-          if (m.status === "draft") tags.push(`<span class="role-badge in-use">draft</span>`);
+          if (m.mapType === "system")
+            tags.push(`<span class="role-badge admin">system</span>`);
+          if (m.status === "draft")
+            tags.push(`<span class="role-badge in-use">draft</span>`);
           row.innerHTML = `<span class="account-label">${m.name} ${tags.join("")}</span><span class="account-value">${m.status}</span>`;
           this.accountEl.appendChild(row);
         }
@@ -695,11 +716,13 @@ export class ProfileScreen {
 
   private formatProviders(providers: string[]): string {
     if (!providers || providers.length === 0) return "Unknown";
-    return providers.map((p) => {
-      if (p === "password") return "Email/Password";
-      if (p === "github") return "GitHub";
-      return p;
-    }).join(", ");
+    return providers
+      .map((p) => {
+        if (p === "password") return "Email/Password";
+        if (p === "github") return "GitHub";
+        return p;
+      })
+      .join(", ");
   }
 
   private hideAccountInfo() {
@@ -865,7 +888,9 @@ export class ProfileScreen {
         const editorsInput = document.createElement("input");
         editorsInput.className = "superuser-input";
         editorsInput.placeholder = "Editors: email:name, email:name";
-        editorsInput.value = (m.editors as any[]).map((e) => e.label).join(", ");
+        editorsInput.value = (m.editors as any[])
+          .map((e) => e.label)
+          .join(", ");
         block.appendChild(editorsInput);
 
         const row = document.createElement("div");
@@ -886,7 +911,10 @@ export class ProfileScreen {
               if (idx < 1) return null;
               return { email: s.slice(0, idx), name: s.slice(idx + 1) };
             })
-            .filter((x): x is { email: string; name: string } => !!x && !!x.email && !!x.name);
+            .filter(
+              (x): x is { email: string; name: string } =>
+                !!x && !!x.email && !!x.name,
+            );
 
           saveEditorsBtn.disabled = true;
           try {
@@ -896,7 +924,10 @@ export class ProfileScreen {
               editorSpecs: specs,
             });
             saveEditorsBtn.textContent = "Saved";
-            setTimeout(() => (saveEditorsBtn.textContent = "Save Editors"), 1000);
+            setTimeout(
+              () => (saveEditorsBtn.textContent = "Save Editors"),
+              1000,
+            );
           } catch (err) {
             console.warn("setMapEditors failed", err);
             saveEditorsBtn.textContent = "Error";

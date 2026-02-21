@@ -1,10 +1,9 @@
 /**
  * Resolves NPC dialogue mode (AI vs static) and sends AI messages.
  */
-import { getConvexClient } from "../../lib/convexClient.ts";
 import { api } from "../../../convex/_generated/api";
-import type { NPC } from "../../engine/NPC.ts";
-import type { DialogueLine } from "../../engine/NPC.ts";
+import type { DialogueLine, NPC } from "../../engine/NPC.ts";
+import { getConvexClient } from "../../lib/convexClient.ts";
 
 export type DialogueNode = {
   id: string;
@@ -52,7 +51,7 @@ export class NpcDialogueController {
     }
 
     const convex = getConvexClient();
-    const profile = await convex.query(api.npcProfiles.getByName, {
+    const profile = await convex.query(api.npcProfiles.queries.getByName, {
       name: instanceName,
     });
 
@@ -69,17 +68,17 @@ export class NpcDialogueController {
 
     const npcType = (profile as { npcType?: string }).npcType;
     const aiEnabled = (profile as { aiEnabled?: boolean }).aiEnabled;
-    const canChat = (profile as { aiPolicy?: { capabilities?: { canChat?: boolean } } })
-      ?.aiPolicy?.capabilities?.canChat;
+    const canChat = (
+      profile as { aiPolicy?: { capabilities?: { canChat?: boolean } } }
+    )?.aiPolicy?.capabilities?.canChat;
 
-    const useAi =
-      (npcType === "ai" || aiEnabled === true) &&
-      (canChat !== false);
+    const useAi = (npcType === "ai" || aiEnabled === true) && canChat !== false;
 
     if (useAi) {
       return {
         kind: "ai",
-        npcName: (profile as { displayName?: string }).displayName ?? displayName,
+        npcName:
+          (profile as { displayName?: string }).displayName ?? displayName,
         npcProfileName: (profile as { name: string }).name,
       };
     }
@@ -89,7 +88,8 @@ export class NpcDialogueController {
       return {
         kind: "static",
         nodes: dialogueLinesToNodes(npc.dialogue),
-        npcName: (profile as { displayName?: string }).displayName ?? displayName,
+        npcName:
+          (profile as { displayName?: string }).displayName ?? displayName,
       };
     }
 

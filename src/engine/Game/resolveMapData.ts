@@ -1,9 +1,9 @@
-import { getConvexClient } from "../../lib/convexClient.ts";
 import { api } from "../../../convex/_generated/api";
+import { getConvexClient } from "../../lib/convexClient.ts";
 import type { MapData } from "../types.ts";
-import type { IGame } from "./types.ts";
 import { convexMapToMapData, type ConvexMapDoc } from "./convexMapToMapData.ts";
 import { seedMapToConvex } from "./seedMapToConvex.ts";
+import type { IGame } from "./types.ts";
 
 /**
  * Resolve map data from Convex or static JSON.
@@ -16,7 +16,9 @@ export async function resolveMapData(
   const convex = getConvexClient();
 
   try {
-    const saved = await convex.query(api.maps.getByName, { name: mapName });
+    const saved = await convex.query(api.maps.queries.getByName, {
+      name: mapName,
+    });
     if (saved) {
       return convexMapToMapData(saved as ConvexMapDoc);
     }
