@@ -1,7 +1,24 @@
+/**
+ * Central audio configuration: asset URLs, picker options, and default volumes.
+ * Used by editors (SpriteEditorPanel, NpcEditorPanel, ItemEditorPanel),
+ * Game runtime (handleItemPickup, loadDefaultMap, changeMap), and AudioManager.
+ */
+
+// ---------------------------------------------------------------------------
+// Option types (label + url for pickers)
+// ---------------------------------------------------------------------------
+
 export interface SoundOption {
   label: string;
   url: string;
 }
+
+/** Alias for music picker; same shape as SoundOption */
+export type MusicOption = SoundOption;
+
+// ---------------------------------------------------------------------------
+// Ambient / SFX asset options (object/NPC editors)
+// ---------------------------------------------------------------------------
 
 export const SOUND_FILES: SoundOption[] = [
   { label: "(none)", url: "" },
@@ -27,6 +44,25 @@ export const SOUND_FILES: SoundOption[] = [
   { label: "Pig", url: "/assets/audio/pig.mp3" },
 ];
 
+// ---------------------------------------------------------------------------
+// Music options (map metadata picker)
+// ---------------------------------------------------------------------------
+
+export const MUSIC_OPTIONS: MusicOption[] = [
+  { label: "(none)", url: "" },
+  { label: "Cozy", url: "/assets/audio/cozy.m4a" },
+  { label: "PS1 Palma", url: "/assets/audio/ps1-palma.mp3" },
+  { label: "PS1 Town", url: "/assets/audio/ps1-town.mp3" },
+  { label: "Mage City", url: "/assets/audio/magecity.mp3" },
+];
+
+/** Default music URL when map has none */
+export const DEFAULT_MUSIC = "/assets/audio/cozy.m4a";
+
+// ---------------------------------------------------------------------------
+// Item pickup SFX
+// ---------------------------------------------------------------------------
+
 export const ITEM_PICKUP_SOUND_OPTIONS: string[] = [
   "",
   "/assets/audio/take-item.mp3",
@@ -36,3 +72,16 @@ export const ITEM_PICKUP_SOUND_OPTIONS: string[] = [
 ];
 
 export const DEFAULT_ITEM_PICKUP_SFX = "/assets/audio/take-item.mp3";
+
+// ---------------------------------------------------------------------------
+// Default volume levels (AudioManager)
+// ---------------------------------------------------------------------------
+
+/** Default master music volume (0–1) */
+export const DEFAULT_MUSIC_VOLUME = 0.15;
+
+/** Default initial volume for ambient loops before distance scaling */
+export const DEFAULT_AMBIENT_INITIAL_VOLUME = 0.5;
+
+/** Default volume for one-shot SFX */
+export const DEFAULT_ONE_SHOT_VOLUME = 0.6;
