@@ -2,6 +2,7 @@
  * Admin: one-shot backfills and migration helpers.
  */
 import { v } from "convex/values";
+import { DEFAULT_MAP_TYPE, DEFAULT_VISIBILITY_TYPE } from "../lib/visibility.ts";
 import type { Id } from "../_generated/dataModel";
 import { mutation, internalMutation } from "../_generated/server";
 import { requireAdminKey } from "../lib/requireAdminKey";
@@ -19,7 +20,7 @@ export const backfillMaps = mutation({
       if (!doc.portals) updates.portals = [];
       if (doc.status === undefined) updates.status = "published";
       if (doc.combatEnabled === undefined) updates.combatEnabled = false;
-      if (doc.mapType === undefined) updates.mapType = "private";
+      if (doc.mapType === undefined) updates.mapType = DEFAULT_MAP_TYPE;
       if (doc.editors === undefined) updates.editors = [];
       if (m.name === "cozy-cabin" && !doc.musicUrl) {
         updates.musicUrl = "/assets/audio/cozy.m4a";
@@ -101,21 +102,21 @@ export const backfillAssetVisibilityTypes = mutation({
     const spriteDefs = await ctx.db.query("spriteDefinitions").collect();
     for (const def of spriteDefs) {
       if ((def as { visibilityType?: string }).visibilityType === undefined) {
-        await ctx.db.patch(def._id, { visibilityType: "system" });
+        await ctx.db.patch(def._id, { visibilityType: DEFAULT_VISIBILITY_TYPE });
         spriteDefsPatched++;
       }
     }
     const itemDefs = await ctx.db.query("itemDefs").collect();
     for (const item of itemDefs) {
       if ((item as { visibilityType?: string }).visibilityType === undefined) {
-        await ctx.db.patch(item._id, { visibilityType: "system" });
+        await ctx.db.patch(item._id, { visibilityType: DEFAULT_VISIBILITY_TYPE });
         itemDefsPatched++;
       }
     }
     const npcProfiles = await ctx.db.query("npcProfiles").collect();
     for (const npc of npcProfiles) {
       if ((npc as { visibilityType?: string }).visibilityType === undefined) {
-        await ctx.db.patch(npc._id, { visibilityType: "system" });
+        await ctx.db.patch(npc._id, { visibilityType: DEFAULT_VISIBILITY_TYPE });
         npcProfilesPatched++;
       }
     }

@@ -5,7 +5,11 @@ import { v } from "convex/values";
 import { mutation } from "../_generated/server";
 import type { MutationCtx } from "../_generated/server";
 import { requireMapEditor, isMapOwner } from "../lib/requireMapEditor";
-import { getMapType, visibilityTypeValidator } from "../lib/visibility.ts";
+import {
+  DEFAULT_MAP_TYPE,
+  getMapType,
+  visibilityTypeValidator,
+} from "../lib/visibility.ts";
 import { getAuthUserId } from "@convex-dev/auth/server";
 
 // ---------------------------------------------------------------------------
@@ -220,13 +224,13 @@ export const saveFullMap = mutation({
       .query("maps")
       .withIndex("by_name", (q) => q.eq("name", args.name))
       .first();
-    let mapType: string;
+    let mapType: "public" | "private" | "system";
     if (args.mapType) {
       mapType = args.mapType;
     } else if (existing) {
       mapType = getMapType(existing);
     } else {
-      mapType = "private";
+      mapType = DEFAULT_MAP_TYPE;
     }
     let weatherMode: "clear" | "rainy" | "scattered_rain";
     if (args.weatherMode) {

@@ -1,6 +1,7 @@
 import { authTables } from "@convex-dev/auth/server";
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import { visibilityTypeValidator } from "./lib/visibility.ts";
 
 export default defineSchema({
   ...authTables,
@@ -90,7 +91,7 @@ export default defineSchema({
       }),
     ),
     status: v.optional(v.string()), // "draft" | "published" (default "published")
-    mapType: v.optional(v.string()), // "public" | "private" | "system" (default "private")
+    mapType: v.optional(visibilityTypeValidator),
     editors: v.optional(v.array(v.id("profiles"))), // per-map editor list
     creatorProfileId: v.optional(v.id("profiles")),
     createdBy: v.optional(v.id("users")), // user who created this map (for ownership checks)
@@ -190,7 +191,7 @@ export default defineSchema({
     doorClosingAnimation: v.optional(v.string()), // transition: open → closed (plays once)
     doorOpenSoundUrl: v.optional(v.string()), // one-shot sound when door opens
     doorCloseSoundUrl: v.optional(v.string()), // one-shot sound when door closes
-    visibilityType: v.optional(v.string()), // "public" | "private" | "system" (legacy undefined => system)
+    visibilityType: v.optional(visibilityTypeValidator),
     createdByUser: v.optional(v.id("users")), // owner user for private/public assets
     updatedAt: v.number(),
   })
@@ -276,7 +277,7 @@ export default defineSchema({
         ),
       }),
     ),
-    visibilityType: v.optional(v.string()), // "public" | "private" | "system" (legacy undefined => system)
+    visibilityType: v.optional(visibilityTypeValidator),
     createdByUser: v.optional(v.id("users")), // owner user for private/public NPC profiles
     updatedAt: v.number(),
   })
@@ -605,7 +606,7 @@ export default defineSchema({
     ),
     timeLimitMs: v.optional(v.number()),
     mapScope: v.optional(v.union(v.literal("any"), v.string())),
-    visibilityType: v.optional(v.string()), // "public" | "private" | "system"
+    visibilityType: v.optional(visibilityTypeValidator),
     createdByUser: v.optional(v.id("users")),
     enabled: v.boolean(),
     updatedAt: v.number(),
@@ -787,7 +788,7 @@ export default defineSchema({
     consumeHpDelta: v.optional(v.number()), // consumables: +heals, -poisons on click/use
     pickupSoundUrl: v.optional(v.string()), // one-shot SFX played when picked up
     createdBy: v.optional(v.id("profiles")),
-    visibilityType: v.optional(v.string()), // "public" | "private" | "system" (legacy undefined => system)
+    visibilityType: v.optional(visibilityTypeValidator),
     createdByUser: v.optional(v.id("users")), // owner user for private/public assets
     updatedAt: v.number(),
   })
