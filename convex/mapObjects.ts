@@ -1,8 +1,8 @@
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 import { requireMapEditor } from "./lib/requireMapEditor";
-import type { Id } from "./_generated/dataModel";
 
 function slugifyInstanceName(input: string): string {
   return input
