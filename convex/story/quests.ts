@@ -29,6 +29,8 @@ export const create = mutation({
     rewards: v.any(),
   },
   handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Unauthorized");
     return await ctx.db.insert("quests", args);
   },
 });
