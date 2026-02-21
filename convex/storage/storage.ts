@@ -18,11 +18,33 @@ export const ownerTypeValidator = v.union(v.literal("public"), v.literal("player
 // Queries
 // ---------------------------------------------------------------------------
 
-/** Get storage by ID */
+/** Get storage by ID. Returns null if caller lacks access. */
 export const get = query({
-  args: { storageId: v.id("storages") },
-  handler: async (ctx, { storageId }) => {
-    return await ctx.db.get(storageId);
+  args: {
+    storageId: v.id("storages"),
+    profileId: v.id("profiles"),
+  },
+  handler: async (ctx, { storageId, profileId }) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return null;
+
+    const storage = await ctx.db.get(storageId);
+    if (!storage) return null;
+
+    // Public storage: any authenticated user with valid profile
+    if (storage.ownerType === "public") {
+      const profile = await ctx.db.get(profileId);
+      return profile?.userId === userId ? storage : null;
+    }
+
+    // Player storage: only owner (and must be requesting user's profile)
+    if (storage.ownerType === "player") {
+      const profile = await ctx.db.get(profileId);
+      if (!profile || profile.userId !== userId) return null;
+      return storage.ownerId === profileId ? storage : null;
+    }
+
+    return null;
   },
 });
 

@@ -14,6 +14,10 @@ export default mutation({
     const userId = await getAuthUserId(ctx);
     if (!userId) return { success: false, reason: "Not authenticated" };
 
+    if (quantity <= 0 || !Number.isInteger(quantity)) {
+      return { success: false, reason: "Invalid quantity" };
+    }
+
     // Get storage
     const storage = await ctx.db.get(storageId);
     if (!storage) return { success: false, reason: "Storage not found" };

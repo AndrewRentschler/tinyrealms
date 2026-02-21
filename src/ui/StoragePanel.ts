@@ -40,7 +40,11 @@ export class StoragePanel {
 
   private async loadStorage() {
     const convex = getConvexClient();
-    const data = await convex.query(api.storage.storage.get, { storageId: this.storageId });
+    const profileId = this.callbacks.getProfileId() as Id<"profiles">;
+    const data = await convex.query(api.storage.storage.get, {
+      storageId: this.storageId,
+      profileId,
+    });
     this.storageData = data as StorageData;
 
     // Load item definitions for display
@@ -57,7 +61,7 @@ export class StoragePanel {
 
   private render() {
     if (!this.storageData) {
-      this.el.innerHTML = `<div class="storage-loading">Loading...</div>`;
+      this.el.innerHTML = `<div class="storage-loading">Loading storage...</div>`;
       return;
     }
 
