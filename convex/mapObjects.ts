@@ -59,22 +59,48 @@ export const place = mutation({
     layer: v.number(),
     scaleOverride: v.optional(v.number()),
     flipX: v.optional(v.boolean()),
+    // New: storage configuration
+    hasStorage: v.optional(v.boolean()),
+    storageCapacity: v.optional(v.number()),
+    storageOwnerType: v.optional(v.union(v.literal("public"), v.literal("player"))),
   },
-  handler: async (ctx, { profileId, ...args }) => {
+  handler: async (ctx, { profileId, hasStorage, storageCapacity, storageOwnerType, ...args }) => {
     await requireMapEditor(ctx, profileId, args.mapName);
+
     let instanceName: string | undefined = undefined;
+    let storageId: string | undefined = undefined;
+
     const def = await ctx.db
       .query("spriteDefinitions")
       .withIndex("by_name", (q) => q.eq("name", args.spriteDefName))
       .first();
+
     if (def?.category === "npc") {
       instanceName = await generateUniqueNpcInstanceName(ctx, args.spriteDefName);
     }
+
+    // Create storage if requested
+    if (hasStorage && storageCapacity && storageCapacity > 0) {
+      const ownerType = storageOwnerType ?? "public";
+      const ownerId = ownerType === "player" ? profileId : undefined;
+
+      storageId = await ctx.db.insert("storages", {
+        ownerType,
+        ownerId,
+        capacity: storageCapacity,
+        slots: [],
+        name: `${args.spriteDefName} Storage`,
+        updatedAt: Date.now(),
+      });
+    }
+
     const id = await ctx.db.insert("mapObjects", {
       ...args,
       instanceName,
+      storageId,
       updatedAt: Date.now(),
     });
+
     await ctx.scheduler.runAfter(0, internal.npcEngine.syncMap, { mapName: args.mapName });
     return id;
   },
