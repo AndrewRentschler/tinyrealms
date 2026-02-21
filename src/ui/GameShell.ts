@@ -2,6 +2,7 @@
  * GameShell – creates the PixiJS canvas, initialises the Game engine,
  * and hosts all overlay UI panels (HUD, ModeToggle, ChatPanel, editors).
  */
+import { MUTE_KEY, MUTE_KEY_ALT } from "../constants/keybindings.ts";
 import { MapEditorPanel } from "../editor/MapEditorPanel.ts";
 import { Game } from "../engine/Game.ts";
 import { SpriteEditorPanel } from "../sprited/SpriteEditorPanel.ts";
@@ -107,7 +108,7 @@ export class GameShell {
 
     // Sync the M-key mute shortcut with the button icon
     this.muteKeyHandler = (e: KeyboardEvent) => {
-      if (e.key === "m" || e.key === "M") {
+      if (e.key === MUTE_KEY || e.key === MUTE_KEY_ALT) {
         this.modeToggle?.setSoundIcon(game.audio.muted);
       }
     };
@@ -217,6 +218,7 @@ export class GameShell {
     if (this.muteKeyHandler) {
       document.removeEventListener("keydown", this.muteKeyHandler);
     }
+    this.mapEditor?.destroy();
     this.game?.destroy();
     this.game = null;
     this.el.remove();

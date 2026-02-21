@@ -12,6 +12,7 @@ import { getConvexClient } from "../lib/convexClient.ts";
 import { api } from "../../convex/_generated/api";
 import type { Game } from "../engine/Game.ts";
 import type { Id } from "../../convex/_generated/dataModel";
+import type { VisibilityType } from "../types/visibility.ts";
 import { NPC_SPRITE_SHEETS } from "../config/spritesheet-config.ts";
 import { SOUND_FILES } from "../config/audio-config.ts";
 import "./NpcEditor.css";
@@ -92,7 +93,7 @@ interface NpcProfileData {
       canUsePortals?: boolean;
     };
   };
-  visibilityType?: "public" | "private" | "system";
+  visibilityType?: VisibilityType;
 }
 
 const DEFAULT_STATS: NpcStats = {
@@ -142,10 +143,10 @@ interface SavedNpcDef {
   ambientSoundRadius?: number;
   ambientSoundVolume?: number;
   interactSoundUrl?: string;
-  visibilityType?: "public" | "private" | "system";
+  visibilityType?: VisibilityType;
 }
 
-function visibilityLabel(v?: "public" | "private" | "system"): string {
+function visibilityLabel(v?: VisibilityType): string {
   const type = v ?? "system";
   if (type === "private") return "private";
   if (type === "public") return "public";
@@ -910,11 +911,11 @@ export class NpcEditorPanel {
     }
   }
 
-  private nsRebuildVisibilityOptions(selected: "public" | "private" | "system" = "private") {
+  private nsRebuildVisibilityOptions(selected: VisibilityType = "private") {
     if (!this.nsVisibilitySelect) return;
     const isSuperuser = this.game?.profile.role === "superuser";
     this.nsVisibilitySelect.innerHTML = "";
-    const options: Array<{ value: "public" | "private" | "system"; label: string }> = [
+    const options: Array<{ value: VisibilityType; label: string }> = [
       { value: "private", label: "Private (only me)" },
       { value: "public", label: "Public (all users)" },
     ];
@@ -1282,9 +1283,9 @@ export class NpcEditorPanel {
     return sel;
   }
 
-  private getVisibilityOptions(): Array<{ value: "private" | "public" | "system"; label: string }> {
+  private getVisibilityOptions(): Array<{ value: VisibilityType; label: string }> {
     const isSuperuser = this.game?.profile.role === "superuser";
-    const options: Array<{ value: "private" | "public" | "system"; label: string }> = [
+    const options: Array<{ value: VisibilityType; label: string }> = [
       { value: "private", label: "Private (only me)" },
       { value: "public", label: "Public (all users)" },
     ];
@@ -1294,7 +1295,7 @@ export class NpcEditorPanel {
     return options;
   }
 
-  private rebuildVisibilitySelect(selected: "private" | "public" | "system" = "private") {
+  private rebuildVisibilitySelect(selected: VisibilityType = "private") {
     if (!this.visibilitySelect) return;
     const options = this.getVisibilityOptions();
     this.visibilitySelect.innerHTML = "";

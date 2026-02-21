@@ -5,6 +5,7 @@
 import { getConvexClient } from "../lib/convexClient.ts";
 import { api } from "../../convex/_generated/api";
 import type { Game } from "../engine/Game.ts";
+import type { VisibilityType } from "../types/visibility.ts";
 import { SOUND_FILES } from "../config/audio-config.ts";
 import {
   OBJECT_SPRITE_SHEETS,
@@ -73,10 +74,10 @@ interface SavedSpriteDef {
   doorClosingAnimation?: string;
   doorOpenSoundUrl?: string;
   doorCloseSoundUrl?: string;
-  visibilityType?: "public" | "private" | "system";
+  visibilityType?: VisibilityType;
 }
 
-function visibilityLabel(v?: "public" | "private" | "system"): string {
+function visibilityLabel(v?: VisibilityType): string {
   const type = v ?? "system";
   if (type === "private") return "private";
   if (type === "public") return "public";
@@ -1071,11 +1072,11 @@ export class SpriteEditorPanel {
     }
   }
 
-  private rebuildVisibilityOptions(selected: "public" | "private" | "system" = "private") {
+  private rebuildVisibilityOptions(selected: VisibilityType = "private") {
     if (!this.visibilitySelect) return;
     const isSuperuser = this.game?.profile.role === "superuser";
     this.visibilitySelect.innerHTML = "";
-    const options: Array<{ value: "public" | "private" | "system"; label: string }> = [
+    const options: Array<{ value: VisibilityType; label: string }> = [
       { value: "private", label: "Private (only me)" },
       { value: "public", label: "Public (all users)" },
     ];
