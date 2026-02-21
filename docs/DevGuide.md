@@ -36,7 +36,7 @@ src/
 │   ├── Camera.ts        Viewport + smooth follow
 │   ├── InputManager.ts  Keyboard/mouse state (keys, justPressed, endFrame)
 │   ├── SpriteLoader.ts  Spritesheet loader (avoids PixiJS cache collisions)
-│   ├── CombatEngine.ts  Turn-based combat resolution (CombatEngine/ decomposed)
+│   ├── CombatEngine/    Turn-based combat resolution (CombatEngine, resolveTurn, isCombatOver)
 │   ├── types.ts         Shared types (AppMode, MapData, Direction, etc.)
 │   └── animations/
 │       └── TileAnimator.ts  Animated tile overlays (water, torches)
