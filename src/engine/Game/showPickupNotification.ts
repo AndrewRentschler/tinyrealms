@@ -1,3 +1,5 @@
+import { PICKUP_NOTIFICATION } from "../../constants/colors.ts";
+
 /**
  * Show a brief floating text notification for item pickup.
  */
@@ -10,7 +12,7 @@ export function showPickupNotification(text: string): void {
     left: 50%;
     transform: translateX(-50%);
     background: rgba(0,0,0,0.8);
-    color: #44ff88;
+    color: ${PICKUP_NOTIFICATION};
     padding: 8px 16px;
     border-radius: 8px;
     font-size: 14px;

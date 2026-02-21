@@ -1,4 +1,12 @@
 import {
+  COMBAT_DEFEATED,
+  COMBAT_HIT,
+  COMBAT_HP,
+  COMBAT_LOOT,
+  COMBAT_TOOK_DAMAGE,
+  COMBAT_WARNING,
+} from "../../constants/colors.ts";
+import {
   COMBAT_ATTACK_KEY,
   COMBAT_ATTACK_KEY_ALT,
   COMBAT_ATTACK_RANGE_PX,
@@ -15,13 +23,7 @@ import { showCombatNotification, type CombatNotificationState } from "./showComb
 /**
  * Handle attack key press to attack nearest hostile NPC.
  */
-export async function handleCombatInput(
-  game: IGame & {
-    attacking: boolean;
-    lastAttackAt: number;
-    activeCombatNotifications: HTMLDivElement[];
-  },
-): Promise<void> {
+export async function handleCombatInput(game: IGame): Promise<void> {
   if (game.attacking) return;
   if (!game.currentMapData?.combatEnabled) return;
   if (game.entityLayer.inDialogue) return;
@@ -64,16 +66,15 @@ export async function handleCombatInput(
     }
     return;
   }
-  (game as { lastAttackAt: number }).lastAttackAt = now;
-
-  (game as { attacking: boolean }).attacking = true;
+  game.lastAttackAt = now;
+  game.attacking = true;
   const state: CombatNotificationState = {
     activeCombatNotifications: game.activeCombatNotifications,
   };
 
   try {
     const convex = getConvexClient();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Convex api doesn't expose mechanics.combat in generated types
     const result = await convex.mutation((api as any).mechanics.combat.attackNearestHostile, {
         profileId: game.profile._id as import("../../../convex/_generated/dataModel").Id<"profiles">,
         mapName: game.currentMapName,
@@ -84,7 +85,7 @@ export async function handleCombatInput(
 
     if (!result?.success) {
       if (COMBAT_DEBUG) console.log("[CombatDebug:client] attack rejected", result);
-      showCombatNotification(state, result?.reason ?? "No target in range.", "#ffcc66");
+      showCombatNotification(state, result?.reason ?? "No target in range.", COMBAT_WARNING);
       return;
     }
     if (COMBAT_DEBUG) console.log("[CombatDebug:client] attack accepted", result);
@@ -92,7 +93,7 @@ export async function handleCombatInput(
     const dealt = Number(result.dealt ?? 0);
     const took = Number(result.took ?? 0);
     const targetName = String(result.targetName ?? "Enemy");
-    showCombatNotification(state, `You hit ${targetName} for ${dealt}`, "#ff6666");
+    showCombatNotification(state, `You hit ${targetName} for ${dealt}`, COMBAT_HIT);
 
     if (result.targetInstanceName) {
       const hitNpc = game.entityLayer.getNpcByInstanceName(String(result.targetInstanceName));
@@ -101,20 +102,20 @@ export async function handleCombatInput(
     }
 
     if (took > 0) {
-      showCombatNotification(state, `${targetName} hits you for ${took}`, "#ff9b66");
+      showCombatNotification(state, `${targetName} hits you for ${took}`, COMBAT_TOOK_DAMAGE);
       game.entityLayer.playPlayerHitEffect();
     }
     if (result.defeated) {
       const xp = Number(result.xpGained ?? 0);
-      showCombatNotification(state, `${targetName} defeated! +${xp} XP`, "#66ff99");
+      showCombatNotification(state, `${targetName} defeated! +${xp} XP`, COMBAT_DEFEATED);
     } else {
       const hp = Number(result.targetHp ?? 0);
       const max = Number(result.targetMaxHp ?? 0);
-      showCombatNotification(state, `${targetName} HP ${hp}/${max}`, "#ffb3b3");
+      showCombatNotification(state, `${targetName} HP ${hp}/${max}`, COMBAT_HP);
     }
     if (Array.isArray(result.droppedLoot) && result.droppedLoot.length > 0) {
       const first = result.droppedLoot[0];
-      showCombatNotification(state, `Loot dropped: ${first.itemDefName}`, "#99e6ff");
+      showCombatNotification(state, `Loot dropped: ${first.itemDefName}`, COMBAT_LOOT);
     }
     if (typeof took === "number" && took >= 0) {
       game.profile.stats.hp = Math.max(0, game.profile.stats.hp - took);
@@ -130,8 +131,8 @@ export async function handleCombatInput(
       });
     }
     const range = game.currentMapData?.combatSettings?.attackRangePx ?? COMBAT_ATTACK_RANGE_PX;
-    showCombatNotification(state, `Attack failed (range ${range}px)`, "#ffcc66");
+    showCombatNotification(state, `Attack failed (range ${range}px)`, COMBAT_WARNING);
   } finally {
-    (game as { attacking: boolean }).attacking = false;
+    game.attacking = false;
   }
 }

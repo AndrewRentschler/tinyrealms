@@ -1,3 +1,7 @@
+import {
+  INTERACT_KEY,
+  INTERACT_KEY_ALT,
+} from "../../constants/keybindings.ts";
 import { getConvexClient } from "../../lib/convexClient.ts";
 import { api } from "../../../convex/_generated/api";
 import { DEFAULT_ITEM_PICKUP_SFX } from "../../config/audio-config.ts";
@@ -7,16 +11,20 @@ import { showPickupNotification } from "./showPickupNotification.ts";
 /**
  * Handle E key press to pick up nearest world item.
  */
-export async function handleItemPickup(
-  game: IGame & { pickingUp: boolean },
-): Promise<void> {
+export async function handleItemPickup(game: IGame): Promise<void> {
   if (game.pickingUp) return;
   const nearestId = game.worldItemLayer.getNearestItemId();
   if (!nearestId) return;
-  if (!(game.input.wasJustPressed("e") || game.input.wasJustPressed("E"))) return;
+  if (
+    !(
+      game.input.wasJustPressed(INTERACT_KEY) ||
+      game.input.wasJustPressed(INTERACT_KEY_ALT)
+    )
+  )
+    return;
   if (game.entityLayer.inDialogue) return;
 
-  (game as { pickingUp: boolean }).pickingUp = true;
+  game.pickingUp = true;
   try {
     const convex = getConvexClient();
     const result = await convex.mutation(api.worldItems.pickup, {
@@ -45,5 +53,5 @@ export async function handleItemPickup(
   } catch (err) {
     console.warn("Pickup failed:", err);
   }
-  (game as { pickingUp: boolean }).pickingUp = false;
+  game.pickingUp = false;
 }

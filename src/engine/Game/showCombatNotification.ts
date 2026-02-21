@@ -1,4 +1,7 @@
 import {
+  COMBAT_DEFAULT,
+} from "../../constants/colors.ts";
+import {
   COMBAT_NOTIFICATION_ANIMATION_SECONDS,
   COMBAT_NOTIFICATION_DURATION_MS,
   COMBAT_NOTIFICATION_STACK_SPACING_PX,
@@ -15,7 +18,7 @@ export interface CombatNotificationState {
 export function showCombatNotification(
   state: CombatNotificationState,
   text: string,
-  color = "#ff6666",
+  color = COMBAT_DEFAULT,
 ): void {
   const div = document.createElement("div");
   div.textContent = text;

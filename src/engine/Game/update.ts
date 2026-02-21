@@ -1,4 +1,5 @@
 import type { IGame } from "./types.ts";
+import { BUILD_PAN_SPEED, OFFSCREEN_POS } from "./constants.ts";
 import { checkPortals } from "./checkPortals.ts";
 import { applyWeatherFromMap } from "./applyWeatherFromMap.ts";
 import { handleCombatInput } from "./handleCombatInput.ts";
@@ -6,36 +7,23 @@ import { handleHostileAggroTick } from "./handleHostileAggroTick.ts";
 import { handleItemPickup } from "./handleItemPickup.ts";
 import { handleObjectToggle } from "./handleObjectToggle.ts";
 
-type GameForUpdate = IGame & {
-  initialized: boolean;
-  toggling: boolean;
-  pickingUp: boolean;
-  attacking: boolean;
-  lastAttackAt: number;
-  aggroResolving: boolean;
-  lastAggroTickAt: number;
-  activeCombatNotifications: HTMLDivElement[];
-};
-
 /**
  * Main game loop update. Called every frame.
  */
-export function update(game: GameForUpdate): void {
+export function update(game: IGame): void {
   if (!game.initialized) return;
 
   const dt = game.app.ticker.deltaMS / 1000;
+  const px = game.entityLayer.playerX;
+  const py = game.entityLayer.playerY;
 
   if (game.mode === "play") {
     game.entityLayer.update(dt, game.input);
     checkPortals(game);
 
-    game.worldItemLayer.update(dt, game.entityLayer.playerX, game.entityLayer.playerY);
+    game.worldItemLayer.update(dt, px, py);
 
-    game.objectLayer.updateToggleInteraction(
-      dt,
-      game.entityLayer.playerX,
-      game.entityLayer.playerY,
-    );
+    game.objectLayer.updateToggleAndAmbient(dt, px, py);
 
     if (!game.isGuest) {
       void handleCombatInput(game);
@@ -49,15 +37,11 @@ export function update(game: GameForUpdate): void {
   }
 
   if (game.mode === "build") {
-    game.worldItemLayer.update(dt, -9999, -9999);
+    game.worldItemLayer.update(dt, OFFSCREEN_POS, OFFSCREEN_POS);
+    game.objectLayer.updateAmbientVolumes(px, py);
   }
 
-  game.objectLayer.updateAmbientVolumes(
-    game.entityLayer.playerX,
-    game.entityLayer.playerY,
-  );
-
-  (game.camera as { update: () => void }).update();
+  game.camera.update();
   game.app.stage.x = -game.camera.x + game.camera.viewportW / 2;
   game.app.stage.y = -game.camera.y + game.camera.viewportH / 2;
 
@@ -65,7 +49,7 @@ export function update(game: GameForUpdate): void {
     applyWeatherFromMap(game, game.currentMapData);
   }
 
-  (game.weatherLayer as { update: (dt: number, x: number, y: number, w: number, h: number) => void }).update(
+  game.weatherLayer.update(
     dt,
     game.camera.x,
     game.camera.y,
@@ -74,20 +58,12 @@ export function update(game: GameForUpdate): void {
   );
 
   if (game.mode === "build") {
-    const panSpeed = 300;
-    if (game.input.isDown("ArrowLeft") || game.input.isDown("a")) {
-      (game.camera as { x: number }).x -= panSpeed * dt;
-    }
-    if (game.input.isDown("ArrowRight") || game.input.isDown("d")) {
-      (game.camera as { x: number }).x += panSpeed * dt;
-    }
-    if (game.input.isDown("ArrowUp") || game.input.isDown("w")) {
-      (game.camera as { y: number }).y -= panSpeed * dt;
-    }
-    if (game.input.isDown("ArrowDown") || game.input.isDown("s")) {
-      (game.camera as { y: number }).y += panSpeed * dt;
-    }
+    const pan = BUILD_PAN_SPEED * dt;
+    if (game.input.isDown("ArrowLeft") || game.input.isDown("a")) game.camera.x -= pan;
+    if (game.input.isDown("ArrowRight") || game.input.isDown("d")) game.camera.x += pan;
+    if (game.input.isDown("ArrowUp") || game.input.isDown("w")) game.camera.y -= pan;
+    if (game.input.isDown("ArrowDown") || game.input.isDown("s")) game.camera.y += pan;
   }
 
-  (game.input as { endFrame: () => void }).endFrame();
+  game.input.endFrame();
 }

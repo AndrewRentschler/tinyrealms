@@ -2,20 +2,18 @@ import { getConvexClient } from "../../lib/convexClient.ts";
 import { api } from "../../../convex/_generated/api";
 import type { IGame } from "./types.ts";
 
-export type Unsubscriber = () => void;
+/** Sprite def shape expected by EntityLayer.updateNpcStates */
+type SpriteDefForNpc = Map<string, { name: string; spriteSheetUrl: string; [key: string]: unknown }>;
 
 /**
  * Subscribe to server-authoritative NPC state for a map.
  */
-export function subscribeToNpcState(
-  game: IGame & { npcStateUnsub: Unsubscriber | null },
-  mapName: string,
-): void {
+export function subscribeToNpcState(game: IGame, mapName: string): void {
   game.npcStateUnsub?.();
 
   const convex = getConvexClient();
 
-  (game as { npcStateUnsub: Unsubscriber }).npcStateUnsub = convex.onUpdate(
+  game.npcStateUnsub = convex.onUpdate(
     api.npcEngine.listByMap,
     { mapName },
     (states) => {
@@ -38,8 +36,7 @@ export function subscribeToNpcState(
           speed: s.speed,
           wanderRadius: s.wanderRadius,
         })),
-        // Sprite defs from Convex match EntityLayer's expected shape
-        game.spriteDefCache as Map<string, { name: string; spriteSheetUrl: string; [key: string]: unknown }>,
+        game.spriteDefCache as SpriteDefForNpc,
       );
     },
     (err) => {

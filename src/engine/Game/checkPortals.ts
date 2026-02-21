@@ -6,9 +6,9 @@ import type { IGame } from "./types.ts";
 export function checkPortals(game: IGame): void {
   if (game.changingMap) return;
   if (game.currentPortals.length === 0) {
-    if (!game._portalEmptyWarned) {
+    if (!game.portalEmptyWarned) {
       console.warn("[Portal:check] No portals on current map:", game.currentMapName);
-      (game as { _portalEmptyWarned: boolean })._portalEmptyWarned = true;
+      game.portalEmptyWarned = true;
     }
     return;
   }

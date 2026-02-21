@@ -1,56 +1,64 @@
-import type { MapData } from "../types.ts";
+import type { MapData, MapLayerType } from "../types.ts";
+
+/** Convex maps document shape (from schema). */
+export interface ConvexMapDoc {
+  _id: string;
+  name: string;
+  width: number;
+  height: number;
+  tileWidth: number;
+  tileHeight: number;
+  tilesetUrl?: string;
+  tilesetPxW: number;
+  tilesetPxH: number;
+  layers: Array<{
+    name: string;
+    type: string;
+    tiles: string;
+    visible: boolean;
+    tilesetUrl?: string;
+  }>;
+  collisionMask: string;
+  labels: Array<{ name: string; x: number; y: number; width?: number; height?: number }>;
+  animationUrl?: string;
+  portals?: unknown[];
+  musicUrl?: string;
+  ambientSoundUrl?: string;
+  weatherMode?: string;
+  weatherIntensity?: string;
+  weatherRainSfx?: boolean;
+  weatherLightningEnabled?: boolean;
+  weatherLightningChancePerSec?: number;
+  combatEnabled?: boolean;
+  combatSettings?: unknown;
+  status?: string;
+  editors?: unknown[];
+  creatorProfileId?: string;
+}
 
 /**
- * Convert a Convex map document to a client-side MapData.
+ * Convert a Convex map document to client-side MapData.
  */
-export function convexMapToMapData(saved: Record<string, unknown>): MapData {
-  const s = saved as {
-    _id: string;
-    name: string;
-    width: number;
-    height: number;
-    tileWidth: number;
-    tileHeight: number;
-    tilesetUrl?: string;
-    tilesetPxW: number;
-    tilesetPxH: number;
-    layers: Array<{ name: string; type: string; tiles: string; visible: boolean; tilesetUrl?: string }>;
-    collisionMask: string;
-    labels: Array<{ name: string; x: number; y: number; width?: number; height?: number }>;
-    animationUrl?: string;
-    portals?: Array<unknown>;
-    musicUrl?: string;
-    ambientSoundUrl?: string;
-    weatherMode?: string;
-    weatherIntensity?: string;
-    weatherRainSfx?: boolean;
-    weatherLightningEnabled?: boolean;
-    weatherLightningChancePerSec?: number;
-    combatEnabled?: boolean;
-    combatSettings?: unknown;
-    status?: string;
-    editors?: unknown[];
-    creatorProfileId?: string;
-  };
+export function convexMapToMapData(saved: ConvexMapDoc): MapData {
   return {
-    id: s._id,
-    name: s.name,
-    width: s.width,
-    height: s.height,
-    tileWidth: s.tileWidth,
-    tileHeight: s.tileHeight,
-    tilesetUrl: s.tilesetUrl ?? "/assets/tilesets/fantasy-interior.png",
-    tilesetPxW: s.tilesetPxW,
-    tilesetPxH: s.tilesetPxH,
-    layers: s.layers.map((l) => ({
+    id: saved._id,
+    name: saved.name,
+    width: saved.width,
+    height: saved.height,
+    tileWidth: saved.tileWidth,
+    tileHeight: saved.tileHeight,
+    tilesetUrl: saved.tilesetUrl ?? "/assets/tilesets/fantasy-interior.png",
+    tilesetPxW: saved.tilesetPxW,
+    tilesetPxH: saved.tilesetPxH,
+    layers: saved.layers.map((l) => ({
       name: l.name,
-      type: l.type as "bg" | "obj" | "overlay",
+      type: l.type as MapLayerType,
       tiles: JSON.parse(l.tiles) as number[],
       visible: l.visible,
       tilesetUrl: l.tilesetUrl,
     })),
-    collisionMask: JSON.parse(s.collisionMask) as boolean[],
-    labels: s.labels.map((l) => ({
+    collisionMask: JSON.parse(saved.collisionMask) as boolean[],
+    labels: saved.labels.map((l) => ({
       name: l.name,
       x: l.x,
       y: l.y,
@@ -58,19 +66,19 @@ export function convexMapToMapData(saved: Record<string, unknown>): MapData {
       height: l.height ?? 1,
     })),
     animatedTiles: [],
-    animationUrl: s.animationUrl,
-    portals: (s.portals ?? []) as MapData["portals"],
-    musicUrl: s.musicUrl,
-    ambientSoundUrl: s.ambientSoundUrl,
-    weatherMode: s.weatherMode as MapData["weatherMode"],
-    weatherIntensity: s.weatherIntensity as MapData["weatherIntensity"],
-    weatherRainSfx: s.weatherRainSfx,
-    weatherLightningEnabled: s.weatherLightningEnabled,
-    weatherLightningChancePerSec: s.weatherLightningChancePerSec,
-    combatEnabled: s.combatEnabled,
-    combatSettings: s.combatSettings as MapData["combatSettings"],
-    status: s.status,
-    editors: s.editors?.map((e) => String(e)),
-    creatorProfileId: s.creatorProfileId ? String(s.creatorProfileId) : undefined,
+    animationUrl: saved.animationUrl,
+    portals: (saved.portals ?? []) as MapData["portals"],
+    musicUrl: saved.musicUrl,
+    ambientSoundUrl: saved.ambientSoundUrl,
+    weatherMode: saved.weatherMode as MapData["weatherMode"],
+    weatherIntensity: saved.weatherIntensity as MapData["weatherIntensity"],
+    weatherRainSfx: saved.weatherRainSfx,
+    weatherLightningEnabled: saved.weatherLightningEnabled,
+    weatherLightningChancePerSec: saved.weatherLightningChancePerSec,
+    combatEnabled: saved.combatEnabled,
+    combatSettings: saved.combatSettings as MapData["combatSettings"],
+    status: saved.status,
+    editors: saved.editors?.map((e) => String(e)),
+    creatorProfileId: saved.creatorProfileId ? String(saved.creatorProfileId) : undefined,
   };
 }

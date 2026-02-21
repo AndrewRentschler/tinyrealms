@@ -1,3 +1,5 @@
+import type { WorldItemInstance } from "../WorldItemLayer.ts";
+
 /**
  * Map Convex worldItem docs (with _id) to WorldItemInstance (with id).
  */
@@ -12,7 +14,7 @@ export function mapWorldItems(
     respawn?: boolean;
     pickedUpAt?: number;
   }>,
-) {
+): WorldItemInstance[] {
   return items
     .filter((i) => (i._id ?? i.id) != null)
     .map((i) => ({
