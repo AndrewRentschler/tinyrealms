@@ -255,10 +255,36 @@ export default defineSchema({
     flipX: v.optional(v.boolean()),
     layer: v.number(),                // z-ordering layer (0 = ground, higher = above)
     isOn: v.optional(v.boolean()),    // toggle state for toggleable objects (true = on)
+    storageId: v.optional(v.id("storages")),  // links to storages table
     updatedAt: v.number(),
   })
     .index("by_map", ["mapName"])
-    .index("by_map_sprite", ["mapName", "spriteDefName"]),
+    .index("by_map_sprite", ["mapName", "spriteDefName"])
+    .index("by_storage", ["storageId"]),
+
+  // ---------------------------------------------------------------------------
+  // Storages (item containers for map objects and banks)
+  // ---------------------------------------------------------------------------
+  storages: defineTable({
+    // Ownership model
+    ownerType: v.union(v.literal("public"), v.literal("player")),
+    ownerId: v.optional(v.id("profiles")),  // null if public
+
+    // Capacity (per-instance, defined at creation)
+    capacity: v.number(),  // max slots
+
+    // Item slots (same structure as inventories.slots)
+    slots: v.array(v.object({
+      itemDefName: v.string(),
+      quantity: v.number(),
+      metadata: v.optional(v.record(v.string(), v.string())),
+    })),
+
+    // Metadata
+    name: v.optional(v.string()),  // e.g., "Chest", "Bank Vault"
+    updatedAt: v.number(),
+  })
+    .index("by_owner", ["ownerType", "ownerId"]),
 
   // ---------------------------------------------------------------------------
   // Profiles (auth-linked player characters)
