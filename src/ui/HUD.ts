@@ -119,7 +119,7 @@ export class HUD {
     this.questsUnsub?.();
     const convex = getConvexClient();
     this.questsUnsub = convex.onUpdate(
-      (api as any).quests.listActive,
+      api["story/quests"].listActive,
       { profileId: this.profileId },
       (rows: any[]) => {
         this.activeQuests = (rows ?? []) as ActiveQuestRow[];
@@ -272,7 +272,7 @@ export class HUD {
     try {
       const convex = getConvexClient();
       const mapName = this.getMapName?.();
-      const available = await convex.query((api as any).quests.listAvailable, {
+      const available = await convex.query(api["story/quests"].listAvailable, {
         profileId: this.profileId,
         sourceType: "hud",
         mapName,
@@ -373,7 +373,7 @@ export class HUD {
         acceptBtn.disabled = true;
         try {
           const convex = getConvexClient();
-          await convex.mutation((api as any).quests.accept, {
+          await convex.mutation(api["story/quests"].accept, {
             profileId: this.profileId,
             questDefKey: q.key,
             source: { type: "hud" },
@@ -405,7 +405,7 @@ export class HUD {
     if (quest.status !== "completed" || quest.rewardClaimedAt) return;
     try {
       const convex = getConvexClient();
-      const result = await convex.mutation((api as any).quests.claimReward, {
+      const result = await convex.mutation(api["story/quests"].claimReward, {
         profileId: this.profileId,
         playerQuestId,
       });
@@ -438,7 +438,7 @@ export class HUD {
     if (!confirm) return;
     try {
       const convex = getConvexClient();
-      await convex.mutation((api as any).quests.abandon, {
+      await convex.mutation(api["story/quests"].abandon, {
         profileId: this.profileId,
         playerQuestId,
       });
