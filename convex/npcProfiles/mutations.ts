@@ -4,13 +4,9 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 import { mutation } from "../_generated/server";
-import { getVisibilityType, slugifyInstanceName } from "./helpers.ts";
+import { getVisibilityType, visibilityTypeValidator } from "../lib/visibility.ts";
+import { slugifyInstanceName } from "./helpers.ts";
 
-const visibilityTypeValidator = v.union(
-  v.literal("public"),
-  v.literal("private"),
-  v.literal("system"),
-);
 const npcTypeValidator = v.union(v.literal("procedural"), v.literal("ai"));
 const instanceTypeValidator = v.union(
   v.literal("animal"),

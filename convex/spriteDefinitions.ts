@@ -1,16 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
-
-const visibilityTypeValidator = v.union(
-  v.literal("public"),
-  v.literal("private"),
-  v.literal("system"),
-);
-
-function getVisibilityType(def: any): "public" | "private" | "system" {
-  return (def.visibilityType ?? "system") as "public" | "private" | "system";
-}
+import { getVisibilityType, visibilityTypeValidator } from "./lib/visibility.ts";
 
 function canReadDef(def: any, userId: string | null): boolean {
   const visibility = getVisibilityType(def);

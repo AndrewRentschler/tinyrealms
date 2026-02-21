@@ -3,10 +3,7 @@
  */
 import type { Id } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
-
-export function getVisibilityType(profile: { visibilityType?: string }): "public" | "private" | "system" {
-  return (profile.visibilityType ?? "system") as "public" | "private" | "system";
-}
+import { getVisibilityType } from "../lib/visibility.ts";
 
 export function canReadNpcProfile(
   profile: { visibilityType?: string; createdByUser?: Id<"users"> },

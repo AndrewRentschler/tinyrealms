@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { getVisibilityType, visibilityTypeValidator } from "./lib/visibility.ts";
 
 // ---------------------------------------------------------------------------
 // Item type / rarity validators (must match schema)
@@ -43,16 +44,6 @@ const effectValidator = v.object({
   duration: v.optional(v.number()),
   description: v.optional(v.string()),
 });
-
-const visibilityTypeValidator = v.union(
-  v.literal("public"),
-  v.literal("private"),
-  v.literal("system"),
-);
-
-function getVisibilityType(item: any): "public" | "private" | "system" {
-  return (item.visibilityType ?? "system") as "public" | "private" | "system";
-}
 
 function canReadItem(item: any, userId: string | null): boolean {
   const visibility = getVisibilityType(item);
