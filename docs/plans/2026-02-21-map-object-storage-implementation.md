@@ -8,6 +8,16 @@
 
 **Tech Stack:** Convex (database, mutations, queries), TypeScript, PixiJS (frontend rendering)
 
+**Backend Structure:**
+```
+convex/Storage/
+├── Storage.ts          — Main queries, validators, types
+├── create.ts           — Create storage mutation
+├── deposit.ts          — Deposit items mutation
+├── withdraw.ts         — Withdraw items mutation
+└── delete.ts           — Delete storage mutation
+```
+
 ---
 
 ### Task 1: Add `storages` table to schema
@@ -76,17 +86,29 @@ git commit -m "feat(storage): add storages table and storageId to mapObjects"
 
 ---
 
-### Task 2: Create storage backend module
+### Task 2: Create Storage folder and main module
 
 **Files:**
-- Create: `convex/mechanics/storage.ts`
+- Create: `convex/Storage/Storage.ts` — Main queries and shared validators
 
-**Step 1: Create storage.ts with queries**
+**Step 1: Create Storage folder and Storage.ts**
 
 ```typescript
 import { v } from "convex/values";
-import { mutation, query } from "../_generated/server";
+import { query } from "../_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
+
+// ---------------------------------------------------------------------------
+// Shared Validators (exported for reuse in mutation files)
+// ---------------------------------------------------------------------------
+
+export const storageSlotValidator = v.object({
+  itemDefName: v.string(),
+  quantity: v.number(),
+  metadata: v.optional(v.record(v.string(), v.string())),
+});
+
+export const ownerTypeValidator = v.union(v.literal("public"), v.literal("player"));
 
 // ---------------------------------------------------------------------------
 // Queries
@@ -115,7 +137,6 @@ export const canAccess = query({
     
     // Public storage: any authenticated user
     if (storage.ownerType === "public") {
-      // Verify profile belongs to authenticated user
       const profile = await ctx.db.get(profileId);
       return profile?.userId === userId;
     }
@@ -132,7 +153,7 @@ export const canAccess = query({
 /** List storages by owner */
 export const listByOwner = query({
   args: { 
-    ownerType: v.union(v.literal("public"), v.literal("player")),
+    ownerType: ownerTypeValidator,
     ownerId: v.optional(v.id("profiles")),
   },
   handler: async (ctx, { ownerType, ownerId }) => {
@@ -148,19 +169,40 @@ export const listByOwner = query({
 });
 ```
 
-**Step 2: Add create mutation**
+**Step 2: Run type check**
 
-Add to `convex/mechanics/storage.ts`:
+```bash
+npm run typecheck
+```
+
+Expected: PASS
+
+**Step 3: Commit**
+
+```bash
+git add convex/Storage/Storage.ts
+git commit -m "feat(storage): create Storage folder with main queries and validators"
+```
+
+---
+
+### Task 3: Create create mutation handler
+
+**Files:**
+- Create: `convex/Storage/create.ts`
+
+**Step 1: Create create.ts**
 
 ```typescript
-// ---------------------------------------------------------------------------
-// Mutations
-// ---------------------------------------------------------------------------
+import { v } from "convex/values";
+import { mutation } from "../_generated/server";
+import { getAuthUserId } from "@convex-dev/auth/server";
+import { ownerTypeValidator } from "./Storage";
 
 /** Create a new storage instance */
-export const create = mutation({
+export default mutation({
   args: {
-    ownerType: v.union(v.literal("public"), v.literal("player")),
+    ownerType: ownerTypeValidator,
     ownerId: v.optional(v.id("profiles")),
     capacity: v.number(),
     name: v.optional(v.string()),
@@ -191,7 +233,7 @@ export const create = mutation({
 });
 ```
 
-**Step 3: Run type check**
+**Step 2: Run type check**
 
 ```bash
 npm run typecheck
@@ -199,27 +241,29 @@ npm run typecheck
 
 Expected: PASS
 
-**Step 4: Commit**
+**Step 3: Commit**
 
 ```bash
-git add convex/mechanics/storage.ts
-git commit -m "feat(storage): create storage backend module with queries and create"
+git add convex/Storage/create.ts
+git commit -m "feat(storage): add create mutation handler"
 ```
 
 ---
 
-### Task 3: Add deposit and withdraw mutations
+### Task 4: Create deposit mutation handler
 
 **Files:**
-- Modify: `convex/mechanics/storage.ts`
+- Create: `convex/Storage/deposit.ts`
 
-**Step 1: Add deposit mutation**
-
-Add to end of `convex/mechanics/storage.ts`:
+**Step 1: Create deposit.ts**
 
 ```typescript
+import { v } from "convex/values";
+import { mutation } from "../_generated/server";
+import { getAuthUserId } from "@convex-dev/auth/server";
+
 /** Deposit item from player inventory to storage */
-export const deposit = mutation({
+export default mutation({
   args: {
     storageId: v.id("storages"),
     profileId: v.id("profiles"),
@@ -291,13 +335,37 @@ export const deposit = mutation({
 });
 ```
 
-**Step 2: Add withdraw mutation**
+**Step 2: Run type check**
 
-Add to end of `convex/mechanics/storage.ts`:
+```bash
+npm run typecheck
+```
+
+Expected: PASS
+
+**Step 3: Commit**
+
+```bash
+git add convex/Storage/deposit.ts
+git commit -m "feat(storage): add deposit mutation handler"
+```
+
+---
+
+### Task 5: Create withdraw mutation handler
+
+**Files:**
+- Create: `convex/Storage/withdraw.ts`
+
+**Step 1: Create withdraw.ts**
 
 ```typescript
+import { v } from "convex/values";
+import { mutation } from "../_generated/server";
+import { getAuthUserId } from "@convex-dev/auth/server";
+
 /** Withdraw item from storage to player inventory */
-export const withdraw = mutation({
+export default mutation({
   args: {
     storageId: v.id("storages"),
     profileId: v.id("profiles"),
@@ -363,7 +431,7 @@ export const withdraw = mutation({
 });
 ```
 
-**Step 3: Run type check**
+**Step 2: Run type check**
 
 ```bash
 npm run typecheck
@@ -371,27 +439,29 @@ npm run typecheck
 
 Expected: PASS
 
-**Step 4: Commit**
+**Step 3: Commit**
 
 ```bash
-git add convex/mechanics/storage.ts
-git commit -m "feat(storage): add deposit and withdraw mutations"
+git add convex/Storage/withdraw.ts
+git commit -m "feat(storage): add withdraw mutation handler"
 ```
 
 ---
 
-### Task 4: Add delete storage mutation
+### Task 6: Create delete mutation handler
 
 **Files:**
-- Modify: `convex/mechanics/storage.ts`
+- Create: `convex/Storage/delete.ts`
 
-**Step 1: Add delete mutation**
-
-Add to end of `convex/mechanics/storage.ts`:
+**Step 1: Create delete.ts**
 
 ```typescript
+import { v } from "convex/values";
+import { mutation } from "../_generated/server";
+import { getAuthUserId } from "@convex-dev/auth/server";
+
 /** Delete a storage (cleanup when object removed or for admin) */
-export const deleteStorage = mutation({
+export default mutation({
   args: {
     storageId: v.id("storages"),
   },
@@ -424,13 +494,13 @@ Expected: PASS
 **Step 3: Commit**
 
 ```bash
-git add convex/mechanics/storage.ts
-git commit -m "feat(storage): add deleteStorage mutation"
+git add convex/Storage/delete.ts
+git commit -m "feat(storage): add delete mutation handler"
 ```
 
 ---
 
-### Task 5: Integrate storage creation in mapObjects.place
+### Task 7: Integrate storage creation in mapObjects.place
 
 **Files:**
 - Modify: `convex/mapObjects.ts`
@@ -499,15 +569,7 @@ export const place = mutation({
 });
 ```
 
-**Step 2: Add import for internal API**
-
-Add at top of `convex/mapObjects.ts` if not present:
-
-```typescript
-import { internal } from "./_generated/api";
-```
-
-**Step 3: Run type check**
+**Step 2: Run type check**
 
 ```bash
 npm run typecheck
@@ -515,7 +577,7 @@ npm run typecheck
 
 Expected: PASS
 
-**Step 4: Commit**
+**Step 3: Commit**
 
 ```bash
 git add convex/mapObjects.ts
@@ -524,7 +586,7 @@ git commit -m "feat(storage): integrate storage creation in mapObjects.place"
 
 ---
 
-### Task 6: Update bulkSave to preserve storageId
+### Task 8: Update bulkSave to preserve storageId
 
 **Files:**
 - Modify: `convex/mapObjects.ts`
@@ -644,7 +706,7 @@ git commit -m "feat(storage): update bulkSave to preserve storageId and cleanup 
 
 ---
 
-### Task 7: Update listByMap to include storageId
+### Task 9: Update listByMap to include storageId
 
 **Files:**
 - Modify: `convex/mapObjects.ts` (already returns full objects, so storageId is included)
@@ -659,7 +721,7 @@ Check `convex/mapObjects.ts` line 40-49 — it uses `.collect()` which returns a
 
 ---
 
-### Task 8: Create StoragePanel UI component
+### Task 10: Create StoragePanel UI component
 
 **Files:**
 - Create: `src/ui/StoragePanel.ts`
@@ -710,7 +772,7 @@ export class StoragePanel {
 
   private async loadStorage() {
     const convex = getConvexClient();
-    const data = await convex.query(api.storage.get, { storageId: this.storageId });
+    const data = await convex.query(api.Storage.Storage.get, { storageId: this.storageId });
     this.storageData = data as StorageData;
     
     // Load item definitions for display
@@ -828,7 +890,7 @@ export class StoragePanel {
     const convex = getConvexClient();
     const profileId = this.callbacks.getProfileId() as Id<"profiles">;
     
-    const result = await convex.mutation(api.storage.withdraw, {
+    const result = await convex.mutation(api.Storage.withdraw.default, {
       storageId: this.storageId,
       profileId,
       itemDefName,
@@ -847,7 +909,7 @@ export class StoragePanel {
     const convex = getConvexClient();
     const profileId = this.callbacks.getProfileId() as Id<"profiles">;
     
-    const result = await convex.mutation(api.storage.deposit, {
+    const result = await convex.mutation(api.Storage.deposit.default, {
       storageId: this.storageId,
       profileId,
       itemDefName,
@@ -1033,7 +1095,7 @@ git commit -m "feat(storage): create StoragePanel UI component"
 
 ---
 
-### Task 9: Add storage detection to ObjectLayer
+### Task 11: Add storage detection to ObjectLayer
 
 **Files:**
 - Modify: `src/engine/ObjectLayer.ts`
@@ -1124,7 +1186,7 @@ git commit -m "feat(storage): add storage detection and visual indicator to Obje
 
 ---
 
-### Task 10: Wire up E key handling in Game
+### Task 12: Wire up E key handling in Game
 
 **Files:**
 - Modify: `src/engine/Game/Game.ts` or interaction handler
@@ -1201,7 +1263,7 @@ git commit -m "feat(storage): wire up E key to open storage UI"
 
 ---
 
-### Task 11: Manual testing checklist
+### Task 13: Manual testing checklist
 
 **Test in browser:**
 
@@ -1237,7 +1299,7 @@ git commit -m "feat(storage): wire up E key to open storage UI"
 
 ---
 
-### Task 12: Update documentation
+### Task 14: Update documentation
 
 **Files:**
 - Modify: `docs/Objects.md`
@@ -1270,10 +1332,10 @@ Objects can optionally have item storage (chests, barrels, etc.).
 
 ### API
 
-- `storage.create()` — Create storage instance
-- `storage.get()` — Fetch storage contents
-- `storage.deposit()` — Move item to storage
-- `storage.withdraw()` — Move item from storage
+- `Storage.create` — Create storage instance
+- `Storage.Storage.get` — Fetch storage contents
+- `Storage.deposit` — Move item to storage
+- `Storage.withdraw` — Move item from storage
 ```
 
 **Commit:**
@@ -1288,7 +1350,11 @@ git commit -m "docs: add storage section to Objects.md"
 ## Summary
 
 **New files:**
-- `convex/mechanics/storage.ts` — Backend storage API
+- `convex/Storage/Storage.ts` — Main queries, validators, types
+- `convex/Storage/create.ts` — Create storage mutation
+- `convex/Storage/deposit.ts` — Deposit items mutation
+- `convex/Storage/withdraw.ts` — Withdraw items mutation
+- `convex/Storage/delete.ts` — Delete storage mutation
 - `src/ui/StoragePanel.ts` — Storage UI component
 - `src/ui/StoragePanel.css` — Storage UI styles
 
