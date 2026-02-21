@@ -6,6 +6,7 @@ import { mutation, query, internalMutation } from "../_generated/server";
 import type { MutationCtx } from "../_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { requireAdminKey } from "../lib/requireAdminKey";
+import { getMapType } from "../lib/visibility.ts";
 
 /** Helper: delete all auth data for a given user ID */
 async function deleteUserAuthData(
@@ -249,7 +250,7 @@ export const myAccountInfo = query({
       mapsCreated: myMaps.map((m) => ({
         name: m.name,
         status: (m as { status?: string }).status ?? "published",
-        mapType: (m as { mapType?: string }).mapType ?? "private",
+        mapType: getMapType(m),
       })),
       createdAt: (user as { _creationTime?: number })._creationTime,
     };

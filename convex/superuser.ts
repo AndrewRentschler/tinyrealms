@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { getMapType, isValidVisibilityType } from "./lib/visibility.ts";
 import { getAuthUserId } from "@convex-dev/auth/server";
 
 async function requireOwnedSuperuserProfile(ctx: any, profileId: any) {
@@ -44,7 +45,7 @@ export const dashboard = query({
       _id: m._id,
       name: m.name,
       status: (m as any).status ?? "published",
-      mapType: (m as any).mapType ?? "private",
+      mapType: getMapType(m),
       createdByEmail: m.createdBy ? ((userById.get(String(m.createdBy)) as any)?.email ?? null) : null,
       editors: ((m as any).editors ?? []).map((id: any) => {
         const p = profileById.get(String(id));
@@ -221,7 +222,7 @@ export const setMapType = mutation({
     mapType: v.string(),
   },
   handler: async (ctx, { profileId, mapName, mapType }) => {
-    if (mapType !== "public" && mapType !== "private" && mapType !== "system") {
+    if (!isValidVisibilityType(mapType)) {
       throw new Error(`Invalid mapType "${mapType}". Must be "public", "private", or "system".`);
     }
     await requireOwnedSuperuserProfile(ctx, profileId);

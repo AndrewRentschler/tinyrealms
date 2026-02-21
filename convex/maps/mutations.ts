@@ -5,6 +5,7 @@ import { v } from "convex/values";
 import { mutation } from "../_generated/server";
 import type { MutationCtx } from "../_generated/server";
 import { requireMapEditor, isMapOwner } from "../lib/requireMapEditor";
+import { getMapType, visibilityTypeValidator } from "../lib/visibility.ts";
 import { getAuthUserId } from "@convex-dev/auth/server";
 
 // ---------------------------------------------------------------------------
@@ -38,12 +39,6 @@ const layerValidator = v.object({
   visible: v.boolean(),
   tilesetUrl: v.optional(v.string()),
 });
-
-const mapTypeValidator = v.union(
-  v.literal("public"),
-  v.literal("private"),
-  v.literal("system")
-);
 
 const weatherModeValidator = v.union(
   v.literal("clear"),
@@ -89,7 +84,7 @@ async function validatePortals(
       .withIndex("by_name", (q) => q.eq("name", portal.targetMap))
       .first();
     if (!target) throw new Error(`Target map "${portal.targetMap}" not found`);
-    const targetType = (target as { mapType?: string }).mapType ?? "private";
+    const targetType = getMapType(target);
     if (targetType !== "public" && targetType !== "system") {
       throw new Error(
         `Permission denied: "${portal.targetMap}" is private. ` +
@@ -120,7 +115,7 @@ export const create = mutation({
     weatherLightningChancePerSec: v.optional(v.number()),
     combatEnabled: v.optional(v.boolean()),
     combatSettings: v.optional(combatSettingsValidator),
-    mapType: v.optional(mapTypeValidator),
+    mapType: v.optional(visibilityTypeValidator),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
@@ -212,7 +207,7 @@ export const saveFullMap = mutation({
     combatEnabled: v.optional(v.boolean()),
     combatSettings: v.optional(combatSettingsValidator),
     status: v.optional(v.string()),
-    mapType: v.optional(mapTypeValidator),
+    mapType: v.optional(visibilityTypeValidator),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
@@ -229,7 +224,7 @@ export const saveFullMap = mutation({
     if (args.mapType) {
       mapType = args.mapType;
     } else if (existing) {
-      mapType = (existing as { mapType?: string }).mapType ?? "private";
+      mapType = getMapType(existing);
     } else {
       mapType = "private";
     }
@@ -306,7 +301,7 @@ export const updateMetadata = mutation({
     combatEnabled: v.optional(v.boolean()),
     combatSettings: v.optional(combatSettingsValidator),
     status: v.optional(v.string()),
-    mapType: v.optional(mapTypeValidator),
+    mapType: v.optional(visibilityTypeValidator),
   },
   handler: async (ctx, { profileId, name, ...updates }) => {
     await requireMapEditor(ctx, profileId, name);
@@ -326,7 +321,7 @@ export const updateMetadata = mutation({
       if (updates.mapType === "system" && !isSuperuser) {
         throw new Error(`Only superusers can set map type to "system"`);
       }
-      const currentType = (map as { mapType?: string }).mapType ?? "private";
+      const currentType = getMapType(map);
       if (currentType === "system" && !isSuperuser) {
         throw new Error("Only superusers can change the type of system maps");
       }

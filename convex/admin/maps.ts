@@ -4,6 +4,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "../_generated/server";
 import { requireAdminKey } from "../lib/requireAdminKey";
+import { getMapType, isValidVisibilityType } from "../lib/visibility.ts";
 import { DEFAULT_START_MAP } from "../maps";
 
 /** Reset a profile's map by name */
@@ -62,7 +63,7 @@ export const listMaps = query({
       name: m.name,
       width: m.width,
       height: m.height,
-      mapType: (m as { mapType?: string }).mapType ?? "private",
+      mapType: getMapType(m),
       owner: m.createdBy ? (emailById.get(String(m.createdBy)) ?? String(m.createdBy)) : "(none)",
     }));
   },
@@ -85,7 +86,7 @@ export const adminUpdateMap = mutation({
     if (!map) throw new Error(`Map "${mapName}" not found`);
     const patch: Record<string, unknown> = { updatedAt: Date.now() };
     if (mapType !== undefined) {
-      if (!["public", "private", "system"].includes(mapType)) {
+      if (!isValidVisibilityType(mapType)) {
         throw new Error(`Invalid mapType "${mapType}". Must be "public", "private", or "system".`);
       }
       patch.mapType = mapType;

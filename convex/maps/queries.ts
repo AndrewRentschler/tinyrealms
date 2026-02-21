@@ -4,6 +4,7 @@
 import { v } from "convex/values";
 import type { Doc } from "../_generated/dataModel";
 import { query } from "../_generated/server";
+import { getMapType } from "../lib/visibility.ts";
 import { getAuthUserId } from "@convex-dev/auth/server";
 
 export const list = query({
@@ -78,7 +79,7 @@ export const listSummaries = query({
       tileWidth: m.tileWidth,
       tileHeight: m.tileHeight,
       status: (m as { status?: string }).status ?? "published",
-      mapType: (m as { mapType?: string }).mapType ?? "private",
+      mapType: getMapType(m),
       combatEnabled: (m as { combatEnabled?: boolean }).combatEnabled ?? false,
       combatSettings: (m as { combatSettings?: unknown }).combatSettings,
       musicUrl: (m as { musicUrl?: string }).musicUrl,
@@ -120,7 +121,7 @@ export const listStartMaps = query({
     });
     return maps.map((m) => ({
       name: m.name,
-      mapType: (m as { mapType?: string }).mapType ?? "private",
+      mapType: getMapType(m),
       labelNames: (m.labels ?? []).map((l: { name: string }) => l.name),
     }));
   },
