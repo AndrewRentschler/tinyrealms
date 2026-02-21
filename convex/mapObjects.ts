@@ -1,7 +1,8 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
+import { mutation, query } from "./_generated/server";
 import { requireMapEditor } from "./lib/requireMapEditor";
+import type { Id } from "./_generated/dataModel";
 
 function slugifyInstanceName(input: string): string {
   return input
@@ -19,14 +20,22 @@ async function generateUniqueNpcInstanceName(
   usedProfileNames?: Set<string>,
 ): Promise<string> {
   const base = slugifyInstanceName(baseInput) || "npc";
-  const objectNames = usedObjectNames ?? new Set(
-    (await ctx.db.query("mapObjects").collect())
-      .map((o: any) => o.instanceName)
-      .filter((v: unknown): v is string => typeof v === "string" && v.length > 0),
-  );
-  const profileNames = usedProfileNames ?? new Set(
-    (await ctx.db.query("npcProfiles").collect()).map((p: any) => String(p.name)),
-  );
+  const objectNames =
+    usedObjectNames ??
+    new Set(
+      (await ctx.db.query("mapObjects").collect())
+        .map((o: any) => o.instanceName)
+        .filter(
+          (v: unknown): v is string => typeof v === "string" && v.length > 0,
+        ),
+    );
+  const profileNames =
+    usedProfileNames ??
+    new Set(
+      (await ctx.db.query("npcProfiles").collect()).map((p: any) =>
+        String(p.name),
+      ),
+    );
 
   let candidate = base;
   let suffix = 2;
@@ -62,13 +71,18 @@ export const place = mutation({
     // New: storage configuration
     hasStorage: v.optional(v.boolean()),
     storageCapacity: v.optional(v.number()),
-    storageOwnerType: v.optional(v.union(v.literal("public"), v.literal("player"))),
+    storageOwnerType: v.optional(
+      v.union(v.literal("public"), v.literal("player")),
+    ),
   },
-  handler: async (ctx, { profileId, hasStorage, storageCapacity, storageOwnerType, ...args }) => {
+  handler: async (
+    ctx,
+    { profileId, hasStorage, storageCapacity, storageOwnerType, ...args },
+  ) => {
     await requireMapEditor(ctx, profileId, args.mapName);
 
     let instanceName: string | undefined = undefined;
-    let storageId: string | undefined = undefined;
+    let storageId: Id<"storages"> | undefined = undefined;
 
     const def = await ctx.db
       .query("spriteDefinitions")
@@ -76,7 +90,10 @@ export const place = mutation({
       .first();
 
     if (def?.category === "npc") {
-      instanceName = await generateUniqueNpcInstanceName(ctx, args.spriteDefName);
+      instanceName = await generateUniqueNpcInstanceName(
+        ctx,
+        args.spriteDefName,
+      );
     }
 
     // Create storage if requested
@@ -101,7 +118,9 @@ export const place = mutation({
       updatedAt: Date.now(),
     });
 
-    await ctx.scheduler.runAfter(0, internal.npcEngine.syncMap, { mapName: args.mapName });
+    await ctx.scheduler.runAfter(0, internal.npcEngine.syncMap, {
+      mapName: args.mapName,
+    });
     return id;
   },
 });
@@ -186,8 +205,8 @@ export const bulkSave = mutation({
         layer: v.number(),
         scaleOverride: v.optional(v.number()),
         flipX: v.optional(v.boolean()),
-        storageId: v.optional(v.id("storages")),  // NEW: preserve storage link
-      })
+        storageId: v.optional(v.id("storages")), // NEW: preserve storage link
+      }),
     ),
   },
   handler: async (ctx, { profileId, mapName, objects }) => {
@@ -210,7 +229,9 @@ export const bulkSave = mutation({
         .filter((v): v is string => typeof v === "string" && v.length > 0),
     );
     const allProfiles = await ctx.db.query("npcProfiles").collect();
-    const usedProfileNames = new Set(allProfiles.map((p) => String((p as any).name)));
+    const usedProfileNames = new Set(
+      allProfiles.map((p) => String((p as any).name)),
+    );
     const allDefs = await ctx.db.query("spriteDefinitions").collect();
     const defByName = new Map(allDefs.map((d) => [d.name, d]));
 
