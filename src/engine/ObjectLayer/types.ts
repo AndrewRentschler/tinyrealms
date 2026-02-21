@@ -1,6 +1,7 @@
 import type { AnimatedSprite, Container, Graphics, Text } from "pixi.js";
 import type { Texture } from "pixi.js";
 import type { SfxHandle } from "../AudioManager/index.ts";
+import type { Id } from "../../../convex/_generated/dataModel";
 
 /** Minimal sprite def info needed for rendering */
 export interface SpriteDefInfo {
@@ -60,6 +61,8 @@ export interface RenderedObject {
   doorCollisionTiles?: { x: number; y: number }[];
   doorOpenSoundUrl?: string;
   doorCloseSoundUrl?: string;
+  storageId?: Id<"storages">;
+  storageIndicator?: Graphics;
 }
 
 /** Sound config passed when refreshing sounds for a sprite def */
@@ -119,6 +122,7 @@ export interface PlacedObjectInput {
   isOn?: boolean;
   instanceName?: string;
   sourceId?: string;
+  storageId?: Id<"storages">;
 }
 
 /** Minimal audio interface — avoids importing AudioManager in consuming modules */

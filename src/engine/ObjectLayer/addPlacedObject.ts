@@ -187,7 +187,17 @@ export async function addPlacedObject(
       doorClosingFrames,
       doorOpenSoundUrl: def.doorOpenSoundUrl,
       doorCloseSoundUrl: def.doorCloseSoundUrl,
+      storageId: obj.storageId,
     };
+
+    // Add storage indicator if object has storage
+    if (obj.storageId) {
+      const storageIndicator = new Graphics();
+      storageIndicator.circle(0, -10, 4);
+      storageIndicator.fill({ color: 0xffd700, alpha: 0.8 }); // Gold indicator
+      objContainer.addChild(storageIndicator);
+      entry.storageIndicator = storageIndicator;
+    }
 
     if (isDoor) {
       entry.doorCollisionTiles = computeDoorCollisionTiles(
