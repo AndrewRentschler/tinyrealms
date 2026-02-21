@@ -186,6 +186,7 @@ export const bulkSave = mutation({
         layer: v.number(),
         scaleOverride: v.optional(v.number()),
         flipX: v.optional(v.boolean()),
+        storageId: v.optional(v.id("storages")),  // NEW: preserve storage link
       })
     ),
   },
@@ -214,13 +215,15 @@ export const bulkSave = mutation({
     const defByName = new Map(allDefs.map((d) => [d.name, d]));
 
     for (const obj of objects) {
-      const { existingId, ...fields } = obj;
+      const { existingId, storageId, ...fields } = obj;
 
       if (existingId && existingById.has(existingId)) {
-        // Existing object — patch position / layout only; preserve isOn
+        // Existing object — patch position / layout only; preserve isOn and storageId
         keptIds.add(existingId);
         await ctx.db.patch(existingId, {
           ...fields,
+          // Preserve existing storageId if not explicitly changed
+          ...(storageId ? { storageId } : {}),
           updatedAt: now,
         });
       } else {
@@ -238,6 +241,7 @@ export const bulkSave = mutation({
         await ctx.db.insert("mapObjects", {
           mapName,
           ...fields,
+          storageId,
           ...(instanceName ? { instanceName } : {}),
           updatedAt: now,
         });
@@ -247,6 +251,10 @@ export const bulkSave = mutation({
     // Delete objects removed by the editor
     for (const old of existing) {
       if (!keptIds.has(old._id)) {
+        // Optional: Clean up orphaned storage rows
+        if (old.storageId) {
+          await ctx.db.delete(old.storageId);
+        }
         await ctx.db.delete(old._id);
       }
     }
