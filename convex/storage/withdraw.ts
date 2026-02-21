@@ -18,16 +18,21 @@ export default mutation({
     const storage = await ctx.db.get(storageId);
     if (!storage) return { success: false, reason: "Storage not found" };
 
-    // Verify access
-    if (storage.ownerType === "player" && storage.ownerId !== profileId) {
-      return { success: false, reason: "Access denied" };
-    }
-
-    // Get profile
+    // Get profile first
     const profile = await ctx.db.get(profileId);
     if (!profile || profile.userId !== userId) {
       return { success: false, reason: "Invalid profile" };
     }
+
+    // Verify access
+    if (storage.ownerType === "player") {
+      if (storage.ownerId !== profileId) {
+        return { success: false, reason: "Access denied" };
+      }
+    } else if (storage.ownerType !== "public") {
+      return { success: false, reason: "Unsupported storage type" };
+    }
+    // Public storage: any authenticated user can access
 
     // Check if storage has item
     const storageSlots = [...storage.slots];
@@ -41,6 +46,9 @@ export default mutation({
       .query("itemDefs")
       .withIndex("by_name", q => q.eq("name", itemDefName))
       .first();
+    if (!itemDef) {
+      return { success: false, reason: "Item definition not found" };
+    }
 
     // Remove from storage
     storageSlots[slotIdx].quantity -= quantity;
@@ -50,7 +58,7 @@ export default mutation({
 
     // Add to player inventory
     const playerItems = [...profile.items];
-    const existingIdx = itemDef?.stackable
+    const existingIdx = itemDef.stackable
       ? playerItems.findIndex(i => i.name === itemDefName)
       : -1;
 
