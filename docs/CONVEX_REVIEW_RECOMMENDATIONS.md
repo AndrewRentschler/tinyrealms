@@ -9,7 +9,9 @@
 
 This document aggregates findings from a parallel review of the Tiny Realms Convex setup. Findings are appended as subagents complete their analysis.
 
-**Related:** See [CONVEX_VALIDATOR_TYPE_HARDENING_CHECKLIST.md](./CONVEX_VALIDATOR_TYPE_HARDENING_CHECKLIST.md) for the baseline snapshot and progress tracking for validator/type hardening work.
+**Related:**
+- [CONVEX_VALIDATOR_TYPE_HARDENING_CHECKLIST.md](./CONVEX_VALIDATOR_TYPE_HARDENING_CHECKLIST.md) – baseline snapshot and progress tracking
+- [plans/2026-02-21-convex-validator-type-hardening-rollout.md](./plans/2026-02-21-convex-validator-type-hardening-rollout.md) – rollout notes and verification (Tasks 1–6 complete)
 
 ---
 
@@ -45,9 +47,9 @@ Many queries use `.collect()` without `.take(n)` on potentially large tables:
 
 ### 1.4 Missing `returns` Validators
 
-Widespread across `convex/story/quests.ts`, `convex/maps/queries.ts`, `convex/npcProfiles/queries.ts`, and many others.
+**Status:** Critical functions updated (Tasks 1–2). Remaining: `convex/maps/queries.ts`, `convex/npcProfiles/queries.ts`, admin, and others.
 
-**Action:** Add explicit `returns` validators to all functions (Convex best practice).
+**Action:** Add explicit `returns` validators to remaining functions (Convex best practice). See [CONVEX_VALIDATOR_TYPE_HARDENING_CHECKLIST.md](./CONVEX_VALIDATOR_TYPE_HARDENING_CHECKLIST.md).
 
 ---
 
@@ -55,25 +57,13 @@ Widespread across `convex/story/quests.ts`, `convex/maps/queries.ts`, `convex/np
 
 ### 2.1 `v.any()` Usage – Critical
 
-**Schema (`convex/schema.ts`):**
-- Line 218: `logicConfig: v.optional(v.any())` in `npcProfiles`
-- Line 487: `sideEffects: v.optional(v.any())` in `npcActionLog`
+**Status (post Tasks 1–6):** High-risk public args replaced. Schema uses `v.record(v.string(), v.any())` for extensible fields. Remaining `v.any()` in medium/low-risk areas (admin, migrations, dialogue, economy).
 
-**Functions:**
-- `convex/story/quests.ts` – `steps`, `rewards`, `choice`
-- `convex/npcProfiles/mutations.ts` – `logicConfig`
-- `convex/mechanics/combat/logging.ts` – `enemies`, `rewards`, `action`, `turns`
-- `convex/admin/restore.ts` – `rows`
-- `convex/npc/braintrust.ts` – `conversationHistory`
-- `convex/ai.ts` – `context`
-- `convex/story/storyAi.ts` – `conversationHistory`
-- `convex/migrations.ts` – `defaultValue`
-- `convex/mechanics/economy.ts` – `inventory`
-- `convex/story/events.ts` – `conditions`, `script`
-- `convex/story/dialogue.ts` – `nodes`, `metadata`
-- `convex/players.ts` – `stats`
+**Schema (`convex/schema.ts`):** `logicConfig`, `sideEffects` now use shared validators (`logicConfigValidator`, `sideEffectsValidator`) with `v.record(v.string(), v.any())`.
 
-**Action:** Replace with typed validators (e.g. `v.object({...})`, `v.array(...)`, discriminated unions).
+**Functions (remaining):** `convex/admin/restore.ts`, `convex/migrations.ts`, `convex/mechanics/economy.ts`, `convex/story/dialogue.ts`, `convex/players.ts`, `convex/ai.ts`, `convex/story/quests.ts` (internal shapes).
+
+**Action:** Continue replacing with typed validators where feasible. See [rollout doc](./plans/2026-02-21-convex-validator-type-hardening-rollout.md).
 
 ### 2.2 Missing Indexes
 
@@ -171,13 +161,13 @@ Admin functions in `convex/admin/*.ts` are public mutations protected by `requir
 
 - [ ] Add `requireMapEditor` to `updateLayer`, `updateCollision`, `updateLabels`
 - [ ] Add auth to `quests.create`, `combat/logging` mutations
-- [ ] Replace `v.any()` in schema (`logicConfig`, `sideEffects`)
-- [ ] Add indexes: `maps.by_status`, `spriteDefinitions.by_category`, etc.
+- [x] Replace `v.any()` in schema (`logicConfig`, `sideEffects`) – now use typed validators
+- [x] Add indexes: `maps.by_status`, `spriteDefinitions.by_category`, etc. – Task 6
 - [ ] Add `transferCurrency` and `transferItem` mutations
 - [ ] Fix N+1 in `story/quests.ts` listActive
 - [ ] Add `.take(n)` to unbounded collects on large tables
 - [ ] Add jitter to weather/NPC tick scheduling
-- [ ] Add `returns` validators to all functions (Convex best practice)
+- [x] Add `returns` validators to critical functions – Task 2; remaining functions pending
 
 ---
 

@@ -1,17 +1,20 @@
 # Convex Validator and Type Hardening Checklist
 
 **Created:** 2026-02-21  
+**Updated:** 2026-02-21 (Task 7 – rollout verification)  
 **Purpose:** Baseline snapshot for validator/type hardening work. Use for tracking progress and regression verification.
+
+**Rollout:** See [plans/2026-02-21-convex-validator-type-hardening-rollout.md](./plans/2026-02-21-convex-validator-type-hardening-rollout.md) for pre-deploy gates, verification results, and rollback strategy.
 
 ---
 
 ## 1. Missing `returns` Validators by File/Function
 
-**Status:** All Convex functions lack explicit `returns` validators (Convex best practice).
+**Status:** Critical functions (quests, maps, combat, npcProfiles, ai, storyAi) now have `returns` validators (Task 2). Remaining files below.
 
 | File | Functions Missing `returns` |
 |------|-----------------------------|
-| `convex/maps/mutations.ts` | create, saveFullMap, updateMetadata, setEditors, remove, updateLayer, updateCollision, updateLabels |
+| `convex/maps/mutations.ts` | ~~create, saveFullMap, updateMetadata, setEditors, remove, updateLayer, updateCollision, updateLabels~~ ✓ Task 2 |
 | `convex/maps/queries.ts` | list, listPublished, listSummaries, listStartMaps, get, getByName |
 | `convex/admin/backfills.ts` | backfillMaps, migrateSpriteSheetUrls, backfillAssetVisibilityTypes, grantMapEditor |
 | `convex/admin/users.ts` | backfillRoles, listProfiles, setRole, removeProfile, listUsers, removeAnonymousUsers, cleanupProfileInUse, currentUser, myAccountInfo, assignUnlinkedProfiles, grantSuperuser, removeUser, removeUserByEmail, listUsersWithProfiles |
@@ -22,10 +25,10 @@
 | `convex/superuser.ts` | dashboard, setRole, removeUser, removeMap, setMapEditors, setMapType |
 | `convex/spriteDefinitions.ts` | list, getByName, save, remove |
 | `convex/items.ts` | list, getByName, listByNames, save, remove |
-| `convex/npcProfiles/mutations.ts` | save, assignInstanceName, remove, clearConversationHistory |
+| `convex/npcProfiles/mutations.ts` | ~~save, assignInstanceName, remove, clearConversationHistory~~ ✓ Task 2 |
 | `convex/npcProfiles/queries.ts` | list, getByName, getByNameInternal, listInstances |
-| `convex/story/quests.ts` | list, get, create, getProgress, startQuest, advanceQuest, listActive, listAvailable, listHistory, accept, abandon, claimReward |
-| `convex/mechanics/combat/logging.ts` | createEncounter, submitAction, logCombat |
+| `convex/story/quests.ts` | ~~list, get, create, getProgress, startQuest, advanceQuest, listActive, listAvailable, listHistory, accept, abandon, claimReward~~ ✓ Task 2 |
+| `convex/mechanics/combat/logging.ts` | ~~createEncounter, submitAction, logCombat~~ ✓ Task 2 |
 | `convex/mechanics/combat/queries.ts` | getEncounter |
 | `convex/mechanics/combat/playerAttack.ts` | attackNearestHostile |
 | `convex/mechanics/combat/aggro.ts` | resolveAggroAttack |
@@ -34,8 +37,8 @@
 | `convex/worldItems.ts` | listByMap, place, remove, bulkSave, pickup, respawn |
 | `convex/npc/braintrust.ts` | generateResponse |
 | `convex/mechanics/inventory.ts` | getByPlayer, addItem, removeItem |
-| `convex/ai.ts` | generateNpcResponse, generateStoryBranch |
-| `convex/story/storyAi.ts` | generateDialogue, expandNarrative |
+| `convex/ai.ts` | ~~generateNpcResponse, generateStoryBranch~~ ✓ Task 2 |
+| `convex/story/storyAi.ts` | ~~generateDialogue, expandNarrative~~ ✓ Task 2 |
 | `convex/profiles.ts` | list, get, create, savePosition, recordNpcChat, updateStats, addItem, removeItem, consumeConsumable, setRole, resetMap, remove |
 | `convex/presence.ts` | update, listByMap, remove, cleanup |
 | `convex/npcEngine.ts` | listByMap, tick, syncMap, ensureLoop, clearAll |
@@ -58,17 +61,17 @@
 
 ### High Risk (public-facing args, schema fields)
 
+**Status:** Task 3 replaced high-risk args. Task 4 tightened schema. Remaining: medium/low.
+
 | File | Line | Field/Arg | Context |
 |------|------|-----------|---------|
-| `convex/schema.ts` | 224 | `logicConfig` | npcProfiles table |
-| `convex/schema.ts` | 494 | `sideEffects` | npcActionLog table |
-| `convex/story/quests.ts` | 28, 30 | `steps`, `rewards` | create mutation args |
-| `convex/story/quests.ts` | 77 | `choice` | advanceQuest mutation args |
-| `convex/mechanics/combat/logging.ts` | 10, 11, 26, 48 | `enemies`, `rewards`, `action`, `turns` | createEncounter, submitAction, logCombat args |
-| `convex/npcProfiles/mutations.ts` | 51 | `logicConfig` | save mutation args |
-| `convex/npc/braintrust.ts` | 10 | `conversationHistory` | generateResponse action args |
-| `convex/ai.ts` | 45, 56 | `context` | generateNpcResponse, generateStoryBranch args |
-| `convex/story/storyAi.ts` | 11 | `conversationHistory` | generateDialogue action args |
+| `convex/schema.ts` | — | `logicConfig`, `sideEffects` | Now use `logicConfigValidator`, `sideEffectsValidator` (v.record) ✓ Task 4 |
+| ~~`convex/story/quests.ts`~~ | — | ~~`steps`, `rewards`, `choice`~~ | ✓ Task 3 |
+| ~~`convex/mechanics/combat/logging.ts`~~ | — | ~~`enemies`, `rewards`, `action`, `turns`~~ | ✓ Task 3 |
+| ~~`convex/npcProfiles/mutations.ts`~~ | — | ~~`logicConfig`~~ | ✓ Task 3 |
+| ~~`convex/npc/braintrust.ts`~~ | — | ~~`conversationHistory`~~ | ✓ Task 3 |
+| ~~`convex/ai.ts`~~ | — | ~~`context`~~ | ✓ Task 3 |
+| ~~`convex/story/storyAi.ts`~~ | — | ~~`conversationHistory`~~ | ✓ Task 3 |
 
 ### Medium Risk (internal/admin, extensible payloads)
 
@@ -186,9 +189,9 @@
 
 | Run Date | Result | Notes |
 |----------|--------|-------|
-| 2026-02-21 | **FAIL** | 9 errors (see below) |
+| 2026-02-21 | **FAIL** (9 errors) | All in `src/`; pre-existing. Convex `convex/` compiles cleanly. |
 
-**Known typecheck failures (baseline):**
+**Known typecheck failures (pre-existing, `src/` only):**
 
 | File | Line | Error |
 |------|------|-------|
@@ -197,6 +200,8 @@
 | `src/engine/Game/subscribeToNpcState.ts` | 21 | `NpcStateRow` – `direction` type mismatch (string \| undefined vs string) |
 | `src/ui/CharacterPanel.ts` | 533 | `api.story/quests` not in api type |
 | `src/ui/HUD.ts` | 122, 275, 376, 408, 441 | `api.story/quests` not in api type |
+
+**Convex-specific:** PASS for `convex/` directory.
 
 ### `npm run lint`
 
@@ -208,8 +213,11 @@
 
 ## 6. Progress Tracking
 
-- [ ] Add `returns` validators to critical functions (Task 2)
-- [ ] Replace high-risk `v.any()` in function args (Task 3)
-- [ ] Tighten schema `v.any()` fields (Task 4)
-- [ ] Remove unsafe `any` casts in auth/admin paths (Task 5)
-- [ ] Replace `.filter()` with indexes, bound `.collect()` (Task 6)
+- [x] Add `returns` validators to critical functions (Task 2)
+- [x] Replace high-risk `v.any()` in function args (Task 3)
+- [x] Tighten schema `v.any()` fields (Task 4)
+- [x] Remove unsafe `any` casts in auth/admin paths (Task 5)
+- [x] Replace `.filter()` with indexes, bound `.collect()` (Task 6)
+- [x] Final regression verification and rollout notes (Task 7)
+
+**Remaining:** Add `returns` to remaining files; replace medium/low-risk `v.any()`; fix pre-existing `src/` typecheck errors.
