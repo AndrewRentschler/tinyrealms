@@ -3,28 +3,11 @@
  * layer panel, tileset picker, object picker, and canvas painting.
  */
 import { api } from "../../convex/_generated/api";
-import type { SpriteDefInfo } from "../engine/ObjectLayer/index.ts";
 import type { Game } from "../engine/Game/index.ts";
+import type { SpriteDefInfo } from "../engine/ObjectLayer/index.ts";
 import { getConvexClient } from "../lib/convexClient.ts";
 // TODO: Uncomment this when music is implemented
 // import { MUSIC_OPTIONS } from "../config/music-config.ts";
-import {
-  EDITOR_CANCEL_MOVE_KEY,
-  EDITOR_GRID_TOGGLE_KEY,
-  EDITOR_GRID_TOGGLE_KEY_ALT,
-} from "../constants/keybindings.ts";
-import {
-  EDITOR_DEFAULT_RESPAWN_MIN,
-  EDITOR_DEFAULT_RESPAWN_MS,
-  EDITOR_HIT_TEST_ABOVE,
-  EDITOR_HIT_TEST_BELOW,
-  EDITOR_HIT_TEST_SIDE,
-  EDITOR_ITEM_INSPECT_RADIUS,
-  EDITOR_ITEM_REMOVE_RADIUS,
-  EDITOR_NPC_FIND_RADIUS,
-  EDITOR_PANEL_RESIZE_MAX,
-  EDITOR_PANEL_RESIZE_MIN,
-} from "../constants/editor.ts";
 import {
   EDITOR_DELETE_BUTTON,
   EDITOR_ERROR_RED,
@@ -32,27 +15,84 @@ import {
   EDITOR_INFO_PANEL_BORDER,
   EDITOR_LABEL_HELP_YELLOW,
   EDITOR_MUTED_TEXT,
-  EDITOR_MUTED_TEXT_SECONDARY,
   EDITOR_PORTAL_GHOST_GREEN,
   EDITOR_SELECTED_PORTAL_HIGHLIGHT,
   EDITOR_SUCCESS_GREEN,
 } from "../constants/colors.ts";
 import {
-  createEmptyStateInline,
-  createEmptyStateMessage,
-  createEditorFormRow,
-  createPickerListItem,
-  EDITOR_INPUT_STYLE,
-  setupDropdownCloseOnClickOutside,
-} from "./MapEditorPanel/helpers.ts";
+  EDITOR_HIT_TEST_ABOVE,
+  EDITOR_HIT_TEST_BELOW,
+  EDITOR_HIT_TEST_SIDE,
+  EDITOR_NPC_FIND_RADIUS,
+  EDITOR_PANEL_RESIZE_MAX,
+  EDITOR_PANEL_RESIZE_MIN,
+} from "../constants/editor.ts";
+import {
+  EDITOR_CANCEL_MOVE_KEY,
+  EDITOR_GRID_TOGGLE_KEY,
+  EDITOR_GRID_TOGGLE_KEY_ALT,
+} from "../constants/keybindings.ts";
+import "./LayerPanel.css";
+import "./MapEditor.css";
+import {
+  buildItemPicker as buildItemPickerImpl,
+  inspectItemAt as inspectItemAtImpl,
+  logItemPlacement as logItemPlacementImpl,
+  placeItem as placeItemImpl,
+  removeItemAt as removeItemAtImpl,
+  renderItemList as renderItemListImpl,
+} from "./MapEditorPanel/buildItemPicker.ts";
+import {
+  addLayer as addLayerImpl,
+  buildLayerPanel as buildLayerPanelImpl,
+  getLayerButtonText as getLayerButtonTextImpl,
+  makeLayerName as makeLayerNameImpl,
+  moveActiveLayer as moveActiveLayerImpl,
+  removeActiveLayer as removeActiveLayerImpl,
+  renderLayerButtons as renderLayerButtonsImpl,
+} from "./MapEditorPanel/buildLayerPanel.ts";
+import type { MapPickerContext } from "./MapEditorPanel/buildMapPicker.ts";
+import {
+  buildMapPicker as buildMapPickerImpl,
+  syncMapSettingsUI as syncMapSettingsUIImpl,
+} from "./MapEditorPanel/buildMapPicker.ts";
+import {
+  buildNpcPicker as buildNpcPickerImpl,
+  renderNpcList as renderNpcListImpl,
+} from "./MapEditorPanel/buildNpcPicker.ts";
+import {
+  buildObjectPicker as buildObjectPickerImpl,
+  renderObjectList as renderObjectListImpl,
+} from "./MapEditorPanel/buildObjectPicker.ts";
+import type { TilesetPickerContext } from "./MapEditorPanel/buildTilesetPicker.ts";
+import {
+  applyTileSelection as applyTileSelectionImpl,
+  buildTilesetPicker as buildTilesetPickerImpl,
+  clearIrregularHighlights as clearIrregularHighlightsImpl,
+  getIrregularSelectionTiles as getIrregularSelectionTilesImpl,
+  loadTilesetImage as loadTilesetImageImpl,
+  onTileCanvasDown as onTileCanvasDownImpl,
+  onTileCanvasMove as onTileCanvasMoveImpl,
+  onTileCanvasUp as onTileCanvasUpImpl,
+  renderTilesetGrid as renderTilesetGridImpl,
+  tileCanvasToGrid as tileCanvasToGridImpl,
+  updateHighlight as updateHighlightImpl,
+  updateIrregularHighlights as updateIrregularHighlightsImpl,
+  updateIrregularInfo as updateIrregularInfoImpl,
+} from "./MapEditorPanel/buildTilesetPicker.ts";
 import {
   DELETE_OPTIONS,
-  DISPLAY_TILE_SIZE,
   MAP_DEFAULT_TILESET_VALUE,
   MOVE_OPTIONS,
   TILESETS,
   TOOLS,
 } from "./MapEditorPanel/constants.ts";
+import {
+  createEditorFormRow,
+  createEmptyStateInline,
+  EDITOR_INPUT_STYLE,
+  setupDropdownCloseOnClickOutside,
+} from "./MapEditorPanel/helpers.ts";
 import type {
   EditorTool,
   ItemDef,
@@ -63,55 +103,6 @@ import type {
   SpriteDef,
   TilesetInfo,
 } from "./MapEditorPanel/types.ts";
-import { visibilityLabel } from "./MapEditorPanel/visibilityLabel.ts";
-import {
-  buildLayerPanel as buildLayerPanelImpl,
-  getLayerButtonText as getLayerButtonTextImpl,
-  renderLayerButtons as renderLayerButtonsImpl,
-  makeLayerName as makeLayerNameImpl,
-  addLayer as addLayerImpl,
-  removeActiveLayer as removeActiveLayerImpl,
-  moveActiveLayer as moveActiveLayerImpl,
-} from "./MapEditorPanel/buildLayerPanel.ts";
-import {
-  buildObjectPicker as buildObjectPickerImpl,
-  renderObjectList as renderObjectListImpl,
-} from "./MapEditorPanel/buildObjectPicker.ts";
-import {
-  buildNpcPicker as buildNpcPickerImpl,
-  renderNpcList as renderNpcListImpl,
-} from "./MapEditorPanel/buildNpcPicker.ts";
-import {
-  buildItemPicker as buildItemPickerImpl,
-  renderItemList as renderItemListImpl,
-  placeItem as placeItemImpl,
-  removeItemAt as removeItemAtImpl,
-  inspectItemAt as inspectItemAtImpl,
-  logItemPlacement as logItemPlacementImpl,
-} from "./MapEditorPanel/buildItemPicker.ts";
-import {
-  buildTilesetPicker as buildTilesetPickerImpl,
-  loadTilesetImage as loadTilesetImageImpl,
-  renderTilesetGrid as renderTilesetGridImpl,
-  tileCanvasToGrid as tileCanvasToGridImpl,
-  onTileCanvasDown as onTileCanvasDownImpl,
-  onTileCanvasMove as onTileCanvasMoveImpl,
-  onTileCanvasUp as onTileCanvasUpImpl,
-  applyTileSelection as applyTileSelectionImpl,
-  updateHighlight as updateHighlightImpl,
-  updateIrregularHighlights as updateIrregularHighlightsImpl,
-  clearIrregularHighlights as clearIrregularHighlightsImpl,
-  updateIrregularInfo as updateIrregularInfoImpl,
-  getIrregularSelectionTiles as getIrregularSelectionTilesImpl,
-} from "./MapEditorPanel/buildTilesetPicker.ts";
-import type { TilesetPickerContext } from "./MapEditorPanel/buildTilesetPicker.ts";
-import {
-  buildMapPicker as buildMapPickerImpl,
-  syncMapSettingsUI as syncMapSettingsUIImpl,
-} from "./MapEditorPanel/buildMapPicker.ts";
-import type { MapPickerContext } from "./MapEditorPanel/buildMapPicker.ts";
-import "./LayerPanel.css";
-import "./MapEditor.css";
 import "./TilesetPicker.css";
 
 export type { EditorTool, PlacedObject, TilesetInfo };
@@ -487,10 +478,7 @@ export class MapEditorPanel {
   }
 
   private addLayer(type: MapLayerType) {
-    addLayerImpl(
-      this as unknown as Parameters<typeof addLayerImpl>[0],
-      type,
-    );
+    addLayerImpl(this as unknown as Parameters<typeof addLayerImpl>[0], type);
   }
 
   private removeActiveLayer() {
@@ -511,9 +499,7 @@ export class MapEditorPanel {
   // =========================================================================
 
   private buildTilesetPicker() {
-    return buildTilesetPickerImpl(
-      this as unknown as TilesetPickerContext,
-    );
+    return buildTilesetPickerImpl(this as unknown as TilesetPickerContext);
   }
 
   // =========================================================================
@@ -581,7 +567,10 @@ export class MapEditorPanel {
       const spriteDefsByName = new Map(
         (spriteDefs as SpriteDef[]).map((d) => [d.name, d]),
       );
-      type ItemDefInput = Pick<ItemDef, "name" | "displayName" | "type" | "rarity"> & { iconSpriteDefName?: string; [key: string]: unknown };
+      type ItemDefInput = Pick<
+        ItemDef,
+        "name" | "displayName" | "type" | "rarity"
+      > & { iconSpriteDefName?: string; [key: string]: unknown };
       this.itemDefs = (defs as ItemDefInput[]).map((def): ItemDef => {
         const out: ItemDef = { ...def };
         const spriteDefName = def.iconSpriteDefName;
@@ -649,10 +638,7 @@ export class MapEditorPanel {
   // =========================================================================
 
   private loadTilesetImage(onReady?: () => void) {
-    loadTilesetImageImpl(
-      this as unknown as TilesetPickerContext,
-      onReady,
-    );
+    loadTilesetImageImpl(this as unknown as TilesetPickerContext, onReady);
   }
 
   private renderTilesetGrid() {
@@ -660,10 +646,7 @@ export class MapEditorPanel {
   }
 
   private tileCanvasToGrid(e: MouseEvent) {
-    return tileCanvasToGridImpl(
-      this as unknown as TilesetPickerContext,
-      e,
-    );
+    return tileCanvasToGridImpl(this as unknown as TilesetPickerContext, e);
   }
 
   private onTileCanvasDown(e: MouseEvent) {
@@ -1023,84 +1006,89 @@ export class MapEditorPanel {
         );
 
         if (
-        this.tool === "paint" ||
-        this.tool === "erase" ||
-        this.tool === "collision" ||
-        this.tool === "collision-erase"
-      ) {
-        const mapData = game.mapRenderer.getMapData();
-        if (mapData) {
-          const tx = Math.floor(worldX / mapData.tileWidth);
-          const ty = Math.floor(worldY / mapData.tileHeight);
-          if (tx >= 0 && ty >= 0 && tx < mapData.width && ty < mapData.height) {
-            if (this.tool === "paint") {
-              const ts = this.activeTileset;
-              const tsCols = Math.floor(ts.imageWidth / ts.tileWidth);
-              if (this.isIrregularSelection && this.irregularTiles.size > 0) {
-                const tiles = this.getIrregularSelectionTiles();
-                game.mapRenderer.showIrregularTileGhost(
-                  tx,
-                  ty,
-                  tiles,
-                  tsCols,
-                  ts.url,
-                );
+          this.tool === "paint" ||
+          this.tool === "erase" ||
+          this.tool === "collision" ||
+          this.tool === "collision-erase"
+        ) {
+          const mapData = game.mapRenderer.getMapData();
+          if (mapData) {
+            const tx = Math.floor(worldX / mapData.tileWidth);
+            const ty = Math.floor(worldY / mapData.tileHeight);
+            if (
+              tx >= 0 &&
+              ty >= 0 &&
+              tx < mapData.width &&
+              ty < mapData.height
+            ) {
+              if (this.tool === "paint") {
+                const ts = this.activeTileset;
+                const tsCols = Math.floor(ts.imageWidth / ts.tileWidth);
+                if (this.isIrregularSelection && this.irregularTiles.size > 0) {
+                  const tiles = this.getIrregularSelectionTiles();
+                  game.mapRenderer.showIrregularTileGhost(
+                    tx,
+                    ty,
+                    tiles,
+                    tsCols,
+                    ts.url,
+                  );
+                } else {
+                  game.mapRenderer.showTileGhost(
+                    tx,
+                    ty,
+                    this.selectedRegion,
+                    tsCols,
+                    ts.url,
+                  );
+                }
               } else {
-                game.mapRenderer.showTileGhost(
-                  tx,
-                  ty,
-                  this.selectedRegion,
-                  tsCols,
-                  ts.url,
-                );
+                game.mapRenderer.showTileGhost(tx, ty, null, 0);
               }
             } else {
-              game.mapRenderer.showTileGhost(tx, ty, null, 0);
+              game.mapRenderer.hideTileGhost();
             }
-          } else {
-            game.mapRenderer.hideTileGhost();
+          }
+        } else if (this.tool === "object" || this.tool === "npc") {
+          game.mapRenderer.hideTileGhost();
+          game.objectLayer?.updateGhost(worldX, worldY);
+        } else if (this.tool === "object-move" || this.tool === "npc-move") {
+          game.mapRenderer.hideTileGhost();
+          game.objectLayer?.hideGhost();
+        } else if (this.tool === "item" || this.tool === "item-erase") {
+          game.mapRenderer.hideTileGhost();
+          game.objectLayer?.hideGhost();
+          game.worldItemLayer?.updateGhost(worldX, worldY);
+        } else if (this.tool === "portal") {
+          game.mapRenderer.hideTileGhost();
+          const mapData = game.mapRenderer.getMapData();
+          if (mapData) {
+            const tx = Math.floor(worldX / mapData.tileWidth);
+            const ty = Math.floor(worldY / mapData.tileHeight);
+            if (this.portalStart) {
+              game.mapRenderer.showPortalGhost(this.portalStart, { tx, ty });
+            } else {
+              game.mapRenderer.showPortalCursor(tx, ty);
+            }
+          }
+        } else if (this.tool === "label") {
+          game.mapRenderer.hideTileGhost();
+          const mapData = game.mapRenderer.getMapData();
+          if (mapData) {
+            const tx = Math.floor(worldX / mapData.tileWidth);
+            const ty = Math.floor(worldY / mapData.tileHeight);
+            if (this.labelStart) {
+              game.mapRenderer.showLabelGhost(
+                this.labelStart,
+                { tx, ty },
+                this.labelDraftName,
+              );
+            } else {
+              game.mapRenderer.showLabelCursor(tx, ty);
+            }
           }
         }
-      } else if (this.tool === "object" || this.tool === "npc") {
-        game.mapRenderer.hideTileGhost();
-        game.objectLayer?.updateGhost(worldX, worldY);
-      } else if (this.tool === "object-move" || this.tool === "npc-move") {
-        game.mapRenderer.hideTileGhost();
-        game.objectLayer?.hideGhost();
-      } else if (this.tool === "item" || this.tool === "item-erase") {
-        game.mapRenderer.hideTileGhost();
-        game.objectLayer?.hideGhost();
-        game.worldItemLayer?.updateGhost(worldX, worldY);
-      } else if (this.tool === "portal") {
-        game.mapRenderer.hideTileGhost();
-        const mapData = game.mapRenderer.getMapData();
-        if (mapData) {
-          const tx = Math.floor(worldX / mapData.tileWidth);
-          const ty = Math.floor(worldY / mapData.tileHeight);
-          if (this.portalStart) {
-            game.mapRenderer.showPortalGhost(this.portalStart, { tx, ty });
-          } else {
-            game.mapRenderer.showPortalCursor(tx, ty);
-          }
-        }
-      } else if (this.tool === "label") {
-        game.mapRenderer.hideTileGhost();
-        const mapData = game.mapRenderer.getMapData();
-        if (mapData) {
-          const tx = Math.floor(worldX / mapData.tileWidth);
-          const ty = Math.floor(worldY / mapData.tileHeight);
-          if (this.labelStart) {
-            game.mapRenderer.showLabelGhost(
-              this.labelStart,
-              { tx, ty },
-              this.labelDraftName,
-            );
-          } else {
-            game.mapRenderer.showLabelCursor(tx, ty);
-          }
-        }
-      }
-    });
+      });
     };
 
     canvas.addEventListener("mousedown", this.canvasClickHandler);
@@ -1123,7 +1111,10 @@ export class MapEditorPanel {
             : "Move Object: click an object to pick it up";
         return;
       }
-      if (e.key === EDITOR_GRID_TOGGLE_KEY || e.key === EDITOR_GRID_TOGGLE_KEY_ALT) {
+      if (
+        e.key === EDITOR_GRID_TOGGLE_KEY ||
+        e.key === EDITOR_GRID_TOGGLE_KEY_ALT
+      ) {
         const on = game.mapRenderer.toggleGrid();
         this.gridBtn.classList.toggle("active", on);
         this.renderTilesetGrid();
@@ -1298,7 +1289,10 @@ export class MapEditorPanel {
 
     // All objects (including NPCs) render as static previews in the editor.
     // Real server-driven NPCs are created via the npcState subscription after saving.
-    this.game?.objectLayer?.addPlacedObject(obj, this.selectedSpriteDef as SpriteDefInfo);
+    this.game?.objectLayer?.addPlacedObject(
+      obj,
+      this.selectedSpriteDef as SpriteDefInfo,
+    );
   }
 
   private isNpcObject(spriteDefName: string): boolean {
@@ -1337,7 +1331,9 @@ export class MapEditorPanel {
       spriteDefName: string,
     ): boolean => {
       const def = defByName.get(spriteDefName);
-      const hitAbove = def ? def.frameHeight * def.scale : EDITOR_HIT_TEST_ABOVE;
+      const hitAbove = def
+        ? def.frameHeight * def.scale
+        : EDITOR_HIT_TEST_ABOVE;
       const hitSide = def
         ? (def.frameWidth * def.scale) / 2
         : EDITOR_HIT_TEST_SIDE;
@@ -1483,9 +1479,7 @@ export class MapEditorPanel {
   // =========================================================================
 
   private buildMapPicker(): HTMLElement {
-    return buildMapPickerImpl(
-      this as unknown as MapPickerContext,
-    );
+    return buildMapPickerImpl(this as unknown as MapPickerContext);
   }
 
   private syncMapSettingsUI() {
@@ -1526,8 +1520,7 @@ export class MapEditorPanel {
     mapLabel.textContent = "Target Map:";
     mapLabel.style.minWidth = "80px";
     const mapSelect = document.createElement("select");
-    mapSelect.style.cssText =
-      EDITOR_INPUT_STYLE;
+    mapSelect.style.cssText = EDITOR_INPUT_STYLE;
     mapSelect.addEventListener("change", () => {
       this.portalDraft.targetMap = mapSelect.value;
       void this.refreshPortalTargetSpawnOptions(mapSelect.value);
@@ -1543,8 +1536,7 @@ export class MapEditorPanel {
     spawnLabel.textContent = "Target Label:";
     spawnLabel.style.minWidth = "80px";
     const spawnSelect = document.createElement("select");
-    spawnSelect.style.cssText =
-      EDITOR_INPUT_STYLE;
+    spawnSelect.style.cssText = EDITOR_INPUT_STYLE;
     spawnSelect.addEventListener("change", () => {
       this.portalDraft.targetSpawn = spawnSelect.value || "start1";
       this.applyPortalDraftToSelected();
@@ -1559,8 +1551,7 @@ export class MapEditorPanel {
     dirLabel.textContent = "Direction:";
     dirLabel.style.minWidth = "80px";
     const dirSelect = document.createElement("select");
-    dirSelect.style.cssText =
-      EDITOR_INPUT_STYLE;
+    dirSelect.style.cssText = EDITOR_INPUT_STYLE;
     for (const d of ["", "up", "down", "left", "right"]) {
       const opt = document.createElement("option");
       opt.value = d;
@@ -1576,18 +1567,15 @@ export class MapEditorPanel {
 
     // Help text — clicking the map directly now starts placement
     const helpText = document.createElement("div");
-    helpText.style.cssText =
-      `margin-top:6px;padding:6px 8px;background:${EDITOR_INFO_PANEL_BG};border:1px solid ${EDITOR_INFO_PANEL_BORDER};border-radius:4px;font-size:11px;color:${EDITOR_MUTED_TEXT};line-height:1.4;`;
-    helpText.innerHTML =
-      `Fill in the fields above, then <b style='color:${EDITOR_PORTAL_GHOST_GREEN}'>click on the map</b> to set the start corner, and click again for the end corner. A green ghost will preview the area.`;
+    helpText.style.cssText = `margin-top:6px;padding:6px 8px;background:${EDITOR_INFO_PANEL_BG};border:1px solid ${EDITOR_INFO_PANEL_BORDER};border-radius:4px;font-size:11px;color:${EDITOR_MUTED_TEXT};line-height:1.4;`;
+    helpText.innerHTML = `Fill in the fields above, then <b style='color:${EDITOR_PORTAL_GHOST_GREEN}'>click on the map</b> to set the start corner, and click again for the end corner. A green ghost will preview the area.`;
 
     form.append(nameRow, mapRow, spawnRow, dirRow, helpText);
     picker.appendChild(form);
 
     // --- Existing portals list ---
     const listHeader = document.createElement("div");
-    listHeader.style.cssText =
-      `padding:8px;font-size:13px;font-weight:600;border-top:1px solid ${EDITOR_INFO_PANEL_BORDER};`;
+    listHeader.style.cssText = `padding:8px;font-size:13px;font-weight:600;border-top:1px solid ${EDITOR_INFO_PANEL_BORDER};`;
     listHeader.textContent = "Existing Portals";
     picker.appendChild(listHeader);
 
@@ -1610,7 +1598,12 @@ export class MapEditorPanel {
       inputPlaceholder: placeholder,
       inputValue: placeholder,
       onChange,
-      assignRef: labelText === "Name:" ? (el) => { this.portalNameInput = el as HTMLInputElement; } : undefined,
+      assignRef:
+        labelText === "Name:"
+          ? (el) => {
+              this.portalNameInput = el as HTMLInputElement;
+            }
+          : undefined,
     });
   }
 
@@ -1625,7 +1618,7 @@ export class MapEditorPanel {
       // Some older maps may not have summaries populated as expected.
       try {
         const convex = getConvexClient();
-        const map = await convex.query(api.maps.getByName, {
+        const map = await convex.query(api.maps.queries.getByName, {
           name: targetMapName,
         });
         labels = Array.isArray((map as any)?.labels)
@@ -1659,7 +1652,7 @@ export class MapEditorPanel {
   private async loadAvailableMaps() {
     try {
       const convex = getConvexClient();
-      const maps = await convex.query(api.maps.listSummaries, {});
+      const maps = await convex.query(api.maps.queries.listSummaries, {});
       this.availableMaps = maps.map((m: any) => ({
         name: m.name,
         labelNames: Array.isArray(m.labelNames) ? m.labelNames : [],
@@ -1717,7 +1710,9 @@ export class MapEditorPanel {
       for (const name of candidateNames) {
         try {
           const convex = getConvexClient();
-          const saved = await convex.query(api.maps.getByName, { name });
+          const saved = await convex.query(api.maps.queries.getByName, {
+            name,
+          });
           const savedPortals = Array.isArray((saved as any)?.portals)
             ? (saved as any).portals
             : [];
@@ -1764,8 +1759,7 @@ export class MapEditorPanel {
 
       const delBtn = document.createElement("button");
       delBtn.textContent = "✕";
-      delBtn.style.cssText =
-        `background:none;border:none;color:${EDITOR_DELETE_BUTTON};cursor:pointer;font-size:13px;`;
+      delBtn.style.cssText = `background:none;border:none;color:${EDITOR_DELETE_BUTTON};cursor:pointer;font-size:13px;`;
       row.addEventListener("click", () => {
         this.selectPortalForEditing(i);
       });
@@ -1992,8 +1986,7 @@ export class MapEditorPanel {
     const nameInput = document.createElement("input");
     nameInput.type = "text";
     nameInput.placeholder = "start1, shop-door, npc-guard...";
-    nameInput.style.cssText =
-      EDITOR_INPUT_STYLE;
+    nameInput.style.cssText = EDITOR_INPUT_STYLE;
     nameInput.addEventListener("input", () => {
       this.labelDraftName = nameInput.value.trim();
     });
@@ -2001,8 +1994,7 @@ export class MapEditorPanel {
 
     // Help text
     const helpText = document.createElement("div");
-    helpText.style.cssText =
-      `padding:6px 8px;background:${EDITOR_INFO_PANEL_BG};border:1px solid ${EDITOR_INFO_PANEL_BORDER};border-radius:4px;font-size:11px;color:${EDITOR_MUTED_TEXT};line-height:1.4;`;
+    helpText.style.cssText = `padding:6px 8px;background:${EDITOR_INFO_PANEL_BG};border:1px solid ${EDITOR_INFO_PANEL_BORDER};border-radius:4px;font-size:11px;color:${EDITOR_MUTED_TEXT};line-height:1.4;`;
     helpText.innerHTML = `Enter a name, then <b style="color:${EDITOR_LABEL_HELP_YELLOW}">click on the map</b> for a single-tile label, or click twice to define a rectangular zone. Labels are used as portal spawn targets (e.g. <code>start1</code>).`;
 
     form.append(nameRow, helpText);
@@ -2010,8 +2002,7 @@ export class MapEditorPanel {
 
     // --- Existing labels list ---
     const listHeader = document.createElement("div");
-    listHeader.style.cssText =
-      `padding:8px;font-size:13px;font-weight:600;border-top:1px solid ${EDITOR_INFO_PANEL_BORDER};`;
+    listHeader.style.cssText = `padding:8px;font-size:13px;font-weight:600;border-top:1px solid ${EDITOR_INFO_PANEL_BORDER};`;
     listHeader.textContent = "Existing Labels";
     picker.appendChild(listHeader);
 
@@ -2048,8 +2039,7 @@ export class MapEditorPanel {
 
       const delBtn = document.createElement("button");
       delBtn.textContent = "✕";
-      delBtn.style.cssText =
-        `background:none;border:none;color:${EDITOR_DELETE_BUTTON};cursor:pointer;font-size:13px;`;
+      delBtn.style.cssText = `background:none;border:none;color:${EDITOR_DELETE_BUTTON};cursor:pointer;font-size:13px;`;
       delBtn.addEventListener("click", () => {
         if (mapData && mapData.labels) {
           mapData.labels.splice(i, 1);
@@ -2219,7 +2209,7 @@ export class MapEditorPanel {
         saveArgs.combatSettings = mapData.combatSettings;
       if (mapData.status != null) saveArgs.status = mapData.status;
 
-      await convex.mutation(api.maps.saveFullMap, saveArgs as any);
+      await convex.mutation(api.maps.mutations.saveFullMap, saveArgs as any);
 
       // 2) Save placed objects
       await convex.mutation(api.mapObjects.bulkSave, {

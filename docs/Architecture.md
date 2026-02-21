@@ -57,7 +57,7 @@ The client **never** decides combat damage, inventory changes, or quest progress
 
 - Use the generated `api` from `convex/_generated/api` for typed references.
 - Modules with slashes use bracket notation: `api["story/quests"].listActive`, `api["mechanics/combat"].attackNearestHostile`.
-- Root-level modules use dot notation: `api.maps.list`, `api.npcProfiles.getByName`.
+- Directory modules use full paths: `api.maps.queries.list`, `api.npcProfiles.queries.getByName` (Convex does not support index.ts re-exports).
 
 ---
 

@@ -1,21 +1,28 @@
-import { getConvexClient } from "../../lib/convexClient.ts";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
+import { getConvexClient } from "../../lib/convexClient.ts";
 import type { MapData, MapLayerType } from "../types.ts";
 import type { IGame } from "./types.ts";
 
 /**
  * Seed a static JSON map into Convex (so future loads come from there).
  */
-export async function seedMapToConvex(game: IGame, mapData: MapData): Promise<void> {
+export async function seedMapToConvex(
+  game: IGame,
+  mapData: MapData,
+): Promise<void> {
   const convex = getConvexClient();
-  const existing = await convex.query(api.maps.getByName, { name: mapData.name });
+  const existing = await convex.query(api.maps.queries.getByName, {
+    name: mapData.name,
+  });
   if (existing) {
-    console.warn(`Skipping seed for "${mapData.name}" (already exists in Convex)`);
+    console.warn(
+      `Skipping seed for "${mapData.name}" (already exists in Convex)`,
+    );
     return;
   }
   const profileId = game.profile._id as Id<"profiles">;
-  await convex.mutation(api.maps.saveFullMap, {
+  await convex.mutation(api.maps.mutations.saveFullMap, {
     profileId,
     name: mapData.name,
     width: mapData.width,

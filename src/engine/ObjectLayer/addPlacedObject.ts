@@ -33,6 +33,7 @@ import {
   PROMPT_OPEN,
   PROMPT_STROKE_COLOR,
   PROMPT_STROKE_WIDTH,
+  PROMPT_STORAGE,
   PROMPT_TURN_OFF,
   PROMPT_TURN_ON,
   PROMPT_Y_OFFSET,
@@ -187,7 +188,45 @@ export async function addPlacedObject(
       doorClosingFrames,
       doorOpenSoundUrl: def.doorOpenSoundUrl,
       doorCloseSoundUrl: def.doorCloseSoundUrl,
+      storageId: obj.storageId,
     };
+
+    // Add storage indicator, glow, and prompt if object has storage
+    if (obj.storageId) {
+      const storageIndicator = new Graphics();
+      storageIndicator.circle(0, -10, 4);
+      storageIndicator.fill({ color: 0xffd700, alpha: 0.8 }); // Gold indicator
+      objContainer.addChild(storageIndicator);
+      entry.storageIndicator = storageIndicator;
+
+      // Add glow for storage interaction
+      const glow = new Graphics();
+      glow.circle(
+        GLOW_CENTER_X,
+        -(def.frameHeight * def.scale) * GLOW_Y_HALF_HEIGHT_FACTOR,
+        GLOW_RADIUS,
+      );
+      glow.fill({ color: GLOW_COLOR, alpha: GLOW_ALPHA });
+      glow.visible = false;
+      objContainer.addChildAt(glow, 0);
+      entry.glow = glow;
+
+      // Add prompt for storage
+      const prompt = new Text({
+        text: PROMPT_STORAGE,
+        style: new TextStyle({
+          fontSize: PROMPT_FONT_SIZE,
+          fill: PROMPT_FILL_COLOR,
+          fontFamily: PROMPT_FONT_FAMILY,
+          stroke: { color: PROMPT_STROKE_COLOR, width: PROMPT_STROKE_WIDTH },
+        }),
+      });
+      prompt.anchor.set(PROMPT_ANCHOR_X, PROMPT_ANCHOR_Y);
+      prompt.y = -(def.frameHeight * def.scale) - PROMPT_Y_OFFSET;
+      prompt.visible = false;
+      objContainer.addChild(prompt);
+      entry.prompt = prompt;
+    }
 
     if (isDoor) {
       entry.doorCollisionTiles = computeDoorCollisionTiles(

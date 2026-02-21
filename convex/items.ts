@@ -103,6 +103,29 @@ export const getByName = query({
   },
 });
 
+/** Get multiple item definitions by their names */
+export const listByNames = query({
+  args: { names: v.array(v.string()) },
+  handler: async (ctx, { names }) => {
+    const userId = await getAuthUserId(ctx);
+    const superuser = await isSuperuserUser(ctx, userId);
+    const uniqueNames = [...new Set(names)];
+    const items = [];
+    for (const name of uniqueNames) {
+      const item = await ctx.db
+        .query("itemDefs")
+        .withIndex("by_name", (q) => q.eq("name", name))
+        .first();
+      if (item) {
+        if (superuser || canReadItem(item, userId)) {
+          items.push(item);
+        }
+      }
+    }
+    return items;
+  },
+});
+
 // ---------------------------------------------------------------------------
 // Mutations
 // ---------------------------------------------------------------------------

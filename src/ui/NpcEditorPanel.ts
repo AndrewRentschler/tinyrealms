@@ -8,13 +8,13 @@
  *     assign unique names, and edit backstory, personality, stats, items,
  *     relationships, and other profile data used for LLM feeding.
  */
-import { getConvexClient } from "../lib/convexClient.ts";
 import { api } from "../../convex/_generated/api";
-import type { Game } from "../engine/Game/index.ts";
 import type { Id } from "../../convex/_generated/dataModel";
-import type { VisibilityType } from "../types/visibility.ts";
-import { NPC_SPRITE_SHEETS } from "../config/spritesheet-config.ts";
 import { SOUND_FILES } from "../config/audio-config.ts";
+import { NPC_SPRITE_SHEETS } from "../config/spritesheet-config.ts";
+import type { Game } from "../engine/Game/index.ts";
+import { getConvexClient } from "../lib/convexClient.ts";
+import type { VisibilityType } from "../types/visibility.ts";
 import "./NpcEditor.css";
 
 // ---------------------------------------------------------------------------
@@ -97,7 +97,12 @@ interface NpcProfileData {
 }
 
 const DEFAULT_STATS: NpcStats = {
-  hp: 50, maxHp: 50, atk: 5, def: 5, spd: 5, level: 1,
+  hp: 50,
+  maxHp: 50,
+  atk: 5,
+  def: 5,
+  spd: 5,
+  level: 1,
 };
 
 // ---------------------------------------------------------------------------
@@ -105,7 +110,10 @@ const DEFAULT_STATS: NpcStats = {
 // ---------------------------------------------------------------------------
 
 interface SheetJson {
-  frames: Record<string, { frame: { x: number; y: number; w: number; h: number } }>;
+  frames: Record<
+    string,
+    { frame: { x: number; y: number; w: number; h: number } }
+  >;
   animations?: Record<string, string[]>;
   meta: { image: string; format: string; scale: string };
 }
@@ -232,7 +240,13 @@ export class NpcEditorPanel {
   private relAddRow!: HTMLElement;
 
   // Sprite thumb cache
-  private spriteCache: Map<string, { img: HTMLImageElement; frame: { x: number; y: number; w: number; h: number } }> = new Map();
+  private spriteCache: Map<
+    string,
+    {
+      img: HTMLImageElement;
+      frame: { x: number; y: number; w: number; h: number };
+    }
+  > = new Map();
 
   // ---- NPC Sprites tab (new) ----
   private nsLoadedSheet: LoadedSheet | null = null;
@@ -300,8 +314,12 @@ export class NpcEditorPanel {
 
   setGame(game: Game) {
     this.game = game;
-    this.nsRebuildVisibilityOptions(this.nsVisibilitySelect?.value as any || "private");
-    this.rebuildVisibilitySelect(this.visibilitySelect?.value as any || "private");
+    this.nsRebuildVisibilityOptions(
+      (this.nsVisibilitySelect?.value as any) || "private",
+    );
+    this.rebuildVisibilitySelect(
+      (this.visibilitySelect?.value as any) || "private",
+    );
   }
 
   toggle(visible: boolean) {
@@ -310,12 +328,19 @@ export class NpcEditorPanel {
       if (this.activeTab === "instances") this.loadData();
       else this.nsLoadSavedDefs();
     } else {
-      if (this.nsPreviewTimer) { clearInterval(this.nsPreviewTimer); this.nsPreviewTimer = 0; }
+      if (this.nsPreviewTimer) {
+        clearInterval(this.nsPreviewTimer);
+        this.nsPreviewTimer = 0;
+      }
     }
   }
 
-  show() { this.toggle(true); }
-  hide() { this.toggle(false); }
+  show() {
+    this.toggle(true);
+  }
+  hide() {
+    this.toggle(false);
+  }
   destroy() {
     if (this.nsPreviewTimer) clearInterval(this.nsPreviewTimer);
     this.el.remove();
@@ -332,12 +357,16 @@ export class NpcEditorPanel {
     this.tabBtnSprites = document.createElement("button");
     this.tabBtnSprites.className = "npc-editor-tab";
     this.tabBtnSprites.textContent = "NPC Sprites";
-    this.tabBtnSprites.addEventListener("click", () => this.switchTab("sprites"));
+    this.tabBtnSprites.addEventListener("click", () =>
+      this.switchTab("sprites"),
+    );
 
     this.tabBtnInstances = document.createElement("button");
     this.tabBtnInstances.className = "npc-editor-tab";
     this.tabBtnInstances.textContent = "NPC Instances";
-    this.tabBtnInstances.addEventListener("click", () => this.switchTab("instances"));
+    this.tabBtnInstances.addEventListener("click", () =>
+      this.switchTab("instances"),
+    );
 
     bar.append(this.tabBtnSprites, this.tabBtnInstances);
     return bar;
@@ -469,11 +498,36 @@ export class NpcEditorPanel {
     const form = document.createElement("div");
     form.className = "sprite-editor-form";
 
-    this.nsNameInput = this.nsAddFormField(form, "Name", "text", "My NPC") as HTMLInputElement;
-    this.nsSpeedInput = this.nsAddFormField(form, "Anim Speed", "number", "0.15") as HTMLInputElement;
-    this.nsScaleInput = this.nsAddFormField(form, "Scale", "number", "1") as HTMLInputElement;
-    this.nsAnchorXInput = this.nsAddFormField(form, "Anchor X (0–1)", "number", "0.5") as HTMLInputElement;
-    this.nsAnchorYInput = this.nsAddFormField(form, "Anchor Y (0–1)", "number", "1") as HTMLInputElement;
+    this.nsNameInput = this.nsAddFormField(
+      form,
+      "Name",
+      "text",
+      "My NPC",
+    ) as HTMLInputElement;
+    this.nsSpeedInput = this.nsAddFormField(
+      form,
+      "Anim Speed",
+      "number",
+      "0.15",
+    ) as HTMLInputElement;
+    this.nsScaleInput = this.nsAddFormField(
+      form,
+      "Scale",
+      "number",
+      "1",
+    ) as HTMLInputElement;
+    this.nsAnchorXInput = this.nsAddFormField(
+      form,
+      "Anchor X (0–1)",
+      "number",
+      "0.5",
+    ) as HTMLInputElement;
+    this.nsAnchorYInput = this.nsAddFormField(
+      form,
+      "Anchor Y (0–1)",
+      "number",
+      "1",
+    ) as HTMLInputElement;
 
     // Collidable checkbox
     const colField = document.createElement("div");
@@ -510,10 +564,30 @@ export class NpcEditorPanel {
     dirHeader.style.marginTop = "4px";
     form.appendChild(dirHeader);
 
-    this.nsNpcDirDownInput = this.nsAddFormField(form, "Down", "text", "row0") as HTMLInputElement;
-    this.nsNpcDirUpInput = this.nsAddFormField(form, "Up", "text", "row1") as HTMLInputElement;
-    this.nsNpcDirLeftInput = this.nsAddFormField(form, "Left", "text", "row3") as HTMLInputElement;
-    this.nsNpcDirRightInput = this.nsAddFormField(form, "Right", "text", "row2") as HTMLInputElement;
+    this.nsNpcDirDownInput = this.nsAddFormField(
+      form,
+      "Down",
+      "text",
+      "row0",
+    ) as HTMLInputElement;
+    this.nsNpcDirUpInput = this.nsAddFormField(
+      form,
+      "Up",
+      "text",
+      "row1",
+    ) as HTMLInputElement;
+    this.nsNpcDirLeftInput = this.nsAddFormField(
+      form,
+      "Left",
+      "text",
+      "row3",
+    ) as HTMLInputElement;
+    this.nsNpcDirRightInput = this.nsAddFormField(
+      form,
+      "Right",
+      "text",
+      "row2",
+    ) as HTMLInputElement;
 
     // ── Sounds ──
     const soundHeader = document.createElement("div");
@@ -529,8 +603,18 @@ export class NpcEditorPanel {
     ambField.append(ambLabel, this.nsAmbientSoundSelect);
     form.appendChild(ambField);
 
-    this.nsAmbientRadiusInput = this.nsAddFormField(form, "Ambient Radius (px)", "number", "200") as HTMLInputElement;
-    this.nsAmbientVolumeInput = this.nsAddFormField(form, "Ambient Volume (0–1)", "number", "0.5") as HTMLInputElement;
+    this.nsAmbientRadiusInput = this.nsAddFormField(
+      form,
+      "Ambient Radius (px)",
+      "number",
+      "200",
+    ) as HTMLInputElement;
+    this.nsAmbientVolumeInput = this.nsAddFormField(
+      form,
+      "Ambient Volume (0–1)",
+      "number",
+      "0.5",
+    ) as HTMLInputElement;
 
     const intField = document.createElement("div");
     intField.className = "sprite-editor-field";
@@ -573,7 +657,12 @@ export class NpcEditorPanel {
     return panel;
   }
 
-  private nsAddFormField(parent: HTMLElement, labelText: string, type: string, defaultVal: string): HTMLInputElement {
+  private nsAddFormField(
+    parent: HTMLElement,
+    labelText: string,
+    type: string,
+    defaultVal: string,
+  ): HTMLInputElement {
     const field = document.createElement("div");
     field.className = "sprite-editor-field";
     const label = document.createElement("label");
@@ -581,7 +670,10 @@ export class NpcEditorPanel {
     const input = document.createElement("input");
     input.type = type;
     input.value = defaultVal;
-    if (type === "number") { input.step = "0.01"; input.min = "0"; }
+    if (type === "number") {
+      input.step = "0.01";
+      input.min = "0";
+    }
     field.append(label, input);
     parent.appendChild(field);
     return input;
@@ -627,7 +719,14 @@ export class NpcEditorPanel {
       const fw = firstFrame?.w ?? 32;
       const fh = firstFrame?.h ?? 32;
 
-      this.nsLoadedSheet = { jsonUrl: url, json, image, animations, frameWidth: fw, frameHeight: fh };
+      this.nsLoadedSheet = {
+        jsonUrl: url,
+        json,
+        image,
+        animations,
+        frameWidth: fw,
+        frameHeight: fh,
+      };
       this.nsRenderSheetCanvas();
       this.nsRenderAnimList();
       this.nsSelectAnimation(Object.keys(animations)[0] ?? "");
@@ -665,8 +764,20 @@ export class NpcEditorPanel {
     ctx.lineWidth = 1;
     const cols = Math.floor(image.width / frameWidth);
     const rows = Math.floor(image.height / frameHeight);
-    for (let r = 0; r <= rows; r++) { const y = r * frameHeight * scale; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
-    for (let c = 0; c <= cols; c++) { const x = c * frameWidth * scale; ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
+    for (let r = 0; r <= rows; r++) {
+      const y = r * frameHeight * scale;
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(w, y);
+      ctx.stroke();
+    }
+    for (let c = 0; c <= cols; c++) {
+      const x = c * frameWidth * scale;
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, h);
+      ctx.stroke();
+    }
   }
 
   private nsRenderAnimList() {
@@ -690,7 +801,10 @@ export class NpcEditorPanel {
   }
 
   private nsStartPreview() {
-    if (this.nsPreviewTimer) { clearInterval(this.nsPreviewTimer); this.nsPreviewTimer = 0; }
+    if (this.nsPreviewTimer) {
+      clearInterval(this.nsPreviewTimer);
+      this.nsPreviewTimer = 0;
+    }
     if (!this.nsLoadedSheet || !this.nsSelectedAnim) {
       this.nsPreviewCtx.clearRect(0, 0, 128, 128);
       this.nsPreviewLabel.textContent = "Preview";
@@ -708,7 +822,9 @@ export class NpcEditorPanel {
     }, intervalMs);
   }
 
-  private nsDrawPreviewFrame(frames: { x: number; y: number; w: number; h: number }[]) {
+  private nsDrawPreviewFrame(
+    frames: { x: number; y: number; w: number; h: number }[],
+  ) {
     if (!this.nsLoadedSheet) return;
     const ctx = this.nsPreviewCtx;
     const f = frames[this.nsPreviewFrame % frames.length];
@@ -775,9 +891,18 @@ export class NpcEditorPanel {
 
   private async nsSaveDef() {
     const name = this.nsNameInput.value.trim();
-    if (!name) { this.nsShowStatus("Name is required", true); return; }
-    if (!this.nsLoadedSheet) { this.nsShowStatus("Select a sprite sheet first", true); return; }
-    if (!this.nsSelectedAnim) { this.nsShowStatus("Select an animation first", true); return; }
+    if (!name) {
+      this.nsShowStatus("Name is required", true);
+      return;
+    }
+    if (!this.nsLoadedSheet) {
+      this.nsShowStatus("Select a sprite sheet first", true);
+      return;
+    }
+    if (!this.nsSelectedAnim) {
+      this.nsShowStatus("Select an animation first", true);
+      return;
+    }
 
     this.nsShowStatus("Saving…");
     try {
@@ -800,8 +925,12 @@ export class NpcEditorPanel {
         frameHeight: this.nsLoadedSheet.frameHeight,
         // Sounds
         ambientSoundUrl: this.nsAmbientSoundSelect.value || undefined,
-        ambientSoundRadius: this.nsAmbientSoundSelect.value ? (parseFloat(this.nsAmbientRadiusInput.value) || 200) : undefined,
-        ambientSoundVolume: this.nsAmbientSoundSelect.value ? (parseFloat(this.nsAmbientVolumeInput.value) || 0.5) : undefined,
+        ambientSoundRadius: this.nsAmbientSoundSelect.value
+          ? parseFloat(this.nsAmbientRadiusInput.value) || 200
+          : undefined,
+        ambientSoundVolume: this.nsAmbientSoundSelect.value
+          ? parseFloat(this.nsAmbientVolumeInput.value) || 0.5
+          : undefined,
         interactSoundUrl: this.nsInteractSoundSelect.value || undefined,
         // NPC-specific
         npcDirDown: this.nsNpcDirDownInput.value || "row0",
@@ -815,17 +944,27 @@ export class NpcEditorPanel {
       // Live-refresh sounds on running entities
       const soundCfg = {
         ambientSoundUrl: this.nsAmbientSoundSelect.value || undefined,
-        ambientSoundRadius: this.nsAmbientSoundSelect.value ? (parseFloat(this.nsAmbientRadiusInput.value) || 200) : undefined,
-        ambientSoundVolume: this.nsAmbientSoundSelect.value ? (parseFloat(this.nsAmbientVolumeInput.value) || 0.5) : undefined,
+        ambientSoundRadius: this.nsAmbientSoundSelect.value
+          ? parseFloat(this.nsAmbientRadiusInput.value) || 200
+          : undefined,
+        ambientSoundVolume: this.nsAmbientSoundSelect.value
+          ? parseFloat(this.nsAmbientVolumeInput.value) || 0.5
+          : undefined,
         interactSoundUrl: this.nsInteractSoundSelect.value || undefined,
       };
-      if (this.game?.entityLayer) this.game.entityLayer.refreshNPCSounds(name, soundCfg);
+      if (this.game?.entityLayer)
+        this.game.entityLayer.refreshNPCSounds(name, soundCfg);
 
       this.nsLoadSavedDefs();
     } catch (err: any) {
       console.error("Failed to save NPC sprite definition:", err);
       const msg = err?.message || "Save failed!";
-      this.nsShowStatus(msg.includes("superuser") ? "Save failed: superuser role required" : `Save failed: ${msg}`, true);
+      this.nsShowStatus(
+        msg.includes("superuser")
+          ? "Save failed: superuser role required"
+          : `Save failed: ${msg}`,
+        true,
+      );
     }
   }
 
@@ -852,7 +991,9 @@ export class NpcEditorPanel {
     this.nsStatusEl.textContent = text;
     this.nsStatusEl.style.color = isError ? "#ff4444" : "#88ff88";
     clearTimeout(this._nsStatusTimer);
-    this._nsStatusTimer = window.setTimeout(() => { this.nsStatusEl.textContent = ""; }, 3000);
+    this._nsStatusTimer = window.setTimeout(() => {
+      this.nsStatusEl.textContent = "";
+    }, 3000);
   }
   private _nsStatusTimer = 0;
 
@@ -868,7 +1009,9 @@ export class NpcEditorPanel {
     try {
       const convex = getConvexClient();
       const defs = await convex.query(api.spriteDefinitions.list, {});
-      this.nsSavedDefs = (defs as unknown as SavedNpcDef[]).filter((d) => d.category === "npc");
+      this.nsSavedDefs = (defs as unknown as SavedNpcDef[]).filter(
+        (d) => d.category === "npc",
+      );
       this.nsRenderSavedList();
     } catch (err) {
       console.warn("Failed to load NPC sprite definitions:", err);
@@ -1048,23 +1191,46 @@ export class NpcEditorPanel {
     rightCol.className = "npc-editor-col";
 
     const identitySec = this.makeSection("Identity");
-    this.instanceNameInput = this.addTextField(identitySec, "Instance Name (auto if blank)", "e.g. elara-herbalist");
+    this.instanceNameInput = this.addTextField(
+      identitySec,
+      "Instance Name (auto if blank)",
+      "e.g. elara-herbalist",
+    );
     this.instanceTypeSelect = this.addSelect(identitySec, "Instance Type", [
       { value: "animal", label: "Animal" },
       { value: "character", label: "Character" },
     ]);
-    this.instanceTypeSelect.addEventListener("change", () => this.applyInstanceTypeUI());
+    this.instanceTypeSelect.addEventListener("change", () =>
+      this.applyInstanceTypeUI(),
+    );
     this.instanceTypeHintEl = document.createElement("div");
     this.instanceTypeHintEl.className = "npc-editor-help";
-    this.instanceTypeHintEl.style.cssText = "font-size:11px;color:var(--text-muted);line-height:1.35;";
+    this.instanceTypeHintEl.style.cssText =
+      "font-size:11px;color:var(--text-muted);line-height:1.35;";
     this.instanceTypeHintEl.textContent =
-      'Narrative and AI fields are available only for Character instances.';
+      "Narrative and AI fields are available only for Character instances.";
     identitySec.appendChild(this.instanceTypeHintEl);
-    this.displayNameInput = this.addTextField(identitySec, "Display Name", "e.g. Elara the Herbalist");
-    this.titleInput = this.addTextField(identitySec, "Title / Role", "e.g. Village Herbalist");
-    this.factionInput = this.addTextField(identitySec, "Faction / Affiliation", "e.g. Forest Druids");
+    this.displayNameInput = this.addTextField(
+      identitySec,
+      "Display Name",
+      "e.g. Elara the Herbalist",
+    );
+    this.titleInput = this.addTextField(
+      identitySec,
+      "Title / Role",
+      "e.g. Village Herbalist",
+    );
+    this.factionInput = this.addTextField(
+      identitySec,
+      "Faction / Affiliation",
+      "e.g. Forest Druids",
+    );
     this.factionFieldEl = this.factionInput.parentElement as HTMLElement;
-    this.visibilitySelect = this.addSelect(identitySec, "Visibility", this.getVisibilityOptions());
+    this.visibilitySelect = this.addSelect(
+      identitySec,
+      "Visibility",
+      this.getVisibilityOptions(),
+    );
 
     const aiSec = this.makeSection("AI");
     this.aiSectionEl = aiSec;
@@ -1091,7 +1257,7 @@ export class NpcEditorPanel {
     this.logicKeyInput = this.addTextField(
       aiSec,
       "Logic Key (optional)",
-      'e.g. pilot.single-character',
+      "e.g. pilot.single-character",
     );
 
     this.aiTestMessageInput = this.addTextField(
@@ -1112,7 +1278,8 @@ export class NpcEditorPanel {
     aiSec.append(testOutLabel, this.aiTestResultArea);
 
     const aiHint = document.createElement("div");
-    aiHint.style.cssText = "font-size:11px;color:var(--text-muted);line-height:1.35;";
+    aiHint.style.cssText =
+      "font-size:11px;color:var(--text-muted);line-height:1.35;";
     aiHint.textContent =
       "Use System Prompt with Braintrust moustache templates in your slug config.";
     aiSec.appendChild(aiHint);
@@ -1132,14 +1299,36 @@ export class NpcEditorPanel {
 
     const narrativeSec = this.makeSection("Narrative");
     this.narrativeSectionEl = narrativeSec;
-    this.backstoryArea = this.addTextArea(narrativeSec, "Backstory", "Their history, motivations, how they ended up here\u2026", 5);
-    this.personalityArea = this.addTextArea(narrativeSec, "Personality", "Traits, quirks, temperament\u2026", 3);
-    this.dialogueStyleInput = this.addTextField(narrativeSec, "Dialogue Style", "e.g. formal, cryptic, cheerful, gruff");
+    this.backstoryArea = this.addTextArea(
+      narrativeSec,
+      "Backstory",
+      "Their history, motivations, how they ended up here\u2026",
+      5,
+    );
+    this.personalityArea = this.addTextArea(
+      narrativeSec,
+      "Personality",
+      "Traits, quirks, temperament\u2026",
+      3,
+    );
+    this.dialogueStyleInput = this.addTextField(
+      narrativeSec,
+      "Dialogue Style",
+      "e.g. formal, cryptic, cheerful, gruff",
+    );
     leftCol.appendChild(narrativeSec);
 
     const behaviorSec = this.makeSection("Behavior");
-    this.moveSpeedInput = this.addNumberField(behaviorSec, "Move Speed (px/sec)", "30");
-    this.wanderRadiusInput = this.addNumberField(behaviorSec, "Wander Radius (px)", "60");
+    this.moveSpeedInput = this.addNumberField(
+      behaviorSec,
+      "Move Speed (px/sec)",
+      "30",
+    );
+    this.wanderRadiusInput = this.addNumberField(
+      behaviorSec,
+      "Wander Radius (px)",
+      "60",
+    );
     this.greetingArea = this.addTextArea(
       behaviorSec,
       "Greetings",
@@ -1147,26 +1336,54 @@ export class NpcEditorPanel {
       3,
     );
     this.greetingFieldEl = this.greetingArea.parentElement as HTMLElement;
-    this.aggressionSelect = this.addSelect(behaviorSec, "Temperament / Aggression", [
-      { value: "low", label: "Timid / Low (flee + counter only)" },
-      { value: "medium", label: "Neutral / Medium (retaliates once engaged)" },
-      { value: "high", label: "Hostile / High (attacks on proximity)" },
-    ]);
+    this.aggressionSelect = this.addSelect(
+      behaviorSec,
+      "Temperament / Aggression",
+      [
+        { value: "low", label: "Timid / Low (flee + counter only)" },
+        {
+          value: "medium",
+          label: "Neutral / Medium (retaliates once engaged)",
+        },
+        { value: "high", label: "Hostile / High (attacks on proximity)" },
+      ],
+    );
     this.aggressionFieldEl = this.aggressionSelect.parentElement as HTMLElement;
     leftCol.appendChild(behaviorSec);
 
     const knowledgeSec = this.makeSection("Knowledge & Secrets");
     this.knowledgeSectionEl = knowledgeSec;
-    this.knowledgeArea = this.addTextArea(knowledgeSec, "Knowledge", "What this NPC knows about the world\u2026", 3);
-    this.secretsArea = this.addTextArea(knowledgeSec, "Secrets", "What they hide from players\u2026", 3);
+    this.knowledgeArea = this.addTextArea(
+      knowledgeSec,
+      "Knowledge",
+      "What this NPC knows about the world\u2026",
+      3,
+    );
+    this.secretsArea = this.addTextArea(
+      knowledgeSec,
+      "Secrets",
+      "What they hide from players\u2026",
+      3,
+    );
     leftCol.appendChild(knowledgeSec);
 
     const statsSec = this.makeSection("Stats");
     const statsGrid = document.createElement("div");
     statsGrid.className = "npc-editor-stats-grid";
     for (const key of ["hp", "maxHp", "atk", "def", "spd", "level"] as const) {
-      const labels: Record<string, string> = { hp: "HP", maxHp: "Max HP", atk: "ATK", def: "DEF", spd: "SPD", level: "Level" };
-      this.statInputs[key] = this.addNumberField(statsGrid, labels[key], String(DEFAULT_STATS[key]));
+      const labels: Record<string, string> = {
+        hp: "HP",
+        maxHp: "Max HP",
+        atk: "ATK",
+        def: "DEF",
+        spd: "SPD",
+        level: "Level",
+      };
+      this.statInputs[key] = this.addNumberField(
+        statsGrid,
+        labels[key],
+        String(DEFAULT_STATS[key]),
+      );
     }
     statsSec.appendChild(statsGrid);
     rightCol.appendChild(statsSec);
@@ -1190,7 +1407,12 @@ export class NpcEditorPanel {
 
     const promptSec = this.makeSection("LLM System Prompt");
     this.promptSectionEl = promptSec;
-    this.systemPromptArea = this.addTextArea(promptSec, "System Prompt", "Full system prompt for LLM conversations. Leave empty to auto-generate from other fields.", 6);
+    this.systemPromptArea = this.addTextArea(
+      promptSec,
+      "System Prompt",
+      "Full system prompt for LLM conversations. Leave empty to auto-generate from other fields.",
+      6,
+    );
     const historyLabel = document.createElement("label");
     historyLabel.textContent = "Message History (latest 20)";
     historyLabel.style.cssText = "font-size:11px;color:var(--text-muted);";
@@ -1222,7 +1444,11 @@ export class NpcEditorPanel {
     return sec;
   }
 
-  private addTextField(parent: HTMLElement, label: string, placeholder: string): HTMLInputElement {
+  private addTextField(
+    parent: HTMLElement,
+    label: string,
+    placeholder: string,
+  ): HTMLInputElement {
     const field = document.createElement("div");
     field.className = "npc-editor-field";
     const lbl = document.createElement("label");
@@ -1235,7 +1461,12 @@ export class NpcEditorPanel {
     return input;
   }
 
-  private addTextArea(parent: HTMLElement, label: string, placeholder: string, rows: number): HTMLTextAreaElement {
+  private addTextArea(
+    parent: HTMLElement,
+    label: string,
+    placeholder: string,
+    rows: number,
+  ): HTMLTextAreaElement {
     const field = document.createElement("div");
     field.className = "npc-editor-field";
     const lbl = document.createElement("label");
@@ -1248,7 +1479,11 @@ export class NpcEditorPanel {
     return ta;
   }
 
-  private addNumberField(parent: HTMLElement, label: string, defaultVal: string): HTMLInputElement {
+  private addNumberField(
+    parent: HTMLElement,
+    label: string,
+    defaultVal: string,
+  ): HTMLInputElement {
     const field = document.createElement("div");
     field.className = "npc-editor-field";
     const lbl = document.createElement("label");
@@ -1283,7 +1518,10 @@ export class NpcEditorPanel {
     return sel;
   }
 
-  private getVisibilityOptions(): Array<{ value: VisibilityType; label: string }> {
+  private getVisibilityOptions(): Array<{
+    value: VisibilityType;
+    label: string;
+  }> {
     const isSuperuser = this.game?.profile.role === "superuser";
     const options: Array<{ value: VisibilityType; label: string }> = [
       { value: "private", label: "Private (only me)" },
@@ -1337,7 +1575,9 @@ export class NpcEditorPanel {
       qtyIn.value = "1";
       this.renderItems();
     });
-    nameIn.addEventListener("keydown", (e) => { if (e.key === "Enter") addBtn.click(); });
+    nameIn.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") addBtn.click();
+    });
     this.itemsAddRow.append(nameIn, qtyIn, addBtn);
   }
 
@@ -1360,7 +1600,9 @@ export class NpcEditorPanel {
       rm.textContent = "\u00D7";
       rm.addEventListener("click", () => {
         if (!this.currentProfile?.items) return;
-        this.currentProfile.items = this.currentProfile.items.filter((i) => i.name !== item.name);
+        this.currentProfile.items = this.currentProfile.items.filter(
+          (i) => i.name !== item.name,
+        );
         this.renderItems();
       });
       tag.appendChild(rm);
@@ -1390,7 +1632,9 @@ export class NpcEditorPanel {
       tagIn.value = "";
       this.renderTags();
     });
-    tagIn.addEventListener("keydown", (e) => { if (e.key === "Enter") addBtn.click(); });
+    tagIn.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") addBtn.click();
+    });
     this.tagsAddRow.append(tagIn, addBtn);
   }
 
@@ -1405,7 +1649,9 @@ export class NpcEditorPanel {
       rm.textContent = "\u00D7";
       rm.addEventListener("click", () => {
         if (!this.currentProfile?.tags) return;
-        this.currentProfile.tags = this.currentProfile.tags.filter((x) => x !== t);
+        this.currentProfile.tags = this.currentProfile.tags.filter(
+          (x) => x !== t,
+        );
         this.renderTags();
       });
       el.appendChild(rm);
@@ -1434,14 +1680,19 @@ export class NpcEditorPanel {
       const npcName = nameIn.value.trim();
       const relation = relIn.value.trim();
       if (!npcName || !relation || !this.currentProfile) return;
-      if (!this.currentProfile.relationships) this.currentProfile.relationships = [];
+      if (!this.currentProfile.relationships)
+        this.currentProfile.relationships = [];
       this.currentProfile.relationships.push({ npcName, relation });
       nameIn.value = "";
       relIn.value = "";
       this.renderRelationships();
     });
-    nameIn.addEventListener("keydown", (e) => { if (e.key === "Enter") relIn.focus(); });
-    relIn.addEventListener("keydown", (e) => { if (e.key === "Enter") addBtn.click(); });
+    nameIn.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") relIn.focus();
+    });
+    relIn.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") addBtn.click();
+    });
     this.relAddRow.append(nameIn, relIn, addBtn);
   }
 
@@ -1481,7 +1732,10 @@ export class NpcEditorPanel {
   private async loadData() {
     const convex = getConvexClient();
     try {
-      const instances = await convex.query(api.npcProfiles.listInstances, {});
+      const instances = await convex.query(
+        api.npcProfiles.queries.listInstances,
+        {},
+      );
       this.instances = instances as NpcInstance[];
       this.renderList();
     } catch (err) {
@@ -1499,7 +1753,8 @@ export class NpcEditorPanel {
     if (this.instances.length === 0) {
       const empty = document.createElement("div");
       empty.className = "npc-editor-empty";
-      empty.textContent = "No NPC instances found. Place NPC sprites on maps using the NPC tool in Build mode.";
+      empty.textContent =
+        "No NPC instances found. Place NPC sprites on maps using the NPC tool in Build mode.";
       this.listEl.appendChild(empty);
       return;
     }
@@ -1540,7 +1795,8 @@ export class NpcEditorPanel {
 
         const nameEl = document.createElement("div");
         nameEl.className = "npc-editor-list-name";
-        nameEl.textContent = inst.profile?.displayName || inst.instanceName || inst.spriteDefName;
+        nameEl.textContent =
+          inst.profile?.displayName || inst.instanceName || inst.spriteDefName;
 
         const subEl = document.createElement("div");
         subEl.className = "npc-editor-list-sub";
@@ -1586,10 +1842,13 @@ export class NpcEditorPanel {
 
     if (inst.profile) {
       this.currentProfile = { instanceType: "character", ...inst.profile };
-      if (inst.profile.relationships) this.currentProfile.relationships = [...inst.profile.relationships];
-      if (inst.profile.items) this.currentProfile.items = [...inst.profile.items];
+      if (inst.profile.relationships)
+        this.currentProfile.relationships = [...inst.profile.relationships];
+      if (inst.profile.items)
+        this.currentProfile.items = [...inst.profile.items];
       if (inst.profile.tags) this.currentProfile.tags = [...inst.profile.tags];
-      if (inst.profile.stats) this.currentProfile.stats = { ...inst.profile.stats };
+      if (inst.profile.stats)
+        this.currentProfile.stats = { ...inst.profile.stats };
     } else {
       const defaultName = inst.instanceName || "";
       this.currentProfile = {
@@ -1616,7 +1875,8 @@ export class NpcEditorPanel {
     this.headerName.textContent = this.currentProfile.displayName;
     this.headerDef.textContent = `${inst.spriteDefName} on ${inst.mapName} (${Math.round(inst.x)}, ${Math.round(inst.y)})`;
     this.headerSprite.innerHTML = "";
-    if (inst.spriteDef) this.renderSpriteThumb(this.headerSprite, inst.spriteDef, 48);
+    if (inst.spriteDef)
+      this.renderSpriteThumb(this.headerSprite, inst.spriteDef, 48);
 
     this.buildForm();
     this.populateForm();
@@ -1637,26 +1897,36 @@ export class NpcEditorPanel {
     this.displayNameInput.value = p.displayName;
     this.titleInput.value = p.title ?? "";
     this.factionInput.value = p.faction ?? "";
-    this.rebuildVisibilitySelect(p.visibilityType ?? (p._id ? "system" : "private"));
+    this.rebuildVisibilitySelect(
+      p.visibilityType ?? (p._id ? "system" : "private"),
+    );
     this.aiEnabledCheck.checked = !!p.aiEnabled;
     this.aggressionSelect.value = p.aggression ?? "medium";
     this.braintrustSlugInput.value = p.braintrustSlug ?? "";
     this.logicKeyInput.value = p.logicKey ?? "";
-    this.aiTestMessageInput.value = this.aiTestMessageInput.value || "Hello there";
+    this.aiTestMessageInput.value =
+      this.aiTestMessageInput.value || "Hello there";
     this.aiTestResultArea.value = "";
     this.backstoryArea.value = p.backstory ?? "";
     this.personalityArea.value = p.personality ?? "";
     this.dialogueStyleInput.value = p.dialogueStyle ?? "";
-    this.moveSpeedInput.value = String(p.moveSpeed ?? this.selected?.spriteDef?.npcSpeed ?? 30);
-    this.wanderRadiusInput.value = String(p.wanderRadius ?? this.selected?.spriteDef?.npcWanderRadius ?? 60);
-    this.greetingArea.value = p.greeting ?? this.selected?.spriteDef?.npcGreeting ?? "";
+    this.moveSpeedInput.value = String(
+      p.moveSpeed ?? this.selected?.spriteDef?.npcSpeed ?? 30,
+    );
+    this.wanderRadiusInput.value = String(
+      p.wanderRadius ?? this.selected?.spriteDef?.npcWanderRadius ?? 60,
+    );
+    this.greetingArea.value =
+      p.greeting ?? this.selected?.spriteDef?.npcGreeting ?? "";
     this.knowledgeArea.value = p.knowledge ?? "";
     this.secretsArea.value = p.secrets ?? "";
     this.systemPromptArea.value = p.systemPrompt ?? "";
 
     const stats = p.stats ?? DEFAULT_STATS;
     for (const key of Object.keys(this.statInputs)) {
-      this.statInputs[key].value = String((stats as unknown as Record<string, number>)[key] ?? 0);
+      this.statInputs[key].value = String(
+        (stats as unknown as Record<string, number>)[key] ?? 0,
+      );
     }
 
     this.renderItems();
@@ -1666,7 +1936,8 @@ export class NpcEditorPanel {
     if (!this.isAnimalInstanceType()) {
       void this.loadConversationHistory();
     } else if (this.aiHistoryPane) {
-      this.aiHistoryPane.textContent = "Conversation history is disabled for animal instances.";
+      this.aiHistoryPane.textContent =
+        "Conversation history is disabled for animal instances.";
     }
   }
 
@@ -1675,10 +1946,13 @@ export class NpcEditorPanel {
     this.aiHistoryPane.textContent = "Loading history…";
     try {
       const convex = getConvexClient();
-      const rows = await convex.query((api as any).npc.memory.listConversation, {
-        npcProfileName: this.currentProfile.name,
-        limit: 20,
-      }) as Array<{ role: string; content: string; createdAt?: number }>;
+      const rows = (await convex.query(
+        (api as any).npc.memory.listConversation,
+        {
+          npcProfileName: this.currentProfile.name,
+          limit: 20,
+        },
+      )) as Array<{ role: string; content: string; createdAt?: number }>;
       if (!rows || rows.length === 0) {
         this.aiHistoryPane.textContent = "No message history yet.";
         return;
@@ -1686,7 +1960,8 @@ export class NpcEditorPanel {
       this.aiHistoryPane.innerHTML = "";
       for (const r of rows) {
         const line = document.createElement("div");
-        line.style.cssText = "margin-bottom:8px;padding-bottom:8px;border-bottom:1px dashed var(--border);";
+        line.style.cssText =
+          "margin-bottom:8px;padding-bottom:8px;border-bottom:1px dashed var(--border);";
         const who = String(r.role || "unknown");
         const ts = r.createdAt ? new Date(r.createdAt).toLocaleString() : "";
         line.textContent = `${who}${ts ? ` • ${ts}` : ""}\n${String(r.content || "")}`;
@@ -1742,8 +2017,10 @@ export class NpcEditorPanel {
   private applyAiNpcFieldVisibility() {
     const isAnimal = this.isAnimalInstanceType();
     const isAi = !isAnimal;
-    if (this.factionFieldEl) this.factionFieldEl.style.display = isAi ? "none" : "";
-    if (this.tagsSectionEl) this.tagsSectionEl.style.display = isAi ? "none" : "";
+    if (this.factionFieldEl)
+      this.factionFieldEl.style.display = isAi ? "none" : "";
+    if (this.tagsSectionEl)
+      this.tagsSectionEl.style.display = isAi ? "none" : "";
   }
 
   private collectForm(): NpcProfileData | null {
@@ -1752,11 +2029,17 @@ export class NpcEditorPanel {
     const isAnimal = this.isAnimalInstanceType();
     const isAiMode = !isAnimal;
 
-    p.name = this.instanceNameInput.value.trim().toLowerCase().replace(/\s+/g, "-");
+    p.name = this.instanceNameInput.value
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, "-");
     p.instanceType = isAnimal ? "animal" : "character";
-    p.displayName = this.displayNameInput.value.trim() || this.selected.spriteDefName;
+    p.displayName =
+      this.displayNameInput.value.trim() || this.selected.spriteDefName;
     p.title = this.titleInput.value.trim() || undefined;
-    p.faction = isAiMode ? undefined : (this.factionInput.value.trim() || undefined);
+    p.faction = isAiMode
+      ? undefined
+      : this.factionInput.value.trim() || undefined;
     p.visibilityType = this.visibilitySelect.value as any;
     p.aiEnabled = isAnimal ? false : this.aiEnabledCheck.checked;
     if (isAnimal) {
@@ -1816,14 +2099,21 @@ export class NpcEditorPanel {
       this.statusEl.textContent = "Saving\u2026";
       this.statusEl.style.color = "var(--text-muted)";
 
-      if (profile.name !== this.selected.instanceName || !this.selected.instanceName) {
-        const assignResult = await convex.mutation(api.npcProfiles.assignInstanceName, {
-          profileId: adminId,
-          mapObjectId: this.selected.mapObjectId as Id<"mapObjects">,
-          instanceName: profile.name,
-        });
+      if (
+        profile.name !== this.selected.instanceName ||
+        !this.selected.instanceName
+      ) {
+        const assignResult = await convex.mutation(
+          api.npcProfiles.mutations.assignInstanceName,
+          {
+            profileId: adminId,
+            mapObjectId: this.selected.mapObjectId as Id<"mapObjects">,
+            instanceName: profile.name,
+          },
+        );
         const finalName =
-          String((assignResult as any)?.instanceName || "").trim() || profile.name;
+          String((assignResult as any)?.instanceName || "").trim() ||
+          profile.name;
         profile.name = finalName;
         this.selected.instanceName = finalName;
         this.instanceNameInput.value = finalName;
@@ -1833,7 +2123,7 @@ export class NpcEditorPanel {
         throw new Error("Unable to assign an instance name");
       }
 
-      await convex.mutation(api.npcProfiles.save, {
+      await convex.mutation(api.npcProfiles.mutations.save, {
         profileId: adminId,
         name: profile.name,
         instanceType: profile.instanceType,
@@ -1851,7 +2141,9 @@ export class NpcEditorPanel {
         faction: profile.faction,
         knowledge: profile.knowledge,
         secrets: profile.secrets,
-        relationships: profile.relationships?.length ? profile.relationships : undefined,
+        relationships: profile.relationships?.length
+          ? profile.relationships
+          : undefined,
         stats: profile.stats,
         items: profile.items?.length ? profile.items : undefined,
         tags: profile.tags?.length ? profile.tags : undefined,
@@ -1871,14 +2163,17 @@ export class NpcEditorPanel {
       this.headerName.textContent = profile.displayName;
 
       await this.loadData();
-      const refreshed = this.instances.find((i) => i.mapObjectId === this.selected?.mapObjectId);
+      const refreshed = this.instances.find(
+        (i) => i.mapObjectId === this.selected?.mapObjectId,
+      );
       if (refreshed) {
         this.selected = refreshed;
         this.renderList();
       }
 
       setTimeout(() => {
-        if (this.statusEl.textContent === "Saved!") this.statusEl.textContent = "";
+        if (this.statusEl.textContent === "Saved!")
+          this.statusEl.textContent = "";
       }, 2000);
     } catch (err: any) {
       console.error("Failed to save NPC profile:", err);
@@ -1916,9 +2211,12 @@ export class NpcEditorPanel {
 
     try {
       // Ensure profile exists in DB. If not, ask user to save first.
-      const existing = await convex.query(api.npcProfiles.getByName, { name: profile.name });
+      const existing = await convex.query(api.npcProfiles.queries.getByName, {
+        name: profile.name,
+      });
       if (!existing) {
-        this.aiTestResultArea.value = "Profile not found in Convex. Save this NPC profile first, then re-run Test AI.";
+        this.aiTestResultArea.value =
+          "Profile not found in Convex. Save this NPC profile first, then re-run Test AI.";
         this.statusEl.textContent = "Save profile first";
         this.statusEl.style.color = "var(--danger)";
         return;
@@ -1929,7 +2227,9 @@ export class NpcEditorPanel {
         playerMessage: message,
       });
 
-      const reply = String((result as { response?: string })?.response ?? "").trim();
+      const reply = String(
+        (result as { response?: string })?.response ?? "",
+      ).trim();
       this.aiTestResultArea.value = reply || "(No reply text)";
       await this.loadConversationHistory();
       this.statusEl.textContent = "AI test OK";
@@ -1958,10 +2258,13 @@ export class NpcEditorPanel {
     this.statusEl.textContent = "Clearing AI history…";
     this.statusEl.style.color = "var(--text-muted)";
     try {
-      const result = await convex.mutation(api.npcProfiles.clearConversationHistory, {
-        profileId: this.game.profile._id as Id<"profiles">,
-        npcProfileId: this.currentProfile._id as Id<"npcProfiles">,
-      });
+      const result = await convex.mutation(
+        api.npcProfiles.mutations.clearConversationHistory,
+        {
+          profileId: this.game.profile._id as Id<"profiles">,
+          npcProfileId: this.currentProfile._id as Id<"npcProfiles">,
+        },
+      );
       const conv = Number((result as any)?.conversationsDeleted ?? 0);
       const mem = Number((result as any)?.memoriesDeleted ?? 0);
       this.aiTestResultArea.value = `Cleared history for ${name}.\nConversations deleted: ${conv}\nMemory rows deleted: ${mem}`;
@@ -1984,7 +2287,7 @@ export class NpcEditorPanel {
     const adminId = this.game.profile._id as Id<"profiles">;
 
     try {
-      await convex.mutation(api.npcProfiles.remove, {
+      await convex.mutation(api.npcProfiles.mutations.remove, {
         profileId: adminId,
         id: this.currentProfile._id as Id<"npcProfiles">,
       });
@@ -2001,7 +2304,11 @@ export class NpcEditorPanel {
   // SPRITE: Render thumbnail (instances tab)
   // =========================================================================
 
-  private async renderSpriteThumb(container: HTMLElement, def: { spriteSheetUrl: string; frameWidth: number; frameHeight: number }, size = 28) {
+  private async renderSpriteThumb(
+    container: HTMLElement,
+    def: { spriteSheetUrl: string; frameWidth: number; frameHeight: number },
+    size = 28,
+  ) {
     const cached = this.spriteCache.get(def.spriteSheetUrl);
     if (cached) {
       this.drawThumb(container, cached.img, cached.frame, size);
@@ -2014,7 +2321,10 @@ export class NpcEditorPanel {
       const imgPath = basePath + (json.meta?.image ?? "");
       const img = new Image();
       img.src = imgPath;
-      await new Promise<void>((res, rej) => { img.onload = () => res(); img.onerror = rej; });
+      await new Promise<void>((res, rej) => {
+        img.onload = () => res();
+        img.onerror = rej;
+      });
       const frameKeys = Object.keys(json.frames);
       if (frameKeys.length === 0) return;
       const first = json.frames[frameKeys[0]];
@@ -2029,14 +2339,29 @@ export class NpcEditorPanel {
     }
   }
 
-  private drawThumb(container: HTMLElement, img: HTMLImageElement, frame: { x: number; y: number; w: number; h: number }, size: number) {
+  private drawThumb(
+    container: HTMLElement,
+    img: HTMLImageElement,
+    frame: { x: number; y: number; w: number; h: number },
+    size: number,
+  ) {
     const canvas = document.createElement("canvas");
     const scale = Math.max(1, Math.floor(size / Math.max(frame.w, frame.h)));
     canvas.width = frame.w * scale;
     canvas.height = frame.h * scale;
     const ctx = canvas.getContext("2d")!;
     ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(img, frame.x, frame.y, frame.w, frame.h, 0, 0, canvas.width, canvas.height);
+    ctx.drawImage(
+      img,
+      frame.x,
+      frame.y,
+      frame.w,
+      frame.h,
+      0,
+      0,
+      canvas.width,
+      canvas.height,
+    );
     container.appendChild(canvas);
   }
 }

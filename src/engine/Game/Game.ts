@@ -83,6 +83,8 @@ export class Game implements IGame {
   aggroResolving = false;
   lastAggroTickAt = 0;
   activeCombatNotifications: HTMLDivElement[] = [];
+  accessingStorage = false;
+  storagePanel: import("../../ui/StoragePanel.ts").StoragePanel | null = null;
 
   constructor(canvas: HTMLCanvasElement, profile: ProfileData) {
     this.canvas = canvas;
@@ -182,6 +184,11 @@ export class Game implements IGame {
       this.weatherRainVolume = 0;
     }
     this.weatherRainLoading = false;
+    // Clean up storage panel if open
+    if (this.storagePanel) {
+      this.storagePanel.el.remove();
+      this.storagePanel = null;
+    }
     this.audio.destroy();
     this.resizeObserver?.disconnect();
     this.input.destroy();
