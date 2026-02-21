@@ -6,6 +6,7 @@ import { mutation } from "../_generated/server";
 import type { MutationCtx } from "../_generated/server";
 import { requireMapEditor, isMapOwner } from "../lib/requireMapEditor";
 import {
+  type VisibilityType,
   DEFAULT_MAP_TYPE,
   getMapType,
   visibilityTypeValidator,
@@ -224,7 +225,7 @@ export const saveFullMap = mutation({
       .query("maps")
       .withIndex("by_name", (q) => q.eq("name", args.name))
       .first();
-    let mapType: "public" | "private" | "system";
+    let mapType: VisibilityType;
     if (args.mapType) {
       mapType = args.mapType;
     } else if (existing) {
