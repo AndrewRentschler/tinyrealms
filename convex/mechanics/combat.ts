@@ -297,13 +297,14 @@ export const attackNearestHostile = mutation({
         }
       }
 
+      // TODO: Uncomment this when quests are implemented
       // Quest progress: kill objective tracking (instance name and sprite def).
-      await ctx.runMutation(internal.quests.recordKillProgress, {
-        profileId,
-        targetNpcProfileName: nearestInstanceName,
-        targetSpriteDefName: nearest.spriteDefName,
-        count: 1,
-      });
+      // await ctx.runMutation(internal.quests.recordKillProgress, {
+      //   profileId,
+      //   targetNpcProfileName: nearestInstanceName,
+      //   targetSpriteDefName: nearest.spriteDefName,
+      //   count: 1,
+      // });
     } else {
       // Medium/high hostiles become actively engaged after first hit.
       // Low aggression hostiles flee instead of locking aggro.
