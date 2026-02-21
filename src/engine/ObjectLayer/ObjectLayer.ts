@@ -38,6 +38,7 @@ import { parentForLayer } from "./parentForLayer.ts";
 import { updateAmbientVolumes as updateAmbientVolumesFn } from "./updateAmbientVolumes.ts";
 import { refreshSoundsForDef as refreshSoundsForDefFn } from "./refreshSoundsForDef.ts";
 import { updateToggleAndAmbient as updateToggleAndAmbientFn } from "./updateToggleAndAmbient.ts";
+import { updateStorageInteraction as updateStorageInteractionFn } from "./updateStorageInteraction.ts";
 
 export class ObjectLayer {
   /** Main container for obj-layer objects (y-sorted, same tier as entities) */
@@ -133,6 +134,8 @@ export class ObjectLayer {
     updateToggleAndAmbientFn(ctx, dt, playerX, playerY);
     this.elapsed = ctx.elapsed;
     this.nearestToggleable = ctx.nearestToggleable;
+    // Also update storage interaction hints
+    updateStorageInteractionFn(ctx, playerX, playerY);
   }
 
   private getLayerContext(): ObjectLayerContext {
