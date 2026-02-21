@@ -1,0 +1,153 @@
+/* ---- Storage Panel ---- */
+
+.storage-panel {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 20px;
+  min-width: 400px;
+  max-width: 600px;
+  color: var(--text-primary);
+  font-family: system-ui, -apple-system, sans-serif;
+  z-index: 1000;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+}
+
+/* ---- Header ---- */
+
+.storage-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 10px;
+}
+
+.storage-header h3 {
+  margin: 0;
+  font-size: 1.2em;
+  font-weight: 700;
+}
+
+.storage-capacity {
+  color: var(--text-secondary);
+  font-size: 0.9em;
+}
+
+.storage-close {
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  font-size: 1.5em;
+  cursor: pointer;
+  padding: 0 5px;
+  line-height: 1;
+}
+
+.storage-close:hover {
+  color: #ff6b6b;
+}
+
+/* ---- Content ---- */
+
+.storage-content {
+  display: flex;
+  gap: 20px;
+}
+
+.storage-section {
+  flex: 1;
+}
+
+.storage-section h4 {
+  margin: 0 0 10px 0;
+  font-size: 0.9em;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+/* ---- Grid ---- */
+
+.storage-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 5px;
+}
+
+/* ---- Slots ---- */
+
+.storage-slot {
+  aspect-ratio: 1;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: relative;
+  padding: 5px;
+  transition: border-color 0.2s;
+}
+
+.storage-slot:hover {
+  border-color: var(--border-hover);
+}
+
+.storage-slot.empty {
+  background: var(--bg-tertiary);
+  border-style: dashed;
+  cursor: default;
+}
+
+.storage-slot.withdraw:hover {
+  border-color: #4ecdc4;
+}
+
+.storage-slot.deposit:hover {
+  border-color: #ff6b6b;
+}
+
+/* ---- Slot Contents ---- */
+
+.slot-icon {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.slot-quantity {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  font-size: 0.7em;
+  background: rgba(0, 0, 0, 0.7);
+  padding: 1px 4px;
+  border-radius: 2px;
+  color: var(--text-primary);
+}
+
+.slot-name {
+  font-size: 0.6em;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+  color: var(--text-secondary);
+}
+
+/* ---- Loading ---- */
+
+.storage-loading {
+  text-align: center;
+  padding: 40px;
+  color: var(--text-secondary);
+}
