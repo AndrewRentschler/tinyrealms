@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import type { Doc } from "../_generated/dataModel";
 import { mutation, query } from "../_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 
@@ -29,6 +30,8 @@ export const create = mutation({
     rewards: v.any(),
   },
   handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Unauthorized");
     return await ctx.db.insert("quests", args);
   },
 });
@@ -123,12 +126,18 @@ export const listActive = query({
       )
       .collect();
     const all = [...rows, ...completed];
-    const result = [];
-    for (const pq of all) {
+    const uniqueKeys = [...new Set(all.map((pq) => pq.questDefKey))];
+    const defMap = new Map<string, Doc<"questDefs">>();
+    for (const key of uniqueKeys) {
       const def = await ctx.db
         .query("questDefs")
-        .withIndex("by_key", (q) => q.eq("key", pq.questDefKey))
+        .withIndex("by_key", (q) => q.eq("key", key))
         .first();
+      if (def) defMap.set(key, def);
+    }
+    const result = [];
+    for (const pq of all) {
+      const def = defMap.get(pq.questDefKey);
       result.push({
         _id: pq._id,
         profileId: pq.profileId,
