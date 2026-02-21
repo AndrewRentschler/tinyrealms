@@ -4,7 +4,7 @@
  */
 import { MUTE_KEY, MUTE_KEY_ALT } from "../constants/keybindings.ts";
 import { MapEditorPanel } from "../editor/MapEditorPanel.ts";
-import { Game } from "../engine/Game.ts";
+import { Game } from "../engine/Game/index.ts";
 import { SpriteEditorPanel } from "../sprited/SpriteEditorPanel.ts";
 import { CharacterPanel } from "./CharacterPanel.ts";
 import { ChatPanel } from "./ChatPanel.ts";

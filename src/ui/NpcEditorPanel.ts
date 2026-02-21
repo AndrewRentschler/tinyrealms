@@ -10,7 +10,7 @@
  */
 import { getConvexClient } from "../lib/convexClient.ts";
 import { api } from "../../convex/_generated/api";
-import type { Game } from "../engine/Game.ts";
+import type { Game } from "../engine/Game/index.ts";
 import type { Id } from "../../convex/_generated/dataModel";
 import type { VisibilityType } from "../types/visibility.ts";
 import { NPC_SPRITE_SHEETS } from "../config/spritesheet-config.ts";

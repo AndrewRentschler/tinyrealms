@@ -10,7 +10,7 @@ import {
   Spritesheet,
 } from "pixi.js";
 import { loadSpriteSheet } from "../SpriteLoader.ts";
-import type { Game } from "../Game.ts";
+import type { Game } from "../Game/index.ts";
 import type { InputManager } from "../InputManager.ts";
 import type { PresenceData, Direction } from "../types.ts";
 import { NPC } from "../NPC.ts";

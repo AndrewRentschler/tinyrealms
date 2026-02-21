@@ -1,5 +1,5 @@
 import { Container, Sprite, Texture, Rectangle, Graphics } from "pixi.js";
-import type { Game } from "./Game.ts";
+import type { Game } from "./Game/index.ts";
 import type { MapData, MapLayer } from "./types.ts";
 import { TileAnimator } from "./animations/TileAnimator.ts";
 import { renderLayer } from "./MapRenderer/renderLayer.ts";

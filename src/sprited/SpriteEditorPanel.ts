@@ -4,7 +4,7 @@
  */
 import { getConvexClient } from "../lib/convexClient.ts";
 import { api } from "../../convex/_generated/api";
-import type { Game } from "../engine/Game.ts";
+import type { Game } from "../engine/Game/index.ts";
 import type { VisibilityType } from "../types/visibility.ts";
 import { SOUND_FILES } from "../config/audio-config.ts";
 import {

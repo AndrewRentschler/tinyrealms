@@ -1,4 +1,4 @@
-import type { Game } from "../Game.ts";
+import type { Game } from "./index.ts";
 import { MapRenderer } from "../MapRenderer.ts";
 import { EntityLayer } from "../EntityLayer.ts";
 import { ObjectLayer } from "../ObjectLayer.ts";

@@ -40,7 +40,7 @@ npm run preview
 - Project references: `tsconfig.app.json` (src), `tsconfig.node.json` (root config)
 
 ### Imports & Exports
-- Always use `.ts` extension in relative imports: `import { Game } from "./Game.ts"`
+- Always use `.ts` extension in relative imports: `import { Game } from "./Game/index.ts"`
 - Use named exports for classes and functions: `export class Game`
 - Group imports: 1) external libs, 2) generated code, 3) internal modules, 4) types
 - Import types explicitly with `import type`: `import type { ProfileData } from "./types.ts"`
