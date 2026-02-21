@@ -66,7 +66,7 @@ export class EntityLayer implements IEntityLayer {
   nearestNPC: NPC | null = null;
   inDialogue = false;
   engagedNpcId: string | null = null;
-  npcAmbientHandles = new Map<string, import("../AudioManager.ts").SfxHandle>();
+  npcAmbientHandles = new Map<string, import("../AudioManager/index.ts").SfxHandle>();
   npcDialogueController = new NpcDialogueController();
   npcInteractionHintByInstanceName = new Map<string, "chat" | "attack" | "none">();
   npcInteractionHintPending = new Set<string>();

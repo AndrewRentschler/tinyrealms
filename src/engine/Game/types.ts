@@ -10,7 +10,7 @@ import type { ObjectLayer } from "../ObjectLayer/index.ts";
 import type { WorldItemLayer } from "../WorldItemLayer/index.ts";
 import type { WeatherLayer } from "../WeatherLayer.ts";
 import type { InputManager } from "../InputManager.ts";
-import type { AudioManager, SfxHandle } from "../AudioManager.ts";
+import type { AudioManager, SfxHandle } from "../AudioManager/index.ts";
 import type { AppMode, MapData, Portal, ProfileData } from "../types.ts";
 
 /** Unsubscribe callback for Convex subscriptions */

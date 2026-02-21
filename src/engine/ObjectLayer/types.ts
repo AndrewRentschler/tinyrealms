@@ -1,6 +1,6 @@
 import type { AnimatedSprite, Container, Graphics, Text } from "pixi.js";
 import type { Texture } from "pixi.js";
-import type { SfxHandle } from "../AudioManager.ts";
+import type { SfxHandle } from "../AudioManager/index.ts";
 
 /** Minimal sprite def info needed for rendering */
 export interface SpriteDefInfo {
@@ -75,7 +75,7 @@ export interface ObjectSoundConfig {
 export interface AmbientToggleContext {
   rendered: RenderedObject[];
   defCache: Map<string, SpriteDefInfo>;
-  audio: import("../AudioManager.ts").AudioManager | null;
+  audio: import("../AudioManager/index.ts").AudioManager | null;
   tileWidth: number;
   tileHeight: number;
   elapsed: number;
@@ -94,7 +94,7 @@ export interface ObjectLayerContext {
   rendered: RenderedObject[];
   defCache: Map<string, SpriteDefInfo>;
   sheetCache: Map<string, import("pixi.js").Spritesheet>;
-  audio: import("../AudioManager.ts").AudioManager | null;
+  audio: import("../AudioManager/index.ts").AudioManager | null;
   tileWidth: number;
   tileHeight: number;
   elapsed: number;
@@ -129,7 +129,7 @@ export interface IObjectLayerAudio {
 
 /** Minimal context for door modules (audio, onDoorCollisionChange) */
 export interface IObjectLayerDoorContext {
-  audio: import("../AudioManager.ts").AudioManager | null;
+  audio: import("../AudioManager/index.ts").AudioManager | null;
   onDoorCollisionChange:
     | ((tiles: { x: number; y: number }[], blocked: boolean) => void)
     | null;

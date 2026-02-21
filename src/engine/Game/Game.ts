@@ -10,7 +10,7 @@ import { ObjectLayer } from "../ObjectLayer/index.ts";
 import { WorldItemLayer } from "../WorldItemLayer/index.ts";
 import { WeatherLayer } from "../WeatherLayer.ts";
 import { InputManager } from "../InputManager.ts";
-import { AudioManager, type SfxHandle } from "../AudioManager.ts";
+import { AudioManager, type SfxHandle } from "../AudioManager/index.ts";
 import { PresenceManager } from "../PresenceManager.ts";
 import type { AppMode, MapData, Portal, ProfileData } from "../types.ts";
 import type { IGame } from "./types.ts";

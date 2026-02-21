@@ -47,7 +47,7 @@ export interface IEntityLayerGame {
     isCollision: (tx: number, ty: number) => boolean;
   };
   audio: {
-    playAmbient: (url: string, volume: number) => Promise<import("../AudioManager.ts").SfxHandle | null>;
+    playAmbient: (url: string, volume: number) => Promise<import("../AudioManager/index.ts").SfxHandle | null>;
     playOneShot: (url: string, volume: number) => void;
   };
   profile: { name?: string; spriteUrl?: string };
@@ -74,7 +74,7 @@ export interface IEntityLayer {
   npcs: NPC[];
   nearestNPC: NPC | null;
   engagedNpcId: string | null;
-  npcAmbientHandles: Map<string, import("../AudioManager.ts").SfxHandle>;
+  npcAmbientHandles: Map<string, import("../AudioManager/index.ts").SfxHandle>;
   npcDialogueController: import("../../npc/dialogue/NpcDialogueController.ts").NpcDialogueController;
   npcInteractionHintByInstanceName: Map<string, "chat" | "attack" | "none">;
   npcInteractionHintPending: Set<string>;

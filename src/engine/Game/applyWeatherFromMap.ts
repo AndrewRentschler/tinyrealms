@@ -4,7 +4,7 @@ import type { IGame } from "./types.ts";
 
 /** Game with mutable weather audio state (internal use) */
 type GameWithWeather = IGame & {
-  weatherRainHandle: import("../AudioManager.ts").SfxHandle | null;
+  weatherRainHandle: import("../AudioManager/index.ts").SfxHandle | null;
   weatherRainVolume: number;
   weatherRainLoading: boolean;
 };

@@ -5,7 +5,7 @@
  */
 import { Container, AnimatedSprite, Text } from "pixi.js";
 import type { Spritesheet } from "pixi.js";
-import type { AudioManager } from "../AudioManager.ts";
+import type { AudioManager } from "../AudioManager/index.ts";
 import type {
   ObjectLayerContext,
   SpriteDefInfo,
