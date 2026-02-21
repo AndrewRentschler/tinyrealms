@@ -1,6 +1,7 @@
 /**
  * NPC profile helpers: visibility, read checks, slugify.
  */
+import type { Id } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
 
 export function getVisibilityType(profile: { visibilityType?: string }): "public" | "private" | "system" {
@@ -8,8 +9,8 @@ export function getVisibilityType(profile: { visibilityType?: string }): "public
 }
 
 export function canReadNpcProfile(
-  profile: { visibilityType?: string; createdByUser?: string },
-  userId: string | null
+  profile: { visibilityType?: string; createdByUser?: Id<"users"> },
+  userId: Id<"users"> | null
 ): boolean {
   const visibility = getVisibilityType(profile);
   if (visibility === "system" || visibility === "public") return true;
@@ -17,7 +18,7 @@ export function canReadNpcProfile(
   return profile.createdByUser === userId;
 }
 
-export async function isSuperuserUser(ctx: QueryCtx, userId: string | null): Promise<boolean> {
+export async function isSuperuserUser(ctx: QueryCtx, userId: Id<"users"> | null): Promise<boolean> {
   if (!userId) return false;
   const profiles = await ctx.db
     .query("profiles")

@@ -2,6 +2,7 @@
  * Admin: one-shot backfills and migration helpers.
  */
 import { v } from "convex/values";
+import type { Id } from "../_generated/dataModel";
 import { mutation, internalMutation } from "../_generated/server";
 import { requireAdminKey } from "../lib/requireAdminKey";
 
@@ -141,9 +142,10 @@ export const grantMapEditor = internalMutation({
         .withIndex("by_name", (q) => q.eq("name", mapName))
         .first();
       if (!map) continue;
-      const editors = new Set(((map as { editors?: unknown[] }).editors ?? []).map(String));
+      const existingEditors = (map as { editors?: Id<"profiles">[] }).editors ?? [];
+      const editors = new Set<Id<"profiles">>(existingEditors);
       for (const pid of profileIds) {
-        editors.add(String(pid));
+        editors.add(pid);
       }
       await ctx.db.patch(map._id, { editors: [...editors] });
       mapsUpdated++;

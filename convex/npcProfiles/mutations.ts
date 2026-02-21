@@ -121,7 +121,10 @@ export const save = mutation({
       throw new Error(`Only superusers can set NPC visibility to "system".`);
     }
 
-    const instanceType = args.instanceType ?? (existing as { instanceType?: string })?.instanceType ?? "character";
+    const rawInstanceType =
+      args.instanceType ?? (existing as { instanceType?: "animal" | "character" })?.instanceType ?? "character";
+    const instanceType: "animal" | "character" =
+      rawInstanceType === "animal" ? "animal" : "character";
     const { profileId: _p, visibilityType: _v, ...fields } = args;
     const baseCapabilities = {
       ...((existing as { aiPolicy?: { capabilities?: Record<string, boolean> } })?.aiPolicy?.capabilities ?? {}),
