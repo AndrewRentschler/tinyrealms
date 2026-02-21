@@ -1,7 +1,7 @@
 import { getConvexClient } from "../../lib/convexClient.ts";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
-import type { MapData } from "../types.ts";
+import type { MapData, MapLayerType } from "../types.ts";
 import type { IGame } from "./types.ts";
 
 /**
@@ -27,7 +27,7 @@ export async function seedMapToConvex(game: IGame, mapData: MapData): Promise<vo
     tilesetPxH: mapData.tilesetPxH,
     layers: mapData.layers.map((l) => ({
       name: l.name,
-      type: l.type as "bg" | "obj" | "overlay",
+      type: l.type as MapLayerType,
       tiles: JSON.stringify(l.tiles),
       visible: l.visible,
       tilesetUrl: l.tilesetUrl,

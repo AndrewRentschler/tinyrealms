@@ -9,7 +9,7 @@ export async function loadSpriteDefs(game: IGame): Promise<void> {
   try {
     const convex = getConvexClient();
     const defs = await convex.query(api.spriteDefinitions.list, {});
-    (game as { spriteDefCache: Map<string, unknown> }).spriteDefCache = new Map(
+    game.spriteDefCache = new Map(
       defs.map((d) => [d.name, d]),
     );
   } catch (err) {

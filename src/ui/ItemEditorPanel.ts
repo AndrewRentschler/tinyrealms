@@ -8,6 +8,7 @@ import { getConvexClient } from "../lib/convexClient.ts";
 import { api } from "../../convex/_generated/api";
 import type { Game } from "../engine/Game.ts";
 import type { Id } from "../../convex/_generated/dataModel";
+import type { VisibilityType } from "../types/visibility.ts";
 import { TILESHEET_CONFIGS } from "../config/tilesheet-config.ts";
 import { ITEM_PICKUP_SOUND_OPTIONS } from "../config/audio-config.ts";
 import "./ItemEditor.css";
@@ -72,7 +73,7 @@ interface ItemDef {
   lore?: string;
   consumeHpDelta?: number;
   pickupSoundUrl?: string;
-  visibilityType?: "public" | "private" | "system";
+  visibilityType?: VisibilityType;
 }
 
 interface SpriteIconDef {
@@ -97,7 +98,7 @@ interface SpriteIconAnimationData {
   scale: number;
 }
 
-function visibilityLabel(v?: "public" | "private" | "system"): string {
+function visibilityLabel(v?: VisibilityType): string {
   const type = v ?? "system";
   if (type === "private") return "private";
   if (type === "public") return "public";
@@ -1417,9 +1418,9 @@ export class ItemEditorPanel {
     return item;
   }
 
-  private getVisibilityOptions(): Array<{ value: "private" | "public" | "system"; label: string }> {
+  private getVisibilityOptions(): Array<{ value: VisibilityType; label: string }> {
     const isSuperuser = this.game?.profile.role === "superuser";
-    const options: Array<{ value: "private" | "public" | "system"; label: string }> = [
+    const options: Array<{ value: VisibilityType; label: string }> = [
       { value: "private", label: "Private (only me)" },
       { value: "public", label: "Public (all users)" },
     ];
@@ -1429,7 +1430,7 @@ export class ItemEditorPanel {
     return options;
   }
 
-  private rebuildVisibilitySelect(selected: "private" | "public" | "system" = "private") {
+  private rebuildVisibilitySelect(selected: VisibilityType = "private") {
     if (!this.visibilitySelect) return;
     const options = this.getVisibilityOptions();
     this.visibilitySelect.innerHTML = "";

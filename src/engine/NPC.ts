@@ -14,6 +14,12 @@ import {
   HIT_SHAKE_MAGNITUDE_PX,
   HIT_FLASH_DURATION_MS,
 } from "../config/combat-config.ts";
+import {
+  NPC_GOLD,
+  PROMPT_FILL_COLOR,
+  PROMPT_STROKE_COLOR,
+} from "../constants/colors.ts";
+import { INTERACT_PROMPT_PREFIX } from "../constants/keybindings.ts";
 
 const ANIM_SPEED = 0.08;
 
@@ -152,7 +158,7 @@ export class NPC {
       text: this.name,
       style: new TextStyle({
         fontSize: 10,
-        fill: 0xffd700, // gold for NPCs
+        fill: NPC_GOLD,
         fontFamily: "Inter, sans-serif",
         fontWeight: "bold",
       }),
@@ -163,12 +169,12 @@ export class NPC {
 
     // Interaction prompt (hidden by default)
     this.promptLabel = new Text({
-      text: "[E] Talk",
+      text: `${INTERACT_PROMPT_PREFIX}Talk`,
       style: new TextStyle({
         fontSize: 9,
-        fill: 0xffffff,
+        fill: PROMPT_FILL_COLOR,
         fontFamily: "Inter, sans-serif",
-        stroke: { color: 0x000000, width: 2 },
+        stroke: { color: PROMPT_STROKE_COLOR, width: 2 },
       }),
     });
     this.promptLabel.anchor.set(0.5, 1);
@@ -179,7 +185,7 @@ export class NPC {
     // Fallback square until sprite loads
     this.fallback = new Graphics();
     this.fallback.rect(-8, -8, 16, 16);
-    this.fallback.fill(0xffd700);
+    this.fallback.fill(NPC_GOLD);
     this.container.addChild(this.fallback);
 
     // Load sprite

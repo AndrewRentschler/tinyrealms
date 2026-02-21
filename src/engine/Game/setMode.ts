@@ -7,23 +7,9 @@ import { subscribeToMapObjects } from "./subscribeToMapObjects.ts";
 /**
  * Switch between play and build mode.
  */
-export function setMode(
-  game: IGame & {
-    mapObjectsDirty: boolean;
-    mapRenderer: {
-      setPortalOverlayVisible: (v: boolean) => void;
-      setCollisionOverlayVisible: (v: boolean) => void;
-      highlightLayer: (n: number) => void;
-      hidePortalGhost: () => void;
-      hideLabelGhost: () => void;
-      hideTileGhost: () => void;
-    };
-    camera: { stopFollowing: () => void };
-  },
-  mode: AppMode,
-): void {
+export function setMode(game: IGame, mode: AppMode): void {
   const wasBuild = game.mode === "build";
-  (game as { mode: AppMode }).mode = mode;
+  game.mode = mode;
 
   if (mode === "build") {
     game.camera.stopFollowing();
@@ -37,12 +23,12 @@ export function setMode(
     game.mapRenderer.hideTileGhost();
 
     if (wasBuild && game.mapObjectsDirty) {
-      subscribeToMapObjects(game as Parameters<typeof subscribeToMapObjects>[0], game.currentMapName, false);
+      subscribeToMapObjects(game, game.currentMapName, false);
     }
 
     if (wasBuild) {
       loadWorldItems(game, game.currentMapName);
-      subscribeToWorldItems(game as Parameters<typeof subscribeToWorldItems>[0], game.currentMapName);
+      subscribeToWorldItems(game, game.currentMapName);
     }
   }
 }

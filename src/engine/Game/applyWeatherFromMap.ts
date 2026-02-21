@@ -11,6 +11,7 @@ type GameWithWeather = IGame & {
 
 /**
  * Apply weather mode and config from map data to the weather layer.
+ * Skips setMode/setConfig when inputs unchanged (throttled).
  */
 export function applyWeatherFromMap(game: IGame, mapData: MapData): void {
   const configuredMode = mapData.weatherMode ?? "clear";
@@ -20,12 +21,20 @@ export function applyWeatherFromMap(game: IGame, mapData: MapData): void {
       : configuredMode === "scattered_rain"
         ? (game.globalRainyNow ? "rainy" : "clear")
         : "clear";
-  game.weatherLayer?.setMode(mode);
-  game.weatherLayer?.setConfig({
-    intensity: mapData.weatherIntensity ?? "medium",
-    lightningEnabled: !!mapData.weatherLightningEnabled,
-    lightningChancePerSec: mapData.weatherLightningChancePerSec ?? 0.03,
-  });
+  const intensity = mapData.weatherIntensity ?? "medium";
+  const lightningEnabled = !!mapData.weatherLightningEnabled;
+  const lightningChancePerSec = mapData.weatherLightningChancePerSec ?? 0.03;
+  const key = `${mode}|${intensity}|${lightningEnabled}|${lightningChancePerSec}`;
+
+  if (game.lastAppliedWeatherKey !== key) {
+    game.lastAppliedWeatherKey = key;
+    game.weatherLayer?.setMode(mode);
+    game.weatherLayer?.setConfig({
+      intensity,
+      lightningEnabled,
+      lightningChancePerSec,
+    });
+  }
   updateWeatherAudioFromMap(game as GameWithWeather, mapData, mode);
 }
 

@@ -1,6 +1,8 @@
 // Combat configuration constants
-export const COMBAT_ATTACK_KEY = "x";
-export const COMBAT_ATTACK_KEY_ALT = " ";
+export {
+  COMBAT_ATTACK_KEY,
+  COMBAT_ATTACK_KEY_ALT,
+} from "../constants/keybindings.ts";
 export const COMBAT_AGGRO_TICK_INTERVAL_MS = 1000;
 export const COMBAT_ATTACK_RANGE_PX = 60;
 export const COMBAT_ATTACK_RANGE_MIN_PX = 20;

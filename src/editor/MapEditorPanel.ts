@@ -3,141 +3,118 @@
  * layer panel, tileset picker, object picker, and canvas painting.
  */
 import { api } from "../../convex/_generated/api";
-import { TILESHEET_CONFIGS } from "../config/tilesheet-config.ts";
+import type { SpriteDefInfo } from "../engine/ObjectLayer.ts";
 import type { Game } from "../engine/Game.ts";
 import { getConvexClient } from "../lib/convexClient.ts";
 // TODO: Uncomment this when music is implemented
 // import { MUSIC_OPTIONS } from "../config/music-config.ts";
 import {
-  COMBAT_ATTACK_RANGE_MAX_PX,
-  COMBAT_ATTACK_RANGE_MIN_PX,
-  COMBAT_ATTACK_RANGE_PX,
-  COMBAT_DAMAGE_VARIANCE_MAX_PCT,
-  COMBAT_DAMAGE_VARIANCE_MIN_PCT,
-  COMBAT_DAMAGE_VARIANCE_PCT,
-  COMBAT_NPC_HIT_COOLDOWN_MAX_MS,
-  COMBAT_NPC_HIT_COOLDOWN_MIN_MS,
-  COMBAT_NPC_HIT_COOLDOWN_MS,
-  COMBAT_PLAYER_ATTACK_COOLDOWN_MAX_MS,
-  COMBAT_PLAYER_ATTACK_COOLDOWN_MIN_MS,
-  COMBAT_PLAYER_ATTACK_COOLDOWN_MS,
-} from "../config/combat-config.ts";
+  EDITOR_CANCEL_MOVE_KEY,
+  EDITOR_GRID_TOGGLE_KEY,
+  EDITOR_GRID_TOGGLE_KEY_ALT,
+} from "../constants/keybindings.ts";
+import {
+  EDITOR_DEFAULT_RESPAWN_MIN,
+  EDITOR_DEFAULT_RESPAWN_MS,
+  EDITOR_HIT_TEST_ABOVE,
+  EDITOR_HIT_TEST_BELOW,
+  EDITOR_HIT_TEST_SIDE,
+  EDITOR_ITEM_INSPECT_RADIUS,
+  EDITOR_ITEM_REMOVE_RADIUS,
+  EDITOR_NPC_FIND_RADIUS,
+  EDITOR_PANEL_RESIZE_MAX,
+  EDITOR_PANEL_RESIZE_MIN,
+} from "../constants/editor.ts";
+import {
+  EDITOR_DELETE_BUTTON,
+  EDITOR_ERROR_RED,
+  EDITOR_INFO_PANEL_BG,
+  EDITOR_INFO_PANEL_BORDER,
+  EDITOR_LABEL_HELP_YELLOW,
+  EDITOR_MUTED_TEXT,
+  EDITOR_MUTED_TEXT_SECONDARY,
+  EDITOR_PORTAL_GHOST_GREEN,
+  EDITOR_SELECTED_PORTAL_HIGHLIGHT,
+  EDITOR_SUCCESS_GREEN,
+} from "../constants/colors.ts";
+import {
+  createEmptyStateInline,
+  createEmptyStateMessage,
+  createEditorFormRow,
+  createPickerListItem,
+  EDITOR_INPUT_STYLE,
+  setupDropdownCloseOnClickOutside,
+} from "./MapEditorPanel/helpers.ts";
+import {
+  DELETE_OPTIONS,
+  DISPLAY_TILE_SIZE,
+  MAP_DEFAULT_TILESET_VALUE,
+  MOVE_OPTIONS,
+  TILESETS,
+  TOOLS,
+} from "./MapEditorPanel/constants.ts";
+import type {
+  EditorTool,
+  ItemDef,
+  MapLayerType,
+  PlacedItem,
+  PlacedObject,
+  PortalDraft,
+  SpriteDef,
+  TilesetInfo,
+} from "./MapEditorPanel/types.ts";
+import { visibilityLabel } from "./MapEditorPanel/visibilityLabel.ts";
+import {
+  buildLayerPanel as buildLayerPanelImpl,
+  getLayerButtonText as getLayerButtonTextImpl,
+  renderLayerButtons as renderLayerButtonsImpl,
+  makeLayerName as makeLayerNameImpl,
+  addLayer as addLayerImpl,
+  removeActiveLayer as removeActiveLayerImpl,
+  moveActiveLayer as moveActiveLayerImpl,
+} from "./MapEditorPanel/buildLayerPanel.ts";
+import {
+  buildObjectPicker as buildObjectPickerImpl,
+  renderObjectList as renderObjectListImpl,
+} from "./MapEditorPanel/buildObjectPicker.ts";
+import {
+  buildNpcPicker as buildNpcPickerImpl,
+  renderNpcList as renderNpcListImpl,
+} from "./MapEditorPanel/buildNpcPicker.ts";
+import {
+  buildItemPicker as buildItemPickerImpl,
+  renderItemList as renderItemListImpl,
+  placeItem as placeItemImpl,
+  removeItemAt as removeItemAtImpl,
+  inspectItemAt as inspectItemAtImpl,
+  logItemPlacement as logItemPlacementImpl,
+} from "./MapEditorPanel/buildItemPicker.ts";
+import {
+  buildTilesetPicker as buildTilesetPickerImpl,
+  loadTilesetImage as loadTilesetImageImpl,
+  renderTilesetGrid as renderTilesetGridImpl,
+  tileCanvasToGrid as tileCanvasToGridImpl,
+  onTileCanvasDown as onTileCanvasDownImpl,
+  onTileCanvasMove as onTileCanvasMoveImpl,
+  onTileCanvasUp as onTileCanvasUpImpl,
+  applyTileSelection as applyTileSelectionImpl,
+  updateHighlight as updateHighlightImpl,
+  updateIrregularHighlights as updateIrregularHighlightsImpl,
+  clearIrregularHighlights as clearIrregularHighlightsImpl,
+  updateIrregularInfo as updateIrregularInfoImpl,
+  getIrregularSelectionTiles as getIrregularSelectionTilesImpl,
+} from "./MapEditorPanel/buildTilesetPicker.ts";
+import type { TilesetPickerContext } from "./MapEditorPanel/buildTilesetPicker.ts";
+import {
+  buildMapPicker as buildMapPickerImpl,
+  syncMapSettingsUI as syncMapSettingsUIImpl,
+} from "./MapEditorPanel/buildMapPicker.ts";
+import type { MapPickerContext } from "./MapEditorPanel/buildMapPicker.ts";
 import "./LayerPanel.css";
 import "./MapEditor.css";
 import "./TilesetPicker.css";
 
-export type EditorTool =
-  | "paint"
-  | "erase"
-  | "collision"
-  | "collision-erase"
-  | "object"
-  | "object-erase"
-  | "object-move"
-  | "npc"
-  | "npc-erase"
-  | "npc-move"
-  | "map"
-  | "portal"
-  | "portal-erase"
-  | "label"
-  | "label-erase"
-  | "item"
-  | "item-erase";
-const TOOLS: { key: EditorTool; label: string }[] = [
-  { key: "paint", label: "🖌 Paint" },
-  { key: "collision", label: "🚧 Collision" },
-  { key: "object", label: "📦 Object" },
-  { key: "npc", label: "🧑 NPC" },
-  { key: "item", label: "⚔️ Item" },
-  { key: "map", label: "🗺 Map" },
-  { key: "portal", label: "🚪 Portal" },
-  { key: "label", label: "🏷 Label" },
-];
-
-/** Delete sub-tools shown in the Delete dropdown */
-const DELETE_OPTIONS: { key: EditorTool; label: string }[] = [
-  { key: "erase", label: "🧹 Tile" },
-  { key: "collision-erase", label: "🚧 Collision" },
-  { key: "object-erase", label: "📦 Object" },
-  { key: "npc-erase", label: "🧑 NPC" },
-  { key: "item-erase", label: "⚔️ Item" },
-  { key: "portal-erase", label: "🚪 Portal" },
-  { key: "label-erase", label: "🏷 Label" },
-];
-
-/** Move sub-tools shown in the Move dropdown */
-const MOVE_OPTIONS: { key: EditorTool; label: string }[] = [
-  { key: "object-move", label: "📦 Object" },
-  { key: "npc-move", label: "🧑 NPC" },
-];
-
-/** Registry of available tilesets */
-export interface TilesetInfo {
-  name: string;
-  url: string;
-  tileWidth: number;
-  tileHeight: number;
-  imageWidth: number;
-  imageHeight: number;
-}
-
-const TILESETS: TilesetInfo[] = TILESHEET_CONFIGS;
-const MAP_DEFAULT_TILESET_VALUE = "__map_default__";
-
-const DISPLAY_TILE_SIZE = 32;
-
-// ---------------------------------------------------------------------------
-// Placed object (in-memory, saved to Convex)
-// ---------------------------------------------------------------------------
-export interface PlacedObject {
-  id: string; // local UUID or Convex _id
-  sourceId?: string; // Convex _id when this object exists in DB
-  spriteDefName: string;
-  instanceName?: string; // unique NPC instance name (links to npcProfiles)
-  x: number; // world px
-  y: number; // world px
-  layer: number;
-  isOn?: boolean; // toggle state for toggleable objects
-}
-
-/** Sprite definition row from Convex (subset of fields) */
-interface SpriteDef {
-  _id: string;
-  name: string;
-  category: string;
-  visibilityType?: "public" | "private" | "system";
-  spriteSheetUrl: string;
-  defaultAnimation: string;
-  animationSpeed: number;
-  frameWidth: number;
-  frameHeight: number;
-  scale: number;
-  // NPC-specific
-  npcSpeed?: number;
-  npcWanderRadius?: number;
-  npcDirDown?: string;
-  npcDirUp?: string;
-  npcDirLeft?: string;
-  npcDirRight?: string;
-  npcGreeting?: string;
-  // Sound
-  ambientSoundUrl?: string;
-  ambientSoundRadius?: number;
-  ambientSoundVolume?: number;
-  interactSoundUrl?: string;
-  // Toggle
-  toggleable?: boolean;
-  onAnimation?: string;
-  offAnimation?: string;
-  onSoundUrl?: string;
-}
-
-function visibilityLabel(
-  v?: "public" | "private" | "system",
-): "public" | "private" | "system" {
-  return (v ?? "system") as "public" | "private" | "system";
-}
+export type { EditorTool, PlacedObject, TilesetInfo };
 
 // ---------------------------------------------------------------------------
 // MapEditorPanel
@@ -173,49 +150,16 @@ export class MapEditorPanel {
   private npcListEl!: HTMLElement;
 
   // Item placement state
-  private itemDefs: {
-    name: string;
-    displayName: string;
-    type: string;
-    rarity: string;
-    iconTilesetUrl?: string;
-    iconTileX?: number;
-    iconTileY?: number;
-    iconTileW?: number;
-    iconTileH?: number;
-    iconSpriteDefName?: string;
-    iconSpriteSheetUrl?: string;
-    iconSpriteAnimation?: string;
-    iconSpriteAnimationSpeed?: number;
-    iconSpriteScale?: number;
-    iconSpriteFrameWidth?: number;
-    iconSpriteFrameHeight?: number;
-  }[] = [];
-  private selectedItemDef: (typeof this.itemDefs)[0] | null = null;
-  placedItems: {
-    id: string;
-    sourceId?: string;
-    itemDefName: string;
-    x: number;
-    y: number;
-    quantity: number;
-    respawn?: boolean;
-    respawnMs?: number;
-    pickedUpAt?: number;
-  }[] = [];
+  private itemDefs: ItemDef[] = [];
+  private selectedItemDef: ItemDef | null = null;
+  placedItems: PlacedItem[] = [];
   private itemPickerEl!: HTMLElement;
   private itemListEl!: HTMLElement;
   private itemRespawnCheck!: HTMLInputElement;
   private itemRespawnTimeInput!: HTMLInputElement;
 
   // Portal editor state
-  private portalDraft: {
-    name: string;
-    targetMap: string;
-    targetSpawn: string;
-    direction: string;
-    transition: string;
-  } = {
+  private portalDraft: PortalDraft = {
     name: "",
     targetMap: "",
     targetSpawn: "start1",
@@ -282,6 +226,15 @@ export class MapEditorPanel {
   private keyHandler: ((e: KeyboardEvent) => void) | null = null;
   private movingObjectId: string | null = null;
 
+  /** Cleanup refs for destroy() */
+  private _unbindDeleteDropdown: (() => void) | null = null;
+  private _unbindMoveDropdown: (() => void) | null = null;
+  private _resizeMouseMove: ((e: MouseEvent) => void) | null = null;
+  private _resizeMouseUp: (() => void) | null = null;
+  private _hoverRaf = 0;
+  private _lastHoverEvent: MouseEvent | null = null;
+  private _unbindTilesetMouseUp: (() => void) | null = null;
+
   constructor() {
     this.el = document.createElement("div");
     this.el.className = "map-editor";
@@ -326,12 +279,10 @@ export class MapEditorPanel {
       deleteMenu.style.display =
         deleteMenu.style.display === "none" ? "" : "none";
     });
-    // Close menu when clicking elsewhere
-    document.addEventListener("click", (e) => {
-      if (!deleteWrap.contains(e.target as Node)) {
-        deleteMenu.style.display = "none";
-      }
-    });
+    this._unbindDeleteDropdown = setupDropdownCloseOnClickOutside(
+      deleteWrap,
+      deleteMenu,
+    );
     deleteWrap.appendChild(this.deleteBtn);
     deleteWrap.appendChild(deleteMenu);
     toolbar.appendChild(deleteWrap);
@@ -361,12 +312,10 @@ export class MapEditorPanel {
     this.moveBtn.addEventListener("click", () => {
       moveMenu.style.display = moveMenu.style.display === "none" ? "" : "none";
     });
-    // Close menu when clicking elsewhere
-    document.addEventListener("click", (e) => {
-      if (!moveWrap.contains(e.target as Node)) {
-        moveMenu.style.display = "none";
-      }
-    });
+    this._unbindMoveDropdown = setupDropdownCloseOnClickOutside(
+      moveWrap,
+      moveMenu,
+    );
     moveWrap.appendChild(this.moveBtn);
     moveWrap.appendChild(moveMenu);
     toolbar.appendChild(moveWrap);
@@ -440,7 +389,10 @@ export class MapEditorPanel {
     const onMouseMove = (e: MouseEvent) => {
       if (!resizing) return;
       const delta = startY - e.clientY; // dragging up = positive = taller
-      const newH = Math.max(120, Math.min(600, startH + delta));
+      const newH = Math.max(
+        EDITOR_PANEL_RESIZE_MIN,
+        Math.min(EDITOR_PANEL_RESIZE_MAX, startH + delta),
+      );
       panels.style.height = `${newH}px`;
     };
     const onMouseUp = () => {
@@ -449,6 +401,8 @@ export class MapEditorPanel {
       document.body.style.cursor = "";
       document.body.style.userSelect = "";
     };
+    this._resizeMouseMove = onMouseMove;
+    this._resizeMouseUp = onMouseUp;
     document.addEventListener("mousemove", onMouseMove);
     document.addEventListener("mouseup", onMouseUp);
 
@@ -456,7 +410,9 @@ export class MapEditorPanel {
     panels.appendChild(this.buildLayerPanel());
 
     // Center: Tileset picker (shown for paint/erase/collision)
-    this.tilesetPickerEl = this.buildTilesetPicker();
+    const tilesetResult = this.buildTilesetPicker();
+    this.tilesetPickerEl = tilesetResult.el;
+    this._unbindTilesetMouseUp = tilesetResult.unbind;
     panels.appendChild(this.tilesetPickerEl);
 
     // Center: Object picker (shown for object/object-erase)
@@ -493,93 +449,24 @@ export class MapEditorPanel {
   }
 
   // =========================================================================
-  // BUILD: Layer panel
+  // BUILD: Layer panel (delegates to buildLayerPanel.ts)
   // =========================================================================
 
   private buildLayerPanel(): HTMLElement {
-    const panel = document.createElement("div");
-    panel.className = "layer-panel";
-
-    const label = document.createElement("div");
-    label.className = "layer-panel-label";
-    label.textContent = "Layers";
-    panel.appendChild(label);
-
-    this.layerListEl = document.createElement("div");
-    this.layerListEl.className = "layer-list";
-    panel.appendChild(this.layerListEl);
-
-    const controls = document.createElement("div");
-    controls.className = "layer-controls";
-
-    const addBgBtn = document.createElement("button");
-    addBgBtn.className = "layer-ctrl-btn";
-    addBgBtn.textContent = "+BG";
-    addBgBtn.title = "Add background layer";
-    addBgBtn.addEventListener("click", () => this.addLayer("bg"));
-
-    const addObjBtn = document.createElement("button");
-    addObjBtn.className = "layer-ctrl-btn";
-    addObjBtn.textContent = "+OBJ";
-    addObjBtn.title = "Add object layer";
-    addObjBtn.addEventListener("click", () => this.addLayer("obj"));
-
-    const addOverlayBtn = document.createElement("button");
-    addOverlayBtn.className = "layer-ctrl-btn";
-    addOverlayBtn.textContent = "+OVR";
-    addOverlayBtn.title = "Add overlay layer";
-    addOverlayBtn.addEventListener("click", () => this.addLayer("overlay"));
-
-    controls.append(addBgBtn, addObjBtn, addOverlayBtn);
-    panel.appendChild(controls);
-
-    const orderControls = document.createElement("div");
-    orderControls.className = "layer-controls";
-
-    const upBtn = document.createElement("button");
-    upBtn.className = "layer-ctrl-btn";
-    upBtn.textContent = "↑";
-    upBtn.title = "Move active layer up";
-    upBtn.addEventListener("click", () => this.moveActiveLayer(-1));
-
-    const downBtn = document.createElement("button");
-    downBtn.className = "layer-ctrl-btn";
-    downBtn.textContent = "↓";
-    downBtn.title = "Move active layer down";
-    downBtn.addEventListener("click", () => this.moveActiveLayer(1));
-
-    const delBtn = document.createElement("button");
-    delBtn.className = "layer-ctrl-btn";
-    delBtn.textContent = "Del";
-    delBtn.title = "Delete active layer";
-    delBtn.addEventListener("click", () => this.removeActiveLayer());
-
-    orderControls.append(upBtn, downBtn, delBtn);
-    panel.appendChild(orderControls);
-
-    this.renderLayerButtons();
-
-    return panel;
+    return buildLayerPanelImpl(
+      this as unknown as Parameters<typeof buildLayerPanelImpl>[0],
+    );
   }
 
   private getLayerButtonText(
     layerIndex: number,
     fallbackName?: string,
   ): string {
-    const mapData = this.game?.mapRenderer.getMapData();
-    const layer = mapData?.layers[layerIndex];
-    const layerName = layer?.name ?? fallbackName ?? `layer${layerIndex}`;
-    const layerTilesetUrl = layer?.tilesetUrl ?? mapData?.tilesetUrl;
-    if (!layerTilesetUrl) return layerName;
-    const ts = TILESETS.find((t) => t.url === layerTilesetUrl);
-    const tsName =
-      ts?.name ??
-      layerTilesetUrl
-        .split("/")
-        .pop()
-        ?.replace(/\.[^.]+$/, "") ??
-      "tileset";
-    return `${layerName} · ${tsName}`;
+    return getLayerButtonTextImpl(
+      this as unknown as Parameters<typeof getLayerButtonTextImpl>[0],
+      layerIndex,
+      fallbackName,
+    );
   }
 
   private refreshLayerButtonLabels() {
@@ -587,208 +474,56 @@ export class MapEditorPanel {
   }
 
   private renderLayerButtons() {
-    if (!this.layerListEl) return;
-    const mapData = this.game?.mapRenderer.getMapData();
-    if (!mapData) return;
-
-    this.layerListEl.innerHTML = "";
-    this.layerButtons = [];
-    mapData.layers.forEach((layer, i) => {
-      const btn = document.createElement("button");
-      btn.className = `layer-btn ${this.activeLayer === i ? "active" : ""}`;
-      btn.textContent = this.getLayerButtonText(i, layer.name);
-      btn.title = btn.textContent;
-      btn.addEventListener("click", () => this.setLayer(i));
-      this.layerListEl.appendChild(btn);
-      this.layerButtons.push(btn);
-    });
+    renderLayerButtonsImpl(
+      this as unknown as Parameters<typeof renderLayerButtonsImpl>[0],
+    );
   }
 
   private makeLayerName(
-    type: "bg" | "obj" | "overlay",
-    layers: { name: string; type: "bg" | "obj" | "overlay" }[],
+    type: MapLayerType,
+    layers: { name: string; type: MapLayerType }[],
   ): string {
-    const count = layers.filter((l) => l.type === type).length;
-    return `${type}${count}`;
+    return makeLayerNameImpl(type, layers);
   }
 
-  private addLayer(type: "bg" | "obj" | "overlay") {
-    const mapData = this.game?.mapRenderer.getMapData();
-    if (!mapData || !this.game) return;
-    const layerName = this.makeLayerName(type, mapData.layers);
-    mapData.layers.push({
-      name: layerName,
+  private addLayer(type: MapLayerType) {
+    addLayerImpl(
+      this as unknown as Parameters<typeof addLayerImpl>[0],
       type,
-      tiles: new Array(mapData.width * mapData.height).fill(-1),
-      visible: true,
-    });
-    this.activeLayer = mapData.layers.length - 1;
-    this.game.mapRenderer.loadMap(mapData);
-    this.syncTilesetToMapLayer();
-    this.showSaveStatus(`Added layer "${layerName}"`, false);
+    );
   }
 
   private removeActiveLayer() {
-    const mapData = this.game?.mapRenderer.getMapData();
-    if (!mapData || !this.game) return;
-    if (mapData.layers.length <= 1) {
-      this.showSaveStatus("Map must have at least one layer", true);
-      return;
-    }
-    const target = mapData.layers[this.activeLayer];
-    if (!target) return;
-    const confirmed = window.confirm(
-      `Delete layer "${target.name}"? This removes all tiles on that layer.`,
+    removeActiveLayerImpl(
+      this as unknown as Parameters<typeof removeActiveLayerImpl>[0],
     );
-    if (!confirmed) {
-      this.showSaveStatus("Layer delete cancelled", false);
-      return;
-    }
-    const removed = mapData.layers.splice(this.activeLayer, 1)[0];
-    this.activeLayer = Math.max(
-      0,
-      Math.min(this.activeLayer, mapData.layers.length - 1),
-    );
-    this.game.mapRenderer.loadMap(mapData);
-    this.syncTilesetToMapLayer();
-    this.showSaveStatus(`Removed layer "${removed.name}"`, false);
   }
 
   private moveActiveLayer(delta: -1 | 1) {
-    const mapData = this.game?.mapRenderer.getMapData();
-    if (!mapData || !this.game) return;
-    const from = this.activeLayer;
-    const to = from + delta;
-    if (to < 0 || to >= mapData.layers.length) {
-      this.showSaveStatus(
-        delta < 0
-          ? "Layer is already at the top"
-          : "Layer is already at the bottom",
-        true,
-      );
-      return;
-    }
-    const [moved] = mapData.layers.splice(from, 1);
-    mapData.layers.splice(to, 0, moved);
-    this.activeLayer = to;
-    this.game.mapRenderer.loadMap(mapData);
-    this.syncTilesetToMapLayer();
-    this.showSaveStatus(`Moved layer "${moved.name}"`, false);
+    moveActiveLayerImpl(
+      this as unknown as Parameters<typeof moveActiveLayerImpl>[0],
+      delta,
+    );
   }
 
   // =========================================================================
-  // BUILD: Tileset picker
+  // BUILD: Tileset picker (delegates to buildTilesetPicker.ts)
   // =========================================================================
 
-  private buildTilesetPicker(): HTMLElement {
-    const picker = document.createElement("div");
-    picker.className = "tileset-picker";
-
-    const header = document.createElement("div");
-    header.className = "tileset-picker-header";
-
-    const label = document.createElement("div");
-    label.className = "tileset-picker-label";
-    label.textContent = "Tileset";
-    header.appendChild(label);
-
-    // Tile size indicator
-    this.tileSizeLabel = document.createElement("div");
-    this.tileSizeLabel.style.cssText =
-      "font-size:10px;color:var(--text-muted);margin-left:auto;font-family:monospace;";
-    this.updateTileSizeLabel();
-    header.appendChild(this.tileSizeLabel);
-
-    this.tilesetSelect = document.createElement("select");
-    this.tilesetSelect.className = "tileset-select";
-    const mapDefaultOpt = document.createElement("option");
-    mapDefaultOpt.value = MAP_DEFAULT_TILESET_VALUE;
-    mapDefaultOpt.textContent = "(Map default)";
-    this.tilesetSelect.appendChild(mapDefaultOpt);
-    for (const ts of TILESETS) {
-      const opt = document.createElement("option");
-      opt.value = ts.url;
-      opt.textContent = `${ts.name} (${ts.tileWidth}px)`;
-      this.tilesetSelect.appendChild(opt);
-    }
-    this.tilesetSelect.addEventListener("change", () => {
-      const selectedValue = this.tilesetSelect.value;
-      if (selectedValue === MAP_DEFAULT_TILESET_VALUE) {
-        this.applyTilesetToActiveLayer(null);
-        const layerTs = this.getTilesetForActiveLayer();
-        this.activeTileset = layerTs;
-        this.selectedTile = 0;
-        this.selectedRegion = { col: 0, row: 0, w: 1, h: 1 };
-        this.loadTilesetImage();
-        return;
-      }
-      const ts = TILESETS.find((t) => t.url === selectedValue);
-      if (ts) {
-        this.applyTilesetToActiveLayer(ts);
-      }
-    });
-    header.appendChild(this.tilesetSelect);
-    picker.appendChild(header);
-
-    const canvasWrap = document.createElement("div");
-    canvasWrap.className = "tileset-canvas-wrap";
-
-    this.tileCanvas = document.createElement("canvas");
-    this.tileCanvas.className = "tileset-canvas";
-    this.tileCtx = this.tileCanvas.getContext("2d")!;
-    this.tileCtx.imageSmoothingEnabled = false;
-
-    this.highlightEl = document.createElement("div");
-    this.highlightEl.className = "tileset-highlight";
-
-    // Drag-select on tileset canvas: mousedown starts, mousemove updates, mouseup finalises
-    this.tileCanvas.addEventListener("mousedown", (e) =>
-      this.onTileCanvasDown(e),
+  private buildTilesetPicker() {
+    return buildTilesetPickerImpl(
+      this as unknown as TilesetPickerContext,
     );
-    this.tileCanvas.addEventListener("mousemove", (e) =>
-      this.onTileCanvasMove(e),
-    );
-    window.addEventListener("mouseup", () => this.onTileCanvasUp());
-
-    canvasWrap.appendChild(this.tileCanvas);
-    canvasWrap.appendChild(this.highlightEl);
-    picker.appendChild(canvasWrap);
-
-    this.loadTilesetImage();
-
-    return picker;
   }
 
   // =========================================================================
-  // BUILD: Object picker (sprite definitions)
+  // BUILD: Object picker (delegates to buildObjectPicker.ts)
   // =========================================================================
 
   private buildObjectPicker(): HTMLElement {
-    const picker = document.createElement("div");
-    picker.className = "tileset-picker"; // reuse layout
-
-    const header = document.createElement("div");
-    header.className = "tileset-picker-header";
-
-    const label = document.createElement("div");
-    label.className = "tileset-picker-label";
-    label.textContent = "Sprites";
-    header.appendChild(label);
-
-    const refreshBtn = document.createElement("button");
-    refreshBtn.className = "editor-tool-btn";
-    refreshBtn.textContent = "↻ Refresh";
-    refreshBtn.style.fontSize = "11px";
-    refreshBtn.addEventListener("click", () => this.loadSpriteDefs());
-    header.appendChild(refreshBtn);
-
-    picker.appendChild(header);
-
-    this.objectListEl = document.createElement("div");
-    this.objectListEl.className = "object-list";
-    picker.appendChild(this.objectListEl);
-
-    return picker;
+    return buildObjectPickerImpl(
+      this as unknown as Parameters<typeof buildObjectPickerImpl>[0],
+    );
   }
 
   private async loadSpriteDefs() {
@@ -804,161 +539,35 @@ export class MapEditorPanel {
   }
 
   private renderObjectList() {
-    this.objectListEl.innerHTML = "";
-
-    // Filter out NPCs — they have their own tab now
-    const nonNpcDefs = this.spriteDefs.filter((d) => d.category !== "npc");
-
-    if (nonNpcDefs.length === 0) {
-      const empty = document.createElement("div");
-      empty.style.cssText =
-        "color:var(--text-muted);font-size:12px;padding:12px;font-style:italic;";
-      empty.textContent =
-        "No object sprites yet. Create some in the Sprite Editor!";
-      this.objectListEl.appendChild(empty);
-      return;
-    }
-
-    for (const def of nonNpcDefs) {
-      const row = document.createElement("button");
-      row.className = `object-list-item ${this.selectedSpriteDef?._id === def._id ? "active" : ""}`;
-      const vis = visibilityLabel(def.visibilityType);
-      row.innerHTML = `<span class="object-list-name">${def.name}</span><span class="object-list-cat">${def.category}</span><span class="object-list-vis ${vis}">${vis}</span>`;
-      row.addEventListener("click", () => {
-        this.selectedSpriteDef = def;
-        this.tileInfoEl.textContent = `Obj: ${def.name}`;
-        this.renderObjectList();
-        this.updateGhostForCurrentSelection();
-      });
-      this.objectListEl.appendChild(row);
-    }
+    renderObjectListImpl(
+      this as unknown as Parameters<typeof renderObjectListImpl>[0],
+    );
   }
 
   // =========================================================================
-  // BUILD: NPC picker (NPC sprite definitions for placement)
+  // BUILD: NPC picker (delegates to buildNpcPicker.ts)
   // =========================================================================
 
   private buildNpcPicker(): HTMLElement {
-    const picker = document.createElement("div");
-    picker.className = "tileset-picker"; // reuse layout
-
-    const header = document.createElement("div");
-    header.className = "tileset-picker-header";
-
-    const label = document.createElement("div");
-    label.className = "tileset-picker-label";
-    label.textContent = "NPCs";
-    header.appendChild(label);
-
-    const refreshBtn = document.createElement("button");
-    refreshBtn.className = "editor-tool-btn";
-    refreshBtn.textContent = "↻ Refresh";
-    refreshBtn.style.fontSize = "11px";
-    refreshBtn.addEventListener("click", () => this.loadSpriteDefs());
-    header.appendChild(refreshBtn);
-
-    picker.appendChild(header);
-
-    this.npcListEl = document.createElement("div");
-    this.npcListEl.className = "object-list";
-    picker.appendChild(this.npcListEl);
-
-    return picker;
+    return buildNpcPickerImpl(
+      this as unknown as Parameters<typeof buildNpcPickerImpl>[0],
+    );
   }
 
   private renderNpcList() {
-    if (!this.npcListEl) return;
-    this.npcListEl.innerHTML = "";
-
-    const npcDefs = this.spriteDefs.filter((d) => d.category === "npc");
-
-    if (npcDefs.length === 0) {
-      const empty = document.createElement("div");
-      empty.style.cssText =
-        "color:var(--text-muted);font-size:12px;padding:12px;font-style:italic;";
-      empty.textContent =
-        "No NPC sprites yet. Create some in the NPC Editor → NPC Sprites tab!";
-      this.npcListEl.appendChild(empty);
-      return;
-    }
-
-    for (const def of npcDefs) {
-      const row = document.createElement("button");
-      row.className = `object-list-item ${this.selectedSpriteDef?._id === def._id ? "active" : ""}`;
-      const vis = visibilityLabel(def.visibilityType);
-      row.innerHTML = `<span class="object-list-name">${def.name}</span><span class="object-list-cat">npc</span><span class="object-list-vis ${vis}">${vis}</span>`;
-      row.addEventListener("click", () => {
-        this.selectedSpriteDef = def;
-        this.tileInfoEl.textContent = `NPC: ${def.name}`;
-        this.renderNpcList();
-        this.updateGhostForCurrentSelection();
-      });
-      this.npcListEl.appendChild(row);
-    }
+    renderNpcListImpl(
+      this as unknown as Parameters<typeof renderNpcListImpl>[0],
+    );
   }
 
   // =========================================================================
-  // BUILD: Item picker (item definitions for world placement)
+  // BUILD: Item picker (delegates to buildItemPicker.ts)
   // =========================================================================
 
   private buildItemPicker(): HTMLElement {
-    const picker = document.createElement("div");
-    picker.className = "tileset-picker"; // reuse layout
-
-    const header = document.createElement("div");
-    header.className = "tileset-picker-header";
-
-    const label = document.createElement("div");
-    label.className = "tileset-picker-label";
-    label.textContent = "Items";
-    header.appendChild(label);
-
-    const refreshBtn = document.createElement("button");
-    refreshBtn.className = "editor-tool-btn";
-    refreshBtn.textContent = "↻ Refresh";
-    refreshBtn.style.fontSize = "11px";
-    refreshBtn.addEventListener("click", () => this.loadItemDefs());
-    header.appendChild(refreshBtn);
-
-    picker.appendChild(header);
-
-    this.itemListEl = document.createElement("div");
-    this.itemListEl.className = "object-list";
-    picker.appendChild(this.itemListEl);
-
-    // Respawn controls
-    const respawnRow = document.createElement("div");
-    respawnRow.style.cssText =
-      "display:flex;align-items:center;gap:8px;padding:6px 8px;border-top:1px solid var(--border);";
-
-    this.itemRespawnCheck = document.createElement("input");
-    this.itemRespawnCheck.type = "checkbox";
-    this.itemRespawnCheck.id = "item-respawn-check";
-
-    const respawnLabel = document.createElement("label");
-    respawnLabel.htmlFor = "item-respawn-check";
-    respawnLabel.textContent = "Respawn after";
-    respawnLabel.style.cssText =
-      "font-size:11px;color:var(--text);cursor:pointer;";
-
-    this.itemRespawnTimeInput = document.createElement("input");
-    this.itemRespawnTimeInput.type = "number";
-    this.itemRespawnTimeInput.min = "1";
-    this.itemRespawnTimeInput.value = "5";
-    this.itemRespawnTimeInput.style.cssText =
-      "width:42px;font-size:11px;padding:2px 4px;background:var(--input-bg);color:var(--text);border:1px solid var(--border);border-radius:3px;";
-
-    const minLabel = document.createElement("span");
-    minLabel.textContent = "min";
-    minLabel.style.cssText = "font-size:11px;color:var(--text-muted);";
-
-    respawnRow.appendChild(this.itemRespawnCheck);
-    respawnRow.appendChild(respawnLabel);
-    respawnRow.appendChild(this.itemRespawnTimeInput);
-    respawnRow.appendChild(minLabel);
-    picker.appendChild(respawnRow);
-
-    return picker;
+    return buildItemPickerImpl(
+      this as unknown as Parameters<typeof buildItemPickerImpl>[0],
+    );
   }
 
   private async loadItemDefs() {
@@ -970,11 +579,12 @@ export class MapEditorPanel {
       ]);
 
       const spriteDefsByName = new Map(
-        (spriteDefs as any[]).map((d) => [d.name, d]),
+        (spriteDefs as SpriteDef[]).map((d) => [d.name, d]),
       );
-      this.itemDefs = (defs as any[]).map((def) => {
-        const out: any = { ...def };
-        const spriteDefName = def.iconSpriteDefName as string | undefined;
+      type ItemDefInput = Pick<ItemDef, "name" | "displayName" | "type" | "rarity"> & { iconSpriteDefName?: string; [key: string]: unknown };
+      this.itemDefs = (defs as ItemDefInput[]).map((def): ItemDef => {
+        const out: ItemDef = { ...def };
+        const spriteDefName = def.iconSpriteDefName;
         if (spriteDefName) {
           const spriteDef = spriteDefsByName.get(spriteDefName);
           if (
@@ -1000,492 +610,104 @@ export class MapEditorPanel {
   }
 
   private renderItemList() {
-    this.itemListEl.innerHTML = "";
-
-    if (this.itemDefs.length === 0) {
-      const empty = document.createElement("div");
-      empty.style.cssText =
-        "color:var(--text-muted);font-size:12px;padding:12px;font-style:italic;";
-      empty.textContent = "No items yet. Create some in the Item Editor!";
-      this.itemListEl.appendChild(empty);
-      return;
-    }
-
-    for (const def of this.itemDefs) {
-      const row = document.createElement("button");
-      row.className = `object-list-item ${this.selectedItemDef?.name === def.name ? "active" : ""}`;
-
-      // Icon preview
-      const iconSpan = document.createElement("span");
-      iconSpan.style.cssText = "margin-right:6px;font-size:14px;";
-      if (def.iconTilesetUrl && def.iconTileW) {
-        const c = document.createElement("canvas");
-        c.width = 20;
-        c.height = 20;
-        c.style.cssText =
-          "width:20px;height:20px;image-rendering:pixelated;vertical-align:middle;margin-right:4px;";
-        const img = new Image();
-        img.src = def.iconTilesetUrl;
-        img.onload = () => {
-          const cx = c.getContext("2d")!;
-          cx.imageSmoothingEnabled = false;
-          const sw = def.iconTileW!;
-          const sh = def.iconTileH!;
-          const scale = Math.min(20 / sw, 20 / sh);
-          const dw = sw * scale;
-          const dh = sh * scale;
-          cx.drawImage(
-            img,
-            def.iconTileX!,
-            def.iconTileY!,
-            sw,
-            sh,
-            (20 - dw) / 2,
-            (20 - dh) / 2,
-            dw,
-            dh,
-          );
-        };
-        iconSpan.appendChild(c);
-      } else if (def.iconSpriteDefName) {
-        iconSpan.textContent = "🎞️";
-      } else {
-        iconSpan.textContent = this.itemTypeIcon(def.type);
-      }
-
-      const nameSpan = document.createElement("span");
-      nameSpan.className = "object-list-name";
-      nameSpan.textContent = def.displayName;
-
-      const catSpan = document.createElement("span");
-      catSpan.className = "object-list-cat";
-      catSpan.textContent = def.rarity;
-
-      row.appendChild(iconSpan);
-      row.appendChild(nameSpan);
-      row.appendChild(catSpan);
-
-      row.addEventListener("click", () => {
-        this.selectedItemDef = def;
-        this.tileInfoEl.textContent = `Item: ${def.displayName}`;
-        this.renderItemList();
-        this.updateGhostForCurrentSelection();
-      });
-      this.itemListEl.appendChild(row);
-    }
-  }
-
-  private itemTypeIcon(type: string): string {
-    const icons: Record<string, string> = {
-      weapon: "⚔️",
-      armor: "🛡",
-      accessory: "💍",
-      consumable: "🧪",
-      material: "🪵",
-      key: "🔑",
-      currency: "🪙",
-      quest: "📜",
-      misc: "📦",
-    };
-    return icons[type] || "📦";
+    renderItemListImpl(
+      this as unknown as Parameters<typeof renderItemListImpl>[0],
+    );
   }
 
   private logItemPlacement(message: string, details?: Record<string, unknown>) {
-    if (!MapEditorPanel.ITEM_PLACE_DEBUG) return;
-    const prefix = `[MapEditor:item-place] ${message}`;
-    if (
-      message.startsWith("Skipped") ||
-      message.includes("missing") ||
-      message.includes("blocked")
-    ) {
-      if (details) console.warn(prefix, details);
-      else console.warn(prefix);
-      return;
-    }
-    if (details) console.log(prefix, details);
-    else console.log(prefix);
+    logItemPlacementImpl(message, details);
   }
 
   private placeItem(worldX: number, worldY: number) {
-    if (!this.selectedItemDef) {
-      this.logItemPlacement("Skipped placement: no selected item definition.", {
-        worldX,
-        worldY,
-        tool: this.tool,
-      });
-      this.showSaveStatus("Select an item first", true);
-      return;
-    }
-    const respawn = this.itemRespawnCheck.checked;
-    const respawnMin = parseFloat(this.itemRespawnTimeInput.value) || 5;
-    const item: (typeof this.placedItems)[0] = {
-      id: crypto.randomUUID(),
-      itemDefName: this.selectedItemDef.name,
-      x: Math.round(worldX),
-      y: Math.round(worldY),
-      quantity: 1,
-      respawn: respawn || undefined,
-      respawnMs: respawn ? Math.round(respawnMin * 60 * 1000) : undefined,
-    };
-    this.placedItems.push(item);
-    this.logItemPlacement("Placed item.", {
-      itemDefName: item.itemDefName,
-      displayName: this.selectedItemDef.displayName,
+    placeItemImpl(
+      this as unknown as Parameters<typeof placeItemImpl>[0],
       worldX,
       worldY,
-      placedX: item.x,
-      placedY: item.y,
-      respawn: item.respawn ?? false,
-      respawnMs: item.respawnMs ?? null,
-      totalPlacedItems: this.placedItems.length,
-    });
-    const respawnNote = respawn ? ` (respawns in ${respawnMin}m)` : "";
-    this.tileInfoEl.textContent = `Placed: ${this.selectedItemDef.displayName}${respawnNote} (${this.placedItems.length} items total)`;
-
-    // Render on the world item layer immediately
-    if (this.game && this.game.worldItemLayer) {
-      this.game.worldItemLayer.addItem(
-        {
-          id: item.id,
-          itemDefName: item.itemDefName,
-          x: item.x,
-          y: item.y,
-          quantity: item.quantity,
-        },
-        this.selectedItemDef,
-      );
-    } else {
-      this.logItemPlacement(
-        "World item layer missing during placement render.",
-        {
-          hasGame: !!this.game,
-          hasWorldItemLayer: !!this.game?.worldItemLayer,
-        },
-      );
-    }
+    );
   }
 
   private removeItemAt(worldX: number, worldY: number) {
-    // Items bob above their anchor — use a generous radius
-    const radius = 64;
-    let bestIdx = -1;
-    let bestDist = Infinity;
-    for (let i = 0; i < this.placedItems.length; i++) {
-      const item = this.placedItems[i];
-      const dx = item.x - worldX;
-      const dy = item.y - worldY;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist < radius && dist < bestDist) {
-        bestDist = dist;
-        bestIdx = i;
-      }
-    }
-    if (bestIdx >= 0) {
-      const removed = this.placedItems.splice(bestIdx, 1)[0];
-      if (this.game && this.game.worldItemLayer) {
-        this.game.worldItemLayer.removeItem(removed.id);
-      }
-      this.tileInfoEl.textContent = `Removed item (${this.placedItems.length} remaining)`;
-    }
+    removeItemAtImpl(
+      this as unknown as Parameters<typeof removeItemAtImpl>[0],
+      worldX,
+      worldY,
+    );
   }
 
   /** Show info about an existing world item at the click location */
   private inspectItemAt(worldX: number, worldY: number): boolean {
-    const radius = 40;
-    let bestItem: any = null;
-    let bestDist = Infinity;
-    for (const item of this.placedItems) {
-      const dx = item.x - worldX;
-      const dy = item.y - worldY;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist < radius && dist < bestDist) {
-        bestDist = dist;
-        bestItem = item;
-      }
-    }
-    if (!bestItem) return false;
-    this.logItemPlacement(
-      "Placement click intercepted by existing nearby item (inspect mode).",
-      {
-        clickedWorldX: worldX,
-        clickedWorldY: worldY,
-        nearestItemId: bestItem.id,
-        nearestItemDefName: bestItem.itemDefName,
-        nearestItemX: bestItem.x,
-        nearestItemY: bestItem.y,
-        nearestDistancePx: Math.round(bestDist),
-        inspectRadiusPx: radius,
-      },
+    return inspectItemAtImpl(
+      this as unknown as Parameters<typeof inspectItemAtImpl>[0],
+      worldX,
+      worldY,
     );
-
-    const parts: string[] = [`Item: ${bestItem.itemDefName}`];
-    parts.push(`qty: ${bestItem.quantity}`);
-    if (bestItem.respawn) {
-      const mins = Math.round((bestItem.respawnMs ?? 300_000) / 60_000);
-      parts.push(`respawn: ${mins}m`);
-    }
-    if (bestItem.pickedUpAt) {
-      const ago = Math.round((Date.now() - bestItem.pickedUpAt) / 1000);
-      parts.push(`picked up ${ago}s ago`);
-    }
-    parts.push(`pos: (${Math.round(bestItem.x)}, ${Math.round(bestItem.y)})`);
-    parts.push("hold Shift to force place");
-    this.tileInfoEl.textContent = parts.join("  |  ");
-    return true;
   }
 
   // =========================================================================
-  // Tileset image loading & rendering
+  // Tileset (delegates to buildTilesetPicker.ts)
   // =========================================================================
 
   private loadTilesetImage(onReady?: () => void) {
-    const ts = this.activeTileset;
-    const img = new Image();
-    img.src = ts.url;
-    img.onload = () => {
-      this.tilesetImage = img;
-      // Auto-detect actual image dimensions — round down to full tile multiples
-      const realW = Math.floor(img.naturalWidth / ts.tileWidth) * ts.tileWidth;
-      const realH =
-        Math.floor(img.naturalHeight / ts.tileHeight) * ts.tileHeight;
-      if (realW !== ts.imageWidth || realH !== ts.imageHeight) {
-        console.log(
-          `Tileset "${ts.name}": correcting dimensions ${ts.imageWidth}×${ts.imageHeight}` +
-            ` → ${realW}×${realH} (from ${img.naturalWidth}×${img.naturalHeight})`,
-        );
-        ts.imageWidth = realW;
-        ts.imageHeight = realH;
-      }
-      this.renderTilesetGrid();
-      this.updateHighlight();
-      onReady?.();
-    };
-    img.onerror = () => {
-      console.warn("Failed to load tileset:", ts.url);
-    };
+    loadTilesetImageImpl(
+      this as unknown as TilesetPickerContext,
+      onReady,
+    );
   }
 
   private renderTilesetGrid() {
-    if (!this.tilesetImage) return;
-    const ts = this.activeTileset;
-    const cols = Math.floor(ts.imageWidth / ts.tileWidth);
-    const rows = Math.floor(ts.imageHeight / ts.tileHeight);
-
-    const canvasW = cols * DISPLAY_TILE_SIZE;
-    const canvasH = rows * DISPLAY_TILE_SIZE;
-
-    this.tileCanvas.width = canvasW;
-    this.tileCanvas.height = canvasH;
-    this.tileCanvas.style.width = canvasW + "px";
-    this.tileCanvas.style.height = canvasH + "px";
-
-    const ctx = this.tileCtx;
-    ctx.imageSmoothingEnabled = false;
-    ctx.clearRect(0, 0, canvasW, canvasH);
-
-    for (let row = 0; row < rows; row++) {
-      for (let col = 0; col < cols; col++) {
-        ctx.drawImage(
-          this.tilesetImage,
-          col * ts.tileWidth,
-          row * ts.tileHeight,
-          ts.tileWidth,
-          ts.tileHeight,
-          col * DISPLAY_TILE_SIZE,
-          row * DISPLAY_TILE_SIZE,
-          DISPLAY_TILE_SIZE,
-          DISPLAY_TILE_SIZE,
-        );
-      }
-    }
-
-    // Draw grid lines on tileset when grid toggle is active
-    const showGrid = this.game?.mapRenderer.isGridVisible() ?? false;
-    if (showGrid) {
-      ctx.strokeStyle = "rgba(255,255,255,0.35)";
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      for (let c = 0; c <= cols; c++) {
-        ctx.moveTo(c * DISPLAY_TILE_SIZE + 0.5, 0);
-        ctx.lineTo(c * DISPLAY_TILE_SIZE + 0.5, canvasH);
-      }
-      for (let r = 0; r <= rows; r++) {
-        ctx.moveTo(0, r * DISPLAY_TILE_SIZE + 0.5);
-        ctx.lineTo(canvasW, r * DISPLAY_TILE_SIZE + 0.5);
-      }
-      ctx.stroke();
-    }
+    renderTilesetGridImpl(this as unknown as TilesetPickerContext);
   }
 
-  /** Convert a mouse event on the tileset canvas to a tileset grid col/row */
-  private tileCanvasToGrid(e: MouseEvent): { col: number; row: number } {
-    const ts = this.activeTileset;
-    const cols = Math.floor(ts.imageWidth / ts.tileWidth);
-    const rows = Math.floor(ts.imageHeight / ts.tileHeight);
-    const rect = this.tileCanvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    return {
-      col: Math.max(0, Math.min(cols - 1, Math.floor(x / DISPLAY_TILE_SIZE))),
-      row: Math.max(0, Math.min(rows - 1, Math.floor(y / DISPLAY_TILE_SIZE))),
-    };
+  private tileCanvasToGrid(e: MouseEvent) {
+    return tileCanvasToGridImpl(
+      this as unknown as TilesetPickerContext,
+      e,
+    );
   }
 
   private onTileCanvasDown(e: MouseEvent) {
-    const { col, row } = this.tileCanvasToGrid(e);
-    if (e.shiftKey) {
-      // Shift+click: toggle individual tile in irregular selection
-      this.isIrregularSelection = true;
-      const key = `${col},${row}`;
-      if (this.irregularTiles.has(key)) {
-        this.irregularTiles.delete(key);
-      } else {
-        this.irregularTiles.add(key);
-      }
-      this.tsDragStart = { col, row };
-      this.updateIrregularHighlights();
-      this.updateIrregularInfo();
-    } else {
-      // Normal click: clear irregular set, start rectangle drag
-      this.isIrregularSelection = false;
-      this.irregularTiles.clear();
-      this.clearIrregularHighlights();
-      this.tsDragStart = { col, row };
-      this.applyTileSelection(col, row, col, row);
-    }
+    onTileCanvasDownImpl(this as unknown as TilesetPickerContext, e);
   }
 
   private onTileCanvasMove(e: MouseEvent) {
-    if (!this.tsDragStart) return;
-    const { col, row } = this.tileCanvasToGrid(e);
-    if (e.shiftKey && this.isIrregularSelection) {
-      // Shift+drag: add all tiles in the dragged rectangle to the irregular set
-      const minC = Math.min(this.tsDragStart.col, col);
-      const maxC = Math.max(this.tsDragStart.col, col);
-      const minR = Math.min(this.tsDragStart.row, row);
-      const maxR = Math.max(this.tsDragStart.row, row);
-      for (let r = minR; r <= maxR; r++) {
-        for (let c = minC; c <= maxC; c++) {
-          this.irregularTiles.add(`${c},${r}`);
-        }
-      }
-      this.updateIrregularHighlights();
-      this.updateIrregularInfo();
-    } else if (!this.isIrregularSelection) {
-      this.applyTileSelection(
-        this.tsDragStart.col,
-        this.tsDragStart.row,
-        col,
-        row,
-      );
-    }
+    onTileCanvasMoveImpl(this as unknown as TilesetPickerContext, e);
   }
 
   private onTileCanvasUp() {
-    this.tsDragStart = null;
+    onTileCanvasUpImpl(this as unknown as TilesetPickerContext);
   }
 
-  /** Set the selected region from two corner positions and update the highlight */
   private applyTileSelection(c1: number, r1: number, c2: number, r2: number) {
-    const ts = this.activeTileset;
-    const cols = Math.floor(ts.imageWidth / ts.tileWidth);
-
-    const minC = Math.min(c1, c2);
-    const minR = Math.min(r1, r2);
-    const maxC = Math.max(c1, c2);
-    const maxR = Math.max(r1, r2);
-
-    this.selectedRegion = {
-      col: minC,
-      row: minR,
-      w: maxC - minC + 1,
-      h: maxR - minR + 1,
-    };
-    // selectedTile = top-left tile of the region (backward compat)
-    this.selectedTile = minR * cols + minC;
-
-    const regionSize = this.selectedRegion.w * this.selectedRegion.h;
-    this.tileInfoEl.textContent =
-      regionSize > 1
-        ? `Tile: ${this.selectedTile} (${this.selectedRegion.w}×${this.selectedRegion.h})`
-        : `Tile: ${this.selectedTile}`;
-
-    this.updateHighlight();
+    applyTileSelectionImpl(
+      this as unknown as TilesetPickerContext,
+      c1,
+      r1,
+      c2,
+      r2,
+    );
   }
 
   private updateHighlight() {
-    const r = this.selectedRegion;
-    this.highlightEl.style.left = r.col * DISPLAY_TILE_SIZE + "px";
-    this.highlightEl.style.top = r.row * DISPLAY_TILE_SIZE + "px";
-    this.highlightEl.style.width = r.w * DISPLAY_TILE_SIZE + "px";
-    this.highlightEl.style.height = r.h * DISPLAY_TILE_SIZE + "px";
+    updateHighlightImpl(this as unknown as TilesetPickerContext);
   }
 
-  /** Rebuild the per-tile highlight elements for irregular selection */
   private updateIrregularHighlights() {
-    // Hide the rectangular highlight when in irregular mode
-    this.highlightEl.style.display = this.isIrregularSelection ? "none" : "";
-
-    // Remove old highlights
-    this.clearIrregularHighlights();
-
-    if (!this.isIrregularSelection) return;
-
-    const parent = this.highlightEl.parentElement;
-    if (!parent) return;
-
-    for (const key of this.irregularTiles) {
-      const [c, r] = key.split(",").map(Number);
-      const el = document.createElement("div");
-      el.className = "tileset-highlight";
-      el.style.left = c * DISPLAY_TILE_SIZE + "px";
-      el.style.top = r * DISPLAY_TILE_SIZE + "px";
-      el.style.width = DISPLAY_TILE_SIZE + "px";
-      el.style.height = DISPLAY_TILE_SIZE + "px";
-      parent.appendChild(el);
-      this.irregularHighlights.push(el);
-    }
+    updateIrregularHighlightsImpl(this as unknown as TilesetPickerContext);
   }
 
   private clearIrregularHighlights() {
-    for (const el of this.irregularHighlights) el.remove();
-    this.irregularHighlights = [];
+    clearIrregularHighlightsImpl(this as unknown as TilesetPickerContext);
   }
 
-  /** Update status text for irregular selection */
   private updateIrregularInfo() {
-    if (this.irregularTiles.size === 0) {
-      this.tileInfoEl.textContent = "No tiles selected";
-    } else {
-      this.tileInfoEl.textContent = `Selected: ${this.irregularTiles.size} tiles (Shift+click)`;
-    }
+    updateIrregularInfoImpl(this as unknown as TilesetPickerContext);
   }
 
-  /** Get the irregular selection as an array of {col, row, tileIdx} relative to its bounding box origin */
-  private getIrregularSelectionTiles(): {
-    dx: number;
-    dy: number;
-    tileIdx: number;
-  }[] {
-    if (this.irregularTiles.size === 0) return [];
-    const ts = this.activeTileset;
-    const tsCols = Math.floor(ts.imageWidth / ts.tileWidth);
-
-    // Parse all positions
-    const positions = [...this.irregularTiles].map((k) => {
-      const [c, r] = k.split(",").map(Number);
-      return { col: c, row: r };
-    });
-
-    // Find bounding box origin
-    const minCol = Math.min(...positions.map((p) => p.col));
-    const minRow = Math.min(...positions.map((p) => p.row));
-
-    return positions.map((p) => ({
-      dx: p.col - minCol,
-      dy: p.row - minRow,
-      tileIdx: p.row * tsCols + p.col,
-    }));
+  private getIrregularSelectionTiles() {
+    return getIrregularSelectionTilesImpl(
+      this as unknown as TilesetPickerContext,
+    );
   }
 
   private getMapDefaultTileset(): TilesetInfo {
@@ -1783,19 +1005,24 @@ export class MapEditorPanel {
       this.isPainting = false;
     };
 
-    // Ghost preview: always track cursor in build mode
+    // Ghost preview: always track cursor in build mode (throttled via RAF)
     this.canvasHoverHandler = (e: MouseEvent) => {
       if (game.mode !== "build") return;
+      this._lastHoverEvent = e;
+      if (this._hoverRaf) return;
+      this._hoverRaf = requestAnimationFrame(() => {
+        this._hoverRaf = 0;
+        const ev = this._lastHoverEvent;
+        if (!ev || !this.game) return;
+        const rect = canvas.getBoundingClientRect();
+        const screenX = ev.clientX - rect.left;
+        const screenY = ev.clientY - rect.top;
+        const { x: worldX, y: worldY } = game.camera.screenToWorld(
+          screenX,
+          screenY,
+        );
 
-      const rect = canvas.getBoundingClientRect();
-      const screenX = e.clientX - rect.left;
-      const screenY = e.clientY - rect.top;
-      const { x: worldX, y: worldY } = game.camera.screenToWorld(
-        screenX,
-        screenY,
-      );
-
-      if (
+        if (
         this.tool === "paint" ||
         this.tool === "erase" ||
         this.tool === "collision" ||
@@ -1873,6 +1100,7 @@ export class MapEditorPanel {
           }
         }
       }
+    });
     };
 
     canvas.addEventListener("mousedown", this.canvasClickHandler);
@@ -1886,7 +1114,7 @@ export class MapEditorPanel {
       // Ignore if focus is in an input/select/textarea
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") return;
-      if (e.key === "Escape" && this.movingObjectId) {
+      if (e.key === EDITOR_CANCEL_MOVE_KEY && this.movingObjectId) {
         this.cancelMoveSelection();
         this.showSaveStatus("Move cancelled", false);
         this.tileInfoEl.textContent =
@@ -1895,7 +1123,7 @@ export class MapEditorPanel {
             : "Move Object: click an object to pick it up";
         return;
       }
-      if (e.key === "g" || e.key === "G") {
+      if (e.key === EDITOR_GRID_TOGGLE_KEY || e.key === EDITOR_GRID_TOGGLE_KEY_ALT) {
         const on = game.mapRenderer.toggleGrid();
         this.gridBtn.classList.toggle("active", on);
         this.renderTilesetGrid();
@@ -2070,7 +1298,7 @@ export class MapEditorPanel {
 
     // All objects (including NPCs) render as static previews in the editor.
     // Real server-driven NPCs are created via the npcState subscription after saving.
-    this.game?.objectLayer?.addPlacedObject(obj, this.selectedSpriteDef as any);
+    this.game?.objectLayer?.addPlacedObject(obj, this.selectedSpriteDef as SpriteDefInfo);
   }
 
   private isNpcObject(spriteDefName: string): boolean {
@@ -2109,9 +1337,11 @@ export class MapEditorPanel {
       spriteDefName: string,
     ): boolean => {
       const def = defByName.get(spriteDefName);
-      const hitAbove = def ? def.frameHeight * def.scale : 384;
-      const hitSide = def ? (def.frameWidth * def.scale) / 2 : 192;
-      const hitBelow = 16;
+      const hitAbove = def ? def.frameHeight * def.scale : EDITOR_HIT_TEST_ABOVE;
+      const hitSide = def
+        ? (def.frameWidth * def.scale) / 2
+        : EDITOR_HIT_TEST_SIDE;
+      const hitBelow = EDITOR_HIT_TEST_BELOW;
       const dx = Math.abs(objX - worldX);
       const dy = objY - worldY; // positive = click is above anchor
       return dx <= hitSide && dy >= -hitBelow && dy <= hitAbove;
@@ -2189,7 +1419,7 @@ export class MapEditorPanel {
         const npcHit = this.game.entityLayer.findNearestNPCAt(
           worldX,
           worldY,
-          320,
+          EDITOR_NPC_FIND_RADIUS,
         );
         if (npcHit) this.game.entityLayer.removeNPC(npcHit.id);
       }
@@ -2234,7 +1464,7 @@ export class MapEditorPanel {
       const npcHit = this.game.entityLayer.findNearestNPCAt(
         worldX,
         worldY,
-        320,
+        EDITOR_NPC_FIND_RADIUS,
       );
       if (npcHit) this.game.entityLayer.removeNPC(npcHit.id);
       this.tileInfoEl.textContent = `Removed NPC (${this.placedObjects.length} total)`;
@@ -2248,338 +1478,23 @@ export class MapEditorPanel {
   // Save all (map + objects)
   // =========================================================================
 
-  // ===========================================================================
-  // Portal editor
-  // ===========================================================================
+  // =========================================================================
+  // BUILD: Map picker (delegates to buildMapPicker.ts)
+  // =========================================================================
 
   private buildMapPicker(): HTMLElement {
-    const picker = document.createElement("div");
-    picker.className = "tileset-picker";
-
-    const header = document.createElement("div");
-    header.className = "tileset-picker-header";
-    const label = document.createElement("div");
-    label.className = "tileset-picker-label";
-    label.textContent = "Map Settings";
-    header.appendChild(label);
-    picker.appendChild(header);
-
-    const form = document.createElement("div");
-    form.style.cssText =
-      "padding:8px;display:flex;flex-direction:column;gap:6px;font-size:12px;";
-
-    const nameRow = document.createElement("div");
-    nameRow.style.cssText = "display:flex;gap:4px;align-items:center;";
-    const nameLabel = document.createElement("span");
-    nameLabel.textContent = "Map Name:";
-    nameLabel.style.minWidth = "80px";
-    const nameInput = document.createElement("input");
-    nameInput.type = "text";
-    nameInput.placeholder = "Map name";
-    nameInput.style.cssText =
-      "flex:1;padding:4px;background:#181825;color:#eee;border:1px solid #444;border-radius:4px;font-size:12px;";
-    nameInput.addEventListener("input", () => {
-      const mapData = this.game?.mapRenderer.getMapData();
-      if (mapData) mapData.name = nameInput.value.trim() || mapData.name;
-    });
-    this.mapNameInput = nameInput;
-    nameRow.append(nameLabel, nameInput);
-    form.appendChild(nameRow);
-
-    const musicRow = document.createElement("div");
-    musicRow.style.cssText = "display:flex;gap:4px;align-items:center;";
-    const musicLabel = document.createElement("span");
-    musicLabel.textContent = "Music:";
-    musicLabel.style.minWidth = "80px";
-    const musicSelect = document.createElement("select");
-    musicSelect.style.cssText =
-      "flex:1;padding:4px;background:#181825;color:#eee;border:1px solid #444;border-radius:4px;font-size:12px;";
-    // TODO: Uncomment this when music is implemented
-    // for (const m of MUSIC_OPTIONS) {
-    //   const opt = document.createElement("option");
-    //   opt.value = m.url;
-    //   opt.textContent = m.label;
-    //   musicSelect.appendChild(opt);
-    // }
-    musicSelect.addEventListener("change", () => {
-      const mapData = this.game?.mapRenderer.getMapData();
-      if (mapData) mapData.musicUrl = musicSelect.value || undefined;
-    });
-    this.mapMusicSelect = musicSelect;
-    musicRow.append(musicLabel, musicSelect);
-    form.appendChild(musicRow);
-
-    const weatherRow = document.createElement("div");
-    weatherRow.style.cssText = "display:flex;gap:4px;align-items:center;";
-    const weatherLabel = document.createElement("span");
-    weatherLabel.textContent = "Weather:";
-    weatherLabel.style.minWidth = "80px";
-    const weatherSelect = document.createElement("select");
-    weatherSelect.style.cssText =
-      "flex:1;padding:4px;background:#181825;color:#eee;border:1px solid #444;border-radius:4px;font-size:12px;";
-    for (const optDef of [
-      { value: "clear", label: "Clear" },
-      { value: "rainy", label: "Rainy" },
-      { value: "scattered_rain", label: "Scattered rain" },
-    ]) {
-      const opt = document.createElement("option");
-      opt.value = optDef.value;
-      opt.textContent = optDef.label;
-      weatherSelect.appendChild(opt);
-    }
-    weatherSelect.addEventListener("change", () => {
-      const mapData = this.game?.mapRenderer.getMapData();
-      if (mapData) mapData.weatherMode = weatherSelect.value as any;
-    });
-    this.mapWeatherSelect = weatherSelect;
-    weatherRow.append(weatherLabel, weatherSelect);
-    form.appendChild(weatherRow);
-
-    const weatherIntensityRow = document.createElement("div");
-    weatherIntensityRow.style.cssText =
-      "display:flex;gap:4px;align-items:center;";
-    const weatherIntensityLabel = document.createElement("span");
-    weatherIntensityLabel.textContent = "Rain Intensity:";
-    weatherIntensityLabel.style.minWidth = "80px";
-    const weatherIntensitySelect = document.createElement("select");
-    weatherIntensitySelect.style.cssText =
-      "flex:1;padding:4px;background:#181825;color:#eee;border:1px solid #444;border-radius:4px;font-size:12px;";
-    for (const optDef of [
-      { value: "light", label: "Light" },
-      { value: "medium", label: "Medium" },
-      { value: "heavy", label: "Heavy" },
-    ]) {
-      const opt = document.createElement("option");
-      opt.value = optDef.value;
-      opt.textContent = optDef.label;
-      weatherIntensitySelect.appendChild(opt);
-    }
-    weatherIntensitySelect.addEventListener("change", () => {
-      const mapData = this.game?.mapRenderer.getMapData();
-      if (mapData)
-        mapData.weatherIntensity = weatherIntensitySelect.value as any;
-    });
-    this.mapWeatherIntensitySelect = weatherIntensitySelect;
-    weatherIntensityRow.append(weatherIntensityLabel, weatherIntensitySelect);
-    form.appendChild(weatherIntensityRow);
-
-    const weatherSfxRow = document.createElement("div");
-    weatherSfxRow.style.cssText = "display:flex;gap:4px;align-items:center;";
-    const weatherSfxLabel = document.createElement("span");
-    weatherSfxLabel.textContent = "Rain SFX:";
-    weatherSfxLabel.style.minWidth = "80px";
-    const weatherSfxCheck = document.createElement("input");
-    weatherSfxCheck.type = "checkbox";
-    weatherSfxCheck.addEventListener("change", () => {
-      const mapData = this.game?.mapRenderer.getMapData();
-      if (mapData) mapData.weatherRainSfx = weatherSfxCheck.checked;
-    });
-    this.mapWeatherSfxCheck = weatherSfxCheck;
-    weatherSfxRow.append(weatherSfxLabel, weatherSfxCheck);
-    form.appendChild(weatherSfxRow);
-
-    const weatherLightningRow = document.createElement("div");
-    weatherLightningRow.style.cssText =
-      "display:flex;gap:4px;align-items:center;";
-    const weatherLightningLabel = document.createElement("span");
-    weatherLightningLabel.textContent = "Lightning:";
-    weatherLightningLabel.style.minWidth = "80px";
-    const weatherLightningCheck = document.createElement("input");
-    weatherLightningCheck.type = "checkbox";
-    weatherLightningCheck.addEventListener("change", () => {
-      const mapData = this.game?.mapRenderer.getMapData();
-      if (mapData)
-        mapData.weatherLightningEnabled = weatherLightningCheck.checked;
-    });
-    this.mapWeatherLightningCheck = weatherLightningCheck;
-    weatherLightningRow.append(weatherLightningLabel, weatherLightningCheck);
-    form.appendChild(weatherLightningRow);
-
-    const weatherLightningChanceRow = document.createElement("div");
-    weatherLightningChanceRow.style.cssText =
-      "display:flex;gap:4px;align-items:center;";
-    const weatherLightningChanceLabel = document.createElement("span");
-    weatherLightningChanceLabel.textContent = "Lightning/sec:";
-    weatherLightningChanceLabel.style.minWidth = "80px";
-    const weatherLightningChanceInput = document.createElement("input");
-    weatherLightningChanceInput.type = "number";
-    weatherLightningChanceInput.min = "0";
-    weatherLightningChanceInput.max = "1";
-    weatherLightningChanceInput.step = "0.01";
-    weatherLightningChanceInput.style.cssText =
-      "flex:1;padding:4px;background:#181825;color:#eee;border:1px solid #444;border-radius:4px;font-size:12px;";
-    weatherLightningChanceInput.addEventListener("input", () => {
-      const mapData = this.game?.mapRenderer.getMapData();
-      if (!mapData) return;
-      const n = Number(weatherLightningChanceInput.value);
-      if (!Number.isFinite(n)) return;
-      mapData.weatherLightningChancePerSec = Math.max(0, Math.min(1, n));
-    });
-    this.mapWeatherLightningChanceInput = weatherLightningChanceInput;
-    weatherLightningChanceRow.append(
-      weatherLightningChanceLabel,
-      weatherLightningChanceInput,
+    return buildMapPickerImpl(
+      this as unknown as MapPickerContext,
     );
-    form.appendChild(weatherLightningChanceRow);
-
-    const combatRow = document.createElement("div");
-    combatRow.style.cssText = "display:flex;gap:4px;align-items:center;";
-    const combatLabel = document.createElement("span");
-    combatLabel.textContent = "Combat:";
-    combatLabel.style.minWidth = "80px";
-    const combatCheck = document.createElement("input");
-    combatCheck.type = "checkbox";
-    combatCheck.addEventListener("change", () => {
-      const mapData = this.game?.mapRenderer.getMapData();
-      if (mapData) mapData.combatEnabled = combatCheck.checked;
-    });
-    this.mapCombatCheck = combatCheck;
-    combatRow.append(combatLabel, combatCheck);
-    form.appendChild(combatRow);
-
-    const combatRangeRow = document.createElement("div");
-    combatRangeRow.style.cssText = "display:flex;gap:4px;align-items:center;";
-    const combatRangeLabel = document.createElement("span");
-    combatRangeLabel.textContent = "Attack Range:";
-    combatRangeLabel.style.minWidth = "80px";
-    const combatRangeInput = document.createElement("input");
-    combatRangeInput.type = "number";
-    combatRangeInput.min = String(COMBAT_ATTACK_RANGE_MIN_PX);
-    combatRangeInput.max = String(COMBAT_ATTACK_RANGE_MAX_PX);
-    combatRangeInput.step = "1";
-    combatRangeInput.style.cssText =
-      "flex:1;padding:4px;background:#181825;color:#eee;border:1px solid #444;border-radius:4px;font-size:12px;";
-    combatRangeInput.addEventListener("input", () => {
-      const mapData = this.game?.mapRenderer.getMapData();
-      if (!mapData) return;
-      const n = Number(combatRangeInput.value);
-      if (!Number.isFinite(n)) return;
-      mapData.combatSettings = mapData.combatSettings ?? {};
-      mapData.combatSettings.attackRangePx = Math.max(
-        COMBAT_ATTACK_RANGE_MIN_PX,
-        Math.min(COMBAT_ATTACK_RANGE_MAX_PX, Math.round(n)),
-      );
-    });
-    this.mapCombatRangeInput = combatRangeInput;
-    combatRangeRow.append(combatRangeLabel, combatRangeInput);
-    form.appendChild(combatRangeRow);
-
-    const combatCooldownRow = document.createElement("div");
-    combatCooldownRow.style.cssText =
-      "display:flex;gap:4px;align-items:center;";
-    const combatCooldownLabel = document.createElement("span");
-    combatCooldownLabel.textContent = "Atk Cooldown:";
-    combatCooldownLabel.style.minWidth = "80px";
-    const combatCooldownInput = document.createElement("input");
-    combatCooldownInput.type = "number";
-    combatCooldownInput.min = String(COMBAT_PLAYER_ATTACK_COOLDOWN_MIN_MS);
-    combatCooldownInput.max = String(COMBAT_PLAYER_ATTACK_COOLDOWN_MAX_MS);
-    combatCooldownInput.step = "10";
-    combatCooldownInput.style.cssText =
-      "flex:1;padding:4px;background:#181825;color:#eee;border:1px solid #444;border-radius:4px;font-size:12px;";
-    combatCooldownInput.addEventListener("input", () => {
-      const mapData = this.game?.mapRenderer.getMapData();
-      if (!mapData) return;
-      const n = Number(combatCooldownInput.value);
-      if (!Number.isFinite(n)) return;
-      mapData.combatSettings = mapData.combatSettings ?? {};
-      mapData.combatSettings.playerAttackCooldownMs = Math.max(
-        COMBAT_PLAYER_ATTACK_COOLDOWN_MIN_MS,
-        Math.min(COMBAT_PLAYER_ATTACK_COOLDOWN_MAX_MS, Math.round(n)),
-      );
-    });
-    this.mapCombatCooldownInput = combatCooldownInput;
-    combatCooldownRow.append(combatCooldownLabel, combatCooldownInput);
-    form.appendChild(combatCooldownRow);
-
-    const combatNpcHitCdRow = document.createElement("div");
-    combatNpcHitCdRow.style.cssText =
-      "display:flex;gap:4px;align-items:center;";
-    const combatNpcHitCdLabel = document.createElement("span");
-    combatNpcHitCdLabel.textContent = "Hit Recovery:";
-    combatNpcHitCdLabel.style.minWidth = "80px";
-    const combatNpcHitCdInput = document.createElement("input");
-    combatNpcHitCdInput.type = "number";
-    combatNpcHitCdInput.min = String(COMBAT_NPC_HIT_COOLDOWN_MIN_MS);
-    combatNpcHitCdInput.max = String(COMBAT_NPC_HIT_COOLDOWN_MAX_MS);
-    combatNpcHitCdInput.step = "10";
-    combatNpcHitCdInput.style.cssText =
-      "flex:1;padding:4px;background:#181825;color:#eee;border:1px solid #444;border-radius:4px;font-size:12px;";
-    combatNpcHitCdInput.addEventListener("input", () => {
-      const mapData = this.game?.mapRenderer.getMapData();
-      if (!mapData) return;
-      const n = Number(combatNpcHitCdInput.value);
-      if (!Number.isFinite(n)) return;
-      mapData.combatSettings = mapData.combatSettings ?? {};
-      mapData.combatSettings.npcHitCooldownMs = Math.max(
-        COMBAT_NPC_HIT_COOLDOWN_MIN_MS,
-        Math.min(COMBAT_NPC_HIT_COOLDOWN_MAX_MS, Math.round(n)),
-      );
-    });
-    this.mapCombatNpcHitCooldownInput = combatNpcHitCdInput;
-    combatNpcHitCdRow.append(combatNpcHitCdLabel, combatNpcHitCdInput);
-    form.appendChild(combatNpcHitCdRow);
-
-    const combatVarianceRow = document.createElement("div");
-    combatVarianceRow.style.cssText =
-      "display:flex;gap:4px;align-items:center;";
-    const combatVarianceLabel = document.createElement("span");
-    combatVarianceLabel.textContent = "Dmg Variance:";
-    combatVarianceLabel.style.minWidth = "80px";
-    const combatVarianceInput = document.createElement("input");
-    combatVarianceInput.type = "number";
-    combatVarianceInput.min = String(COMBAT_DAMAGE_VARIANCE_MIN_PCT);
-    combatVarianceInput.max = String(COMBAT_DAMAGE_VARIANCE_MAX_PCT);
-    combatVarianceInput.step = "1";
-    combatVarianceInput.style.cssText =
-      "flex:1;padding:4px;background:#181825;color:#eee;border:1px solid #444;border-radius:4px;font-size:12px;";
-    combatVarianceInput.addEventListener("input", () => {
-      const mapData = this.game?.mapRenderer.getMapData();
-      if (!mapData) return;
-      const n = Number(combatVarianceInput.value);
-      if (!Number.isFinite(n)) return;
-      mapData.combatSettings = mapData.combatSettings ?? {};
-      mapData.combatSettings.damageVariancePct = Math.max(
-        COMBAT_DAMAGE_VARIANCE_MIN_PCT,
-        Math.min(COMBAT_DAMAGE_VARIANCE_MAX_PCT, Math.round(n)),
-      );
-    });
-    this.mapCombatVarianceInput = combatVarianceInput;
-    combatVarianceRow.append(combatVarianceLabel, combatVarianceInput);
-    form.appendChild(combatVarianceRow);
-
-    const statusRow = document.createElement("div");
-    statusRow.style.cssText = "display:flex;gap:4px;align-items:center;";
-    const statusLabel = document.createElement("span");
-    statusLabel.textContent = "Status:";
-    statusLabel.style.minWidth = "80px";
-    const statusSelect = document.createElement("select");
-    statusSelect.style.cssText =
-      "flex:1;padding:4px;background:#181825;color:#eee;border:1px solid #444;border-radius:4px;font-size:12px;";
-    for (const s of ["published", "draft"]) {
-      const opt = document.createElement("option");
-      opt.value = s;
-      opt.textContent = s;
-      statusSelect.appendChild(opt);
-    }
-    statusSelect.addEventListener("change", () => {
-      const mapData = this.game?.mapRenderer.getMapData();
-      if (mapData) mapData.status = statusSelect.value;
-    });
-    this.mapStatusSelect = statusSelect;
-    statusRow.append(statusLabel, statusSelect);
-    form.appendChild(statusRow);
-
-    const info = document.createElement("div");
-    info.style.cssText =
-      "margin-top:6px;padding:6px 8px;background:#1a1a2e;border:1px solid #333;border-radius:4px;font-size:11px;color:#aaa;line-height:1.4;";
-    info.textContent = "Map settings are saved when you click Save.";
-    form.appendChild(info);
-
-    picker.appendChild(form);
-
-    return picker;
   }
+
+  private syncMapSettingsUI() {
+    syncMapSettingsUIImpl(this as unknown as MapPickerContext);
+  }
+
+  // =========================================================================
+  // Portal editor
+  // =========================================================================
 
   private buildPortalPicker(): HTMLElement {
     const picker = document.createElement("div");
@@ -2612,7 +1527,7 @@ export class MapEditorPanel {
     mapLabel.style.minWidth = "80px";
     const mapSelect = document.createElement("select");
     mapSelect.style.cssText =
-      "flex:1;padding:4px;background:#181825;color:#eee;border:1px solid #444;border-radius:4px;font-size:12px;";
+      EDITOR_INPUT_STYLE;
     mapSelect.addEventListener("change", () => {
       this.portalDraft.targetMap = mapSelect.value;
       void this.refreshPortalTargetSpawnOptions(mapSelect.value);
@@ -2629,7 +1544,7 @@ export class MapEditorPanel {
     spawnLabel.style.minWidth = "80px";
     const spawnSelect = document.createElement("select");
     spawnSelect.style.cssText =
-      "flex:1;padding:4px;background:#181825;color:#eee;border:1px solid #444;border-radius:4px;font-size:12px;";
+      EDITOR_INPUT_STYLE;
     spawnSelect.addEventListener("change", () => {
       this.portalDraft.targetSpawn = spawnSelect.value || "start1";
       this.applyPortalDraftToSelected();
@@ -2645,7 +1560,7 @@ export class MapEditorPanel {
     dirLabel.style.minWidth = "80px";
     const dirSelect = document.createElement("select");
     dirSelect.style.cssText =
-      "flex:1;padding:4px;background:#181825;color:#eee;border:1px solid #444;border-radius:4px;font-size:12px;";
+      EDITOR_INPUT_STYLE;
     for (const d of ["", "up", "down", "left", "right"]) {
       const opt = document.createElement("option");
       opt.value = d;
@@ -2662,9 +1577,9 @@ export class MapEditorPanel {
     // Help text — clicking the map directly now starts placement
     const helpText = document.createElement("div");
     helpText.style.cssText =
-      "margin-top:6px;padding:6px 8px;background:#1a1a2e;border:1px solid #333;border-radius:4px;font-size:11px;color:#aaa;line-height:1.4;";
+      `margin-top:6px;padding:6px 8px;background:${EDITOR_INFO_PANEL_BG};border:1px solid ${EDITOR_INFO_PANEL_BORDER};border-radius:4px;font-size:11px;color:${EDITOR_MUTED_TEXT};line-height:1.4;`;
     helpText.innerHTML =
-      "Fill in the fields above, then <b style='color:#00ff88'>click on the map</b> to set the start corner, and click again for the end corner. A green ghost will preview the area.";
+      `Fill in the fields above, then <b style='color:${EDITOR_PORTAL_GHOST_GREEN}'>click on the map</b> to set the start corner, and click again for the end corner. A green ghost will preview the area.`;
 
     form.append(nameRow, mapRow, spawnRow, dirRow, helpText);
     picker.appendChild(form);
@@ -2672,7 +1587,7 @@ export class MapEditorPanel {
     // --- Existing portals list ---
     const listHeader = document.createElement("div");
     listHeader.style.cssText =
-      "padding:8px;font-size:13px;font-weight:600;border-top:1px solid #333;";
+      `padding:8px;font-size:13px;font-weight:600;border-top:1px solid ${EDITOR_INFO_PANEL_BORDER};`;
     listHeader.textContent = "Existing Portals";
     picker.appendChild(listHeader);
 
@@ -2690,71 +1605,13 @@ export class MapEditorPanel {
     placeholder: string,
     onChange: (v: string) => void,
   ): HTMLElement {
-    const row = document.createElement("div");
-    row.style.cssText = "display:flex;gap:4px;align-items:center;";
-    const lbl = document.createElement("span");
-    lbl.textContent = labelText;
-    lbl.style.minWidth = "80px";
-    const inp = document.createElement("input");
-    inp.type = inputType;
-    inp.placeholder = placeholder;
-    inp.value = placeholder;
-    onChange(placeholder); // set default
-    inp.style.cssText =
-      "flex:1;padding:4px;background:#181825;color:#eee;border:1px solid #444;border-radius:4px;font-size:12px;";
-    inp.addEventListener("input", () => onChange(inp.value));
-    if (labelText === "Name:") this.portalNameInput = inp;
-    row.append(lbl, inp);
-    return row;
-  }
-
-  private syncMapSettingsUI() {
-    const mapData = this.game?.mapRenderer.getMapData();
-    if (!mapData) return;
-    if (this.mapNameInput) this.mapNameInput.value = mapData.name ?? "";
-    if (this.mapMusicSelect) this.mapMusicSelect.value = mapData.musicUrl ?? "";
-    if (this.mapWeatherSelect)
-      this.mapWeatherSelect.value = mapData.weatherMode ?? "clear";
-    if (this.mapWeatherIntensitySelect) {
-      this.mapWeatherIntensitySelect.value =
-        mapData.weatherIntensity ?? "medium";
-    }
-    if (this.mapWeatherSfxCheck) {
-      this.mapWeatherSfxCheck.checked = !!mapData.weatherRainSfx;
-    }
-    if (this.mapWeatherLightningCheck) {
-      this.mapWeatherLightningCheck.checked = !!mapData.weatherLightningEnabled;
-    }
-    if (this.mapWeatherLightningChanceInput) {
-      this.mapWeatherLightningChanceInput.value = String(
-        mapData.weatherLightningChancePerSec ?? 0.03,
-      );
-    }
-    if (this.mapCombatCheck)
-      this.mapCombatCheck.checked = mapData.combatEnabled ?? false;
-    if (this.mapCombatRangeInput) {
-      this.mapCombatRangeInput.value = String(
-        mapData.combatSettings?.attackRangePx ?? COMBAT_ATTACK_RANGE_PX,
-      );
-    }
-    if (this.mapCombatCooldownInput) {
-      this.mapCombatCooldownInput.value = String(
-        mapData.combatSettings?.playerAttackCooldownMs ??
-          COMBAT_PLAYER_ATTACK_COOLDOWN_MS,
-      );
-    }
-    if (this.mapCombatNpcHitCooldownInput) {
-      this.mapCombatNpcHitCooldownInput.value = String(
-        mapData.combatSettings?.npcHitCooldownMs ?? COMBAT_NPC_HIT_COOLDOWN_MS,
-      );
-    }
-    if (this.mapCombatVarianceInput) {
-      this.mapCombatVarianceInput.value = String(
-        mapData.combatSettings?.damageVariancePct ?? COMBAT_DAMAGE_VARIANCE_PCT,
-      );
-    }
-    if (this.mapStatusSelect)
-      this.mapStatusSelect.value = mapData.status ?? "published";
+    return createEditorFormRow(labelText, {
+      inputType,
+      inputPlaceholder: placeholder,
+      inputValue: placeholder,
+      onChange,
+      assignRef: labelText === "Name:" ? (el) => { this.portalNameInput = el as HTMLInputElement; } : undefined,
+    });
   }
 
   private async refreshPortalTargetSpawnOptions(targetMapName: string) {
@@ -2886,8 +1743,7 @@ export class MapEditorPanel {
     console.log(`[PortalList] final portal count: ${portals.length}`);
 
     if (portals.length === 0) {
-      this.portalListEl.innerHTML =
-        '<div style="color:#888;font-size:12px;">No portals yet</div>';
+      this.portalListEl.innerHTML = createEmptyStateInline("No portals yet");
       return;
     }
 
@@ -2903,13 +1759,13 @@ export class MapEditorPanel {
       info.style.flex = "1";
       info.textContent = `🚪 ${p.name} → ${p.targetMap}:${p.targetSpawn} (${p.x},${p.y} ${p.width}x${p.height})`;
       if (this.selectedPortalIndex === i) {
-        info.style.color = "#7ee7ff";
+        info.style.color = EDITOR_SELECTED_PORTAL_HIGHLIGHT;
       }
 
       const delBtn = document.createElement("button");
       delBtn.textContent = "✕";
       delBtn.style.cssText =
-        "background:none;border:none;color:#e74c3c;cursor:pointer;font-size:13px;";
+        `background:none;border:none;color:${EDITOR_DELETE_BUTTON};cursor:pointer;font-size:13px;`;
       row.addEventListener("click", () => {
         this.selectPortalForEditing(i);
       });
@@ -3137,7 +1993,7 @@ export class MapEditorPanel {
     nameInput.type = "text";
     nameInput.placeholder = "start1, shop-door, npc-guard...";
     nameInput.style.cssText =
-      "flex:1;padding:4px;background:#181825;color:#eee;border:1px solid #444;border-radius:4px;font-size:12px;";
+      EDITOR_INPUT_STYLE;
     nameInput.addEventListener("input", () => {
       this.labelDraftName = nameInput.value.trim();
     });
@@ -3146,8 +2002,8 @@ export class MapEditorPanel {
     // Help text
     const helpText = document.createElement("div");
     helpText.style.cssText =
-      "padding:6px 8px;background:#1a1a2e;border:1px solid #333;border-radius:4px;font-size:11px;color:#aaa;line-height:1.4;";
-    helpText.innerHTML = `Enter a name, then <b style="color:#ffcc00">click on the map</b> for a single-tile label, or click twice to define a rectangular zone. Labels are used as portal spawn targets (e.g. <code>start1</code>).`;
+      `padding:6px 8px;background:${EDITOR_INFO_PANEL_BG};border:1px solid ${EDITOR_INFO_PANEL_BORDER};border-radius:4px;font-size:11px;color:${EDITOR_MUTED_TEXT};line-height:1.4;`;
+    helpText.innerHTML = `Enter a name, then <b style="color:${EDITOR_LABEL_HELP_YELLOW}">click on the map</b> for a single-tile label, or click twice to define a rectangular zone. Labels are used as portal spawn targets (e.g. <code>start1</code>).`;
 
     form.append(nameRow, helpText);
     picker.appendChild(form);
@@ -3155,7 +2011,7 @@ export class MapEditorPanel {
     // --- Existing labels list ---
     const listHeader = document.createElement("div");
     listHeader.style.cssText =
-      "padding:8px;font-size:13px;font-weight:600;border-top:1px solid #333;";
+      `padding:8px;font-size:13px;font-weight:600;border-top:1px solid ${EDITOR_INFO_PANEL_BORDER};`;
     listHeader.textContent = "Existing Labels";
     picker.appendChild(listHeader);
 
@@ -3173,8 +2029,7 @@ export class MapEditorPanel {
     const labels = mapData?.labels ?? [];
 
     if (labels.length === 0) {
-      this.labelListEl.innerHTML =
-        '<div style="color:#888;font-size:12px;">No labels yet</div>';
+      this.labelListEl.innerHTML = createEmptyStateInline("No labels yet");
       return;
     }
 
@@ -3194,7 +2049,7 @@ export class MapEditorPanel {
       const delBtn = document.createElement("button");
       delBtn.textContent = "✕";
       delBtn.style.cssText =
-        "background:none;border:none;color:#e74c3c;cursor:pointer;font-size:13px;";
+        `background:none;border:none;color:${EDITOR_DELETE_BUTTON};cursor:pointer;font-size:13px;`;
       delBtn.addEventListener("click", () => {
         if (mapData && mapData.labels) {
           mapData.labels.splice(i, 1);
@@ -3295,7 +2150,7 @@ export class MapEditorPanel {
       // 1) Save map tiles
       const layers = mapData.layers.map((l) => ({
         name: l.name,
-        type: l.type as "bg" | "obj" | "overlay",
+        type: l.type as MapLayerType,
         tiles: JSON.stringify(l.tiles),
         visible: l.visible,
         tilesetUrl: l.tilesetUrl,
@@ -3456,7 +2311,9 @@ export class MapEditorPanel {
 
   private showSaveStatus(text: string, isError = false) {
     this.saveStatusEl.textContent = text;
-    this.saveStatusEl.style.color = isError ? "#ff4444" : "#88ff88";
+    this.saveStatusEl.style.color = isError
+      ? EDITOR_ERROR_RED
+      : EDITOR_SUCCESS_GREEN;
     clearTimeout(this._saveTimer);
     this._saveTimer = window.setTimeout(() => {
       this.saveStatusEl.textContent = "";
@@ -3496,8 +2353,44 @@ export class MapEditorPanel {
   }
 
   destroy() {
+    if (this._hoverRaf) {
+      cancelAnimationFrame(this._hoverRaf);
+      this._hoverRaf = 0;
+    }
+    this._unbindTilesetMouseUp?.();
+    this._unbindTilesetMouseUp = null;
+    this._unbindDeleteDropdown?.();
+    this._unbindDeleteDropdown = null;
+    this._unbindMoveDropdown?.();
+    this._unbindMoveDropdown = null;
+    if (this._resizeMouseMove) {
+      document.removeEventListener("mousemove", this._resizeMouseMove);
+      this._resizeMouseMove = null;
+    }
+    if (this._resizeMouseUp) {
+      document.removeEventListener("mouseup", this._resizeMouseUp);
+      this._resizeMouseUp = null;
+    }
     if (this.canvasUpHandler) {
       window.removeEventListener("mouseup", this.canvasUpHandler);
+      this.canvasUpHandler = null;
+    }
+    if (this.keyHandler) {
+      window.removeEventListener("keydown", this.keyHandler);
+      this.keyHandler = null;
+    }
+    const canvas = this.game?.app?.canvas as HTMLCanvasElement | undefined;
+    if (canvas && this.canvasClickHandler) {
+      canvas.removeEventListener("mousedown", this.canvasClickHandler);
+      this.canvasClickHandler = null;
+    }
+    if (canvas && this.canvasMoveHandler) {
+      canvas.removeEventListener("mousemove", this.canvasMoveHandler);
+      this.canvasMoveHandler = null;
+    }
+    if (canvas && this.canvasHoverHandler) {
+      canvas.removeEventListener("mousemove", this.canvasHoverHandler);
+      this.canvasHoverHandler = null;
     }
     this.game?.objectLayer?.hideGhost();
     this.el.remove();
