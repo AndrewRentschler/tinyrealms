@@ -1,10 +1,10 @@
-import { Container, Sprite, Texture, Rectangle, Graphics } from "pixi.js";
-import type { Game } from "./Game/index.ts";
-import type { MapData, MapLayer } from "./types.ts";
-import { TileAnimator } from "./animations/TileAnimator.ts";
-import { renderLayer } from "./MapRenderer/renderLayer.ts";
-import { loadTilesetTexture } from "./MapRenderer/loadTileset.ts";
-import { renderGrid } from "./MapRenderer/grid.ts";
+import { Container, Graphics, Texture } from "pixi.js";
+import type { Game } from "../Game/index.ts";
+import type { MapData } from "../types.ts";
+import { TileAnimator } from "../animations/TileAnimator.ts";
+import { renderLayer } from "./renderLayer.ts";
+import { loadTilesetTexture } from "./loadTileset.ts";
+import { renderGrid } from "./grid.ts";
 import {
   isCollision as isCollisionAt,
   setCollisionOverride as setCollisionOverrideAt,
@@ -12,7 +12,7 @@ import {
   clearAllCollisionOverrides as clearAllCollisionOverridesAt,
   worldToTile as worldToTileAt,
   tileToWorld as tileToWorldAt,
-} from "./MapRenderer/collision.ts";
+} from "./collision.ts";
 import {
   COLLISION_OVERLAY_Z_INDEX,
   HIGHLIGHT_LAYER_ACTIVE_ALPHA,
@@ -20,13 +20,13 @@ import {
   LABEL_OVERLAY_Z_INDEX,
   OVERLAY_LAYER_Z_INDEX,
   PORTAL_OVERLAY_Z_INDEX,
-} from "./MapRenderer/constants.ts";
+} from "./constants.ts";
 import {
   renderCollisionOverlay as renderCollisionOverlayFn,
   renderPortalOverlay as renderPortalOverlayFn,
   renderLabelOverlay as renderLabelOverlayFn,
-} from "./MapRenderer/overlays.ts";
-import { GhostManager } from "./MapRenderer/ghosts.ts";
+} from "./overlays.ts";
+import { GhostManager } from "./ghosts.ts";
 
 /**
  * Renders a multi-layer tile map using PixiJS.

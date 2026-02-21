@@ -1,4 +1,4 @@
-import { MapRenderer } from "../MapRenderer.ts";
+import { MapRenderer } from "../MapRenderer/index.ts";
 import { EntityLayer } from "../EntityLayer.ts";
 import { ObjectLayer } from "../ObjectLayer.ts";
 import { WorldItemLayer } from "../WorldItemLayer.ts";
