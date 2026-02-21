@@ -1,5 +1,5 @@
 import type { CombatAction, Combatant, TurnResult } from "./types.ts";
-import { DEFEND_HEAL_FRACTION } from "./constants.ts";
+import { DEFEND_HEAL_FRACTION } from "../../config/combat-config.ts";
 
 /**
  * Resolve a defend action. Heals actor by fraction of max HP. Mutates actor.stats.hp.

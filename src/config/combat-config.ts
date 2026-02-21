@@ -23,6 +23,12 @@ export const COMBAT_DAMAGE_VARIANCE_MIN_PCT = 0;
 export const COMBAT_DAMAGE_VARIANCE_MAX_PCT = 50;
 export const COMBAT_DEBUG = false;
 
+/** Defend action: heal this fraction of max HP */
+export const DEFEND_HEAL_FRACTION = 0.1;
+
+/** Flee action: success probability (0–1) */
+export const FLEE_SUCCESS_CHANCE = 0.5;
+
 // Hit feedback effects
 export const HIT_SHAKE_DURATION_MS = 150;
 export const HIT_SHAKE_MAGNITUDE_PX = 3;

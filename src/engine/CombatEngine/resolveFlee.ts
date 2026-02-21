@@ -1,5 +1,5 @@
 import type { CombatAction, Combatant, TurnResult } from "./types.ts";
-import { FLEE_SUCCESS_CHANCE } from "./constants.ts";
+import { FLEE_SUCCESS_CHANCE } from "../../config/combat-config.ts";
 
 /**
  * Resolve a flee action. Success based on FLEE_SUCCESS_CHANCE.
