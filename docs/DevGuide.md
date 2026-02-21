@@ -25,18 +25,31 @@ src/
 ├── App.ts               Profile selection → GameShell
 ├── index.css            Global CSS variables & base styles
 │
+├── config/              Central configuration (combat, audio, tilesheets)
+│   ├── combat-config.ts Combat constants (DEFEND_HEAL_FRACTION, FLEE_SUCCESS_CHANCE, ranges, cooldowns)
+│   ├── audio-config.ts  Volume defaults
+│   ├── tilesheet-config.ts, spritesheet-config.ts, music-config.ts, multiplayer-config.ts
+│   └── ...
+│
+├── constants/           Shared constants (colors, keybindings)
+│   ├── colors.ts        Hex colors for PixiJS and CSS
+│   ├── keybindings.ts   E, MUTE_KEY, COMBAT_ATTACK_KEY, etc.
+│   └── editor.ts        Editor-specific constants
+│
 ├── engine/              PixiJS game engine (rendering, input, audio)
-│   ├── Game.ts          Main game loop, stage setup, mode switching, map loading
-│   ├── EntityLayer.ts   Player + NPC rendering, movement, NPC dialogue
-│   ├── MapRenderer.ts   Tile map rendering, collision overlay, portals, labels
-│   ├── ObjectLayer.ts   Placed objects (static + toggleable), glow/prompt
-│   ├── WorldItemLayer.ts  Item pickups on map (bob, glow, proximity)
+│   ├── Game/            Main game loop, stage setup, mode switching, map loading
+│   ├── EntityLayer/     Player + NPC rendering, movement, NPC dialogue (import from engine/EntityLayer/index.ts)
+│   ├── MapRenderer/     Tile map rendering, collision overlay, portals, labels
+│   ├── ObjectLayer/     Placed objects (static + toggleable), glow/prompt
+│   ├── WorldItemLayer/  Item pickups on map (bob, glow, proximity)
+│   ├── WeatherLayer.ts  Rain/snow overlay
 │   ├── NPC.ts           NPC AI (wander, idle, patrol), sprite animation
 │   ├── AudioManager/    Web Audio API — BGM + SFX + ambient + spatial (spatial.ts)
 │   ├── Camera.ts        Viewport + smooth follow
 │   ├── InputManager.ts  Keyboard/mouse state (keys, justPressed, endFrame)
 │   ├── SpriteLoader.ts  Spritesheet loader (avoids PixiJS cache collisions)
-│   ├── CombatEngine/    Turn-based combat resolution (CombatEngine, resolveTurn, isCombatOver)
+│   ├── PresenceManager.ts  Real-time presence sync
+│   ├── CombatEngine/    Turn-based combat (CombatEngine, resolveTurn, isCombatOver); constants in config/combat-config.ts
 │   ├── types.ts         Shared types (AppMode, MapData, Direction, etc.)
 │   └── animations/
 │       └── TileAnimator.ts  Animated tile overlays (water, torches)
@@ -105,6 +118,8 @@ convex/                  Backend (Convex functions)
     ├── quests.ts, dialogue.ts, lore.ts, events.ts, storyAi.ts
 ```
 
+**Import paths**: Engine layers live in folders; import from `engine/X/index.ts` (e.g. `engine/MapRenderer/index.ts`, `engine/EntityLayer/index.ts`). No barrel files at `engine/MapRenderer.ts` — those were removed in favor of folder-based modules.
+
 ---
 
 ## 3. Architecture & Data Flow
@@ -119,7 +134,7 @@ convex/                  Backend (Convex functions)
 
 `ModeToggle.ts` has the buttons. `GameShell.ts` calls `game.setMode()` and toggles panel visibility.
 
-### Game Loop (`Game.ts` → `update()`)
+### Game Loop (`Game/update.ts`)
 
 ```
 update() called by PixiJS ticker every frame
@@ -142,10 +157,13 @@ update() called by PixiJS ticker every frame
 ```
 Stage (sortableChildren = true)
 ├── mapRenderer.container        zIndex: 0   — base tile layers (bg0, bg1, obj0, obj1)
+├── objectLayer.bgContainer       — object layer background
 ├── worldItemLayer.container     zIndex: 45  — item pickups
 ├── objectLayer.container        zIndex: 50  — placed sprites (fireplaces, furniture)
 ├── entityLayer.container        zIndex: 50  — player + NPCs
-└── mapRenderer.overlayLayerContainer  zIndex: 60  — overlay tiles (tree tops, roofs)
+├── objectLayer.overlayContainer  — object overlays
+├── mapRenderer.overlayLayerContainer  zIndex: 60  — overlay tiles (tree tops, roofs)
+└── weatherLayer.container       — rain/snow
 ```
 
 Within `objectLayer`, each object's container has `zIndex = Math.round(obj.y)` for depth sorting.
@@ -204,11 +222,11 @@ Then in `GameShell.ts`:
 
 ### Adding a PixiJS Layer
 
-1. Create `src/engine/MyLayer.ts` extending the pattern of `ObjectLayer` or `WorldItemLayer`
-2. Create a `container: Container` property
-3. In `Game.ts`:
-   - Instantiate in `init()`
-   - Add container to stage: `this.app.stage.addChild(myLayer.container)`
+1. Create `src/engine/MyLayer/` folder with `index.ts` and module files (see `ObjectLayer/` or `WorldItemLayer/` as templates)
+2. Export a class with `container: Container` property
+3. In `Game/` (initializer.ts, setupLayers.ts):
+   - Instantiate in `initializer.ts` (e.g. `game.myLayer = new MyLayer()`)
+   - Add container to stage in `setupLayers.ts`: `app.stage.addChild(myLayer.container)`
    - Set appropriate `zIndex`
    - Call update in the game loop
    - Clean up in `destroy()` and map transitions
@@ -245,8 +263,8 @@ All placed objects use anchor `(0.5, 1.0)` — bottom-center. This means:
 
 1. Add fields to `spriteDefinitions` table in `convex/schema.ts`
 2. Update `SpriteEditorPanel.ts` form to edit the new fields
-3. Update `ObjectLayer.addPlacedObject()` to read the new fields
-4. Add interaction logic in `ObjectLayer` (similar to `updateToggleInteraction`)
+3. Update `ObjectLayer/addPlacedObject.ts` to read the new fields
+4. Add interaction logic in `ObjectLayer/` (similar to `updateToggleInteraction`)
 5. Add handler in `Game.update()` play-mode block
 
 ### New Map Tool (e.g., "Zone Painter")
@@ -256,7 +274,7 @@ All placed objects use anchor `(0.5, 1.0)` — bottom-center. This means:
 3. In `setTool()`, show/hide a zone picker panel
 4. In `handleCanvasAction()`, dispatch to a `paintZone()` method
 5. Store zone data in `mapData` (add field to `MapData` type in `types.ts`)
-6. Render zone overlay in `MapRenderer` (follow collision overlay pattern)
+6. Render zone overlay in `MapRenderer/` (follow collision overlay pattern)
 7. Save/load in `maps.ts` bulk save
 
 ### New Splash Screen (e.g., "Crafting")
@@ -295,18 +313,19 @@ All placed objects use anchor `(0.5, 1.0)` — bottom-center. This means:
 
 | "I want to..." | File(s) |
 |---|---|
-| Change player movement speed | `EntityLayer.ts` → `MOVE_SPEED` |
+| Change player movement speed | `EntityLayer/constants.ts` → `MOVE_SPEED` |
 | Add a new map | Map Browser UI or `scripts/convert-map.mjs` |
-| Edit collision detection | `MapRenderer.ts` → `isCollision()`, `EntityLayer.ts` → `isBlocked()` |
+| Edit collision detection | `MapRenderer/index.ts` → `isCollision()`, `EntityLayer/isBlocked.ts` |
+| Change combat constants | `config/combat-config.ts` (DEFEND_HEAL_FRACTION, FLEE_SUCCESS_CHANCE, ranges) |
 | Change NPC wander behavior | `NPC.ts` → `updateWander()`, `convex/npcEngine.ts` |
 | Add a new Convex table | `convex/schema.ts` → add table, create new `.ts` file |
 | Style a UI panel | Companion `.css` file in same directory |
 | Add a toolbar button | `MapEditorPanel.ts` → `TOOLS` or `DELETE_OPTIONS` arrays |
-| Change audio settings | `AudioManager.ts`, `ObjectLayer.ts` → `updateAmbientVolumes()` |
+| Change audio settings | `AudioManager/`, `ObjectLayer/updateAmbientVolumes.ts` |
 | Modify the camera | `Camera.ts` |
-| Add keyboard shortcut | `InputManager.ts` captures all keys; check in `Game.update()` |
-| Change stage render order | `Game.ts` → `init()` where `app.stage.addChild(...)` is called |
-| Edit map save format | `convex/maps.ts` → `save` mutation, `types.ts` → `MapData` |
+| Add keyboard shortcut | `InputManager.ts` captures all keys; check in `Game/update.ts` |
+| Change stage render order | `Game/setupLayers.ts` where `app.stage.addChild(...)` is called |
+| Edit map save format | `convex/maps.ts` → `save` mutation, `engine/types.ts` → `MapData` |
 
 ---
 
@@ -322,8 +341,8 @@ All placed objects use anchor `(0.5, 1.0)` — bottom-center. This means:
 ### Debug Tips
 
 - Add `console.log` in `Game.update()` to trace the game loop
-- Check `this.rendered` array in ObjectLayer for placed objects
-- Check `this.mode` in Game.ts to verify you're in the right mode
+- Check `this.rendered` array in ObjectLayer for placed objects (ObjectLayer/addPlacedObject.ts)
+- Check `this.mode` in Game/Game.ts to verify you're in the right mode
 - Browser DevTools → Network tab shows Convex WebSocket messages
 - If sprites don't appear, check zIndex ordering and container parent chain
 
@@ -331,7 +350,7 @@ All placed objects use anchor `(0.5, 1.0)` — bottom-center. This means:
 
 ## 9. Common Pitfalls
 
-1. **`input.endFrame()` placement** — Must be the last call in `Game.update()`. If called earlier, `wasJustPressed()` won't work for later systems.
+1. **`input.endFrame()` placement** — Must be the last call in `Game/update.ts`. If called earlier, `wasJustPressed()` won't work for later systems.
 
 2. **Subscription reload race** — Convex subscriptions fire after mutations. If you do an optimistic visual update, the subscription may destroy and recreate your sprites. Use the toggle fast-path pattern (compare rendered state to incoming data).
 
