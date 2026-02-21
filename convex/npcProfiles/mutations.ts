@@ -4,6 +4,7 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 import { mutation } from "../_generated/server";
+import { logicConfigValidator } from "../schema.ts";
 import { getVisibilityType, visibilityTypeValidator } from "../lib/visibility.ts";
 import { slugifyInstanceName } from "./helpers.ts";
 
@@ -48,7 +49,7 @@ export const save = mutation({
     wanderRadius: v.optional(v.number()),
     greeting: v.optional(v.string()),
     logicKey: v.optional(v.string()),
-    logicConfig: v.optional(v.any()),
+    logicConfig: logicConfigValidator,
     systemPrompt: v.optional(v.string()),
     faction: v.optional(v.string()),
     knowledge: v.optional(v.string()),

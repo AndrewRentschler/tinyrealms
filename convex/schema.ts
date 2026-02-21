@@ -3,6 +3,11 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import { visibilityTypeValidator } from "./lib/visibility.ts";
 
+// Shared validators for extensible payload fields (replaces top-level v.any())
+// Bounded to object-with-string-keys; values use v.any() as last resort for truly dynamic payloads
+export const logicConfigValidator = v.optional(v.record(v.string(), v.any()));
+export const sideEffectsValidator = v.optional(v.record(v.string(), v.any()));
+
 export default defineSchema({
   ...authTables,
 
@@ -221,7 +226,7 @@ export default defineSchema({
     wanderRadius: v.optional(v.number()), // behavior: wander radius (px)
     greeting: v.optional(v.string()), // behavior: default greeting line for procedural chat
     logicKey: v.optional(v.string()), // optional server-side procedural logic registry key
-    logicConfig: v.optional(v.any()), // optional logic configuration payload
+    logicConfig: logicConfigValidator, // optional logic configuration payload (bounded record)
     systemPrompt: v.optional(v.string()), // full LLM system prompt (auto-generated or hand-written)
     faction: v.optional(v.string()), // affiliation (e.g. "Merchants Guild", "Forest Druids")
     knowledge: v.optional(v.string()), // things this NPC knows about the world
@@ -491,7 +496,7 @@ export default defineSchema({
     intentType: v.string(),
     accepted: v.boolean(),
     reason: v.optional(v.string()),
-    sideEffects: v.optional(v.any()),
+    sideEffects: sideEffectsValidator,
     createdAt: v.number(),
   })
     .index("by_npc", ["npcProfileName"])

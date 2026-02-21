@@ -11,13 +11,28 @@ export const listByMap = query({
   },
 });
 
+const storyEventConditionsValidator = v.optional(
+  v.object({
+    requiredQuest: v.optional(v.string()),
+    requiredItem: v.optional(v.string()),
+    minLevel: v.optional(v.number()),
+    flag: v.optional(v.string()),
+  }),
+);
+const storyEventScriptValidator = v.array(
+  v.object({
+    action: v.string(),
+    args: v.optional(v.record(v.string(), v.string())),
+  }),
+);
+
 export const create = mutation({
   args: {
     mapId: v.optional(v.id("maps")),
     triggerId: v.string(),
     type: v.string(),
-    conditions: v.any(),
-    script: v.any(),
+    conditions: storyEventConditionsValidator,
+    script: storyEventScriptValidator,
   },
   handler: async (ctx, args) => {
     return await ctx.db.insert("storyEvents", args);
