@@ -32,8 +32,7 @@ src/
 │   ├── ObjectLayer.ts   Placed objects (static + toggleable), glow/prompt
 │   ├── WorldItemLayer.ts  Item pickups on map (bob, glow, proximity)
 │   ├── NPC.ts           NPC AI (wander, idle, patrol), sprite animation
-│   ├── AudioManager.ts  Web Audio API — BGM + SFX + ambient
-│   ├── SpatialAudio.ts  Distance-based volume + stereo panning
+│   ├── AudioManager/    Web Audio API — BGM + SFX + ambient + spatial (spatial.ts)
 │   ├── Camera.ts        Viewport + smooth follow
 │   ├── InputManager.ts  Keyboard/mouse state (keys, justPressed, endFrame)
 │   ├── SpriteLoader.ts  Spritesheet loader (avoids PixiJS cache collisions)

@@ -1,62 +1,47 @@
 /**
- * Spatial audio manager using the Web Audio API.
+ * Spatial audio using the Web Audio API.
  * Provides distance-based attenuation and stereo panning for sound sources
- * positioned in the 2D world.
+ * positioned in the 2D world. Composed into AudioManager — uses shared
+ * AudioContext, buffer cache, and sfxGainNode so spatial sounds respect mute.
  */
 
 interface AudioSource {
   id: string;
   panner: PannerNode;
-  source: AudioBufferSourceNode | MediaElementAudioSourceNode | null;
+  source: AudioBufferSourceNode | null;
   worldX: number;
   worldY: number;
   loop: boolean;
 }
 
-export class SpatialAudio {
-  private ctx: AudioContext | null = null;
-  private sources: Map<string, AudioSource> = new Map();
-  private bufferCache: Map<string, AudioBuffer> = new Map();
+export type LoadBufferFn = (url: string) => Promise<AudioBuffer | null>;
 
-  async init() {
-    this.ctx = new AudioContext();
-    // Resume on user interaction if needed
-    if (this.ctx.state === "suspended") {
-      const resume = () => {
-        this.ctx?.resume();
-        document.removeEventListener("click", resume);
-        document.removeEventListener("keydown", resume);
-      };
-      document.addEventListener("click", resume);
-      document.addEventListener("keydown", resume);
-    }
+export class SpatialAudio {
+  private ctx: AudioContext;
+  private bufferCache: Map<string, AudioBuffer>;
+  private sfxGainNode: GainNode;
+  private loadBufferFn: LoadBufferFn;
+  private sources: Map<string, AudioSource> = new Map();
+
+  constructor(
+    audioContext: AudioContext,
+    bufferCache: Map<string, AudioBuffer>,
+    sfxGainNode: GainNode,
+    loadBufferFn: LoadBufferFn,
+  ) {
+    this.ctx = audioContext;
+    this.bufferCache = bufferCache;
+    this.sfxGainNode = sfxGainNode;
+    this.loadBufferFn = loadBufferFn;
   }
 
   /** Update listener position (call each frame with player/camera position) */
-  updateListener(x: number, y: number) {
-    if (!this.ctx) return;
+  updateListener(x: number, y: number): void {
     const listener = this.ctx.listener;
     if (listener.positionX) {
       listener.positionX.value = x;
       listener.positionY.value = y;
       listener.positionZ.value = 0;
-    }
-  }
-
-  /** Load an audio buffer from URL */
-  async loadBuffer(url: string): Promise<AudioBuffer | null> {
-    if (!this.ctx) return null;
-    if (this.bufferCache.has(url)) return this.bufferCache.get(url)!;
-
-    try {
-      const response = await fetch(url);
-      const arrayBuffer = await response.arrayBuffer();
-      const audioBuffer = await this.ctx.decodeAudioData(arrayBuffer);
-      this.bufferCache.set(url, audioBuffer);
-      return audioBuffer;
-    } catch (e) {
-      console.error("Failed to load audio:", url, e);
-      return null;
     }
   }
 
@@ -66,14 +51,11 @@ export class SpatialAudio {
     url: string,
     worldX: number,
     worldY: number,
-    options?: { loop?: boolean; refDistance?: number; rolloffFactor?: number }
-  ) {
-    if (!this.ctx) return;
-
-    const buffer = await this.loadBuffer(url);
+    options?: { loop?: boolean; refDistance?: number; rolloffFactor?: number },
+  ): Promise<void> {
+    const buffer = await this.loadBufferFn(url);
     if (!buffer) return;
 
-    // Clean up existing source with same id
     this.stop(id);
 
     const panner = this.ctx.createPanner();
@@ -84,7 +66,7 @@ export class SpatialAudio {
     panner.positionX.value = worldX;
     panner.positionY.value = worldY;
     panner.positionZ.value = 0;
-    panner.connect(this.ctx.destination);
+    panner.connect(this.sfxGainNode);
 
     const source = this.ctx.createBufferSource();
     source.buffer = buffer;
@@ -109,11 +91,11 @@ export class SpatialAudio {
   }
 
   /** Stop a sound */
-  stop(id: string) {
+  stop(id: string): void {
     const entry = this.sources.get(id);
     if (entry?.source) {
       try {
-        (entry.source as AudioBufferSourceNode).stop();
+        entry.source.stop();
       } catch {
         // already stopped
       }
@@ -122,15 +104,14 @@ export class SpatialAudio {
   }
 
   /** Stop all sounds */
-  stopAll() {
+  stopAll(): void {
     for (const [id] of this.sources) {
       this.stop(id);
     }
   }
 
-  destroy() {
+  /** Clean up; does NOT close the AudioContext (AudioManager owns it) */
+  destroy(): void {
     this.stopAll();
-    this.ctx?.close();
-    this.ctx = null;
   }
 }

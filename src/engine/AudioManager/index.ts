@@ -16,14 +16,21 @@ import {
   startQueuedPlaybackIfNeeded,
   unlock,
 } from "./unlock.ts";
-import { startPlayback, stopPlayback } from "./playback.ts";
+import {
+  startPlayback,
+  stopPlayback,
+  type IAudioManagerPlayback,
+} from "./playback.ts";
+import { type IAudioManagerLoadAndPlay } from "./loadAndPlay.ts";
 import { destroy as destroyAudio } from "./destroy.ts";
 import { loadAndPlay as loadAndPlayFn } from "./loadAndPlay.ts";
 import { playAmbient as playAmbientFn } from "./playAmbient.ts";
 import { playOneShot as playOneShotFn } from "./playOneShot.ts";
+import { SpatialAudio } from "./spatial.ts";
 import type { ActiveSfxEntry, IAudioManagerUnlock, SfxHandle } from "./types.ts";
 
 export type { ActiveSfxEntry, SfxHandle } from "./types.ts";
+export { SpatialAudio } from "./spatial.ts";
 export {
   DEFAULT_AMBIENT_INITIAL_VOLUME,
   DEFAULT_MUSIC_VOLUME,
@@ -47,6 +54,13 @@ export class AudioManager {
   /** Active ambient SFX handles for cleanup */
   private activeSfx: Set<ActiveSfxEntry> = new Set();
 
+  /** Spatial audio (created after unlock) */
+  private spatialAudio: SpatialAudio | null = null;
+
+  /** Cached adapters to avoid GC pressure */
+  private _playbackAdapter: IAudioManagerPlayback | null = null;
+  private _loadAndPlayAdapter: IAudioManagerLoadAndPlay | null = null;
+
   /** Must be called after a user gesture to satisfy autoplay policy */
   unlock() {
     const result = unlock(this as unknown as IAudioManagerUnlock);
@@ -55,16 +69,28 @@ export class AudioManager {
     this.gainNode = result.gainNode;
     this.sfxGainNode = result.sfxGainNode;
     this._started = true;
+    this.spatialAudio = new SpatialAudio(
+      this.audioContext,
+      this.bufferCache,
+      this.sfxGainNode,
+      (u) => this.loadBuffer(u),
+    );
     startQueuedPlaybackIfNeeded(this as unknown as IAudioManagerUnlock);
+  }
+
+  /** Get spatial audio for updateListener, playAt, etc. Null until unlock. */
+  getSpatialAudio(): SpatialAudio | null {
+    return this.spatialAudio;
   }
 
   async loadAndPlay(url: string) {
     await loadAndPlayFn(this.toLoadAndPlayAdapter(), url);
   }
 
-  private toPlaybackAdapter() {
+  private toPlaybackAdapter(): IAudioManagerPlayback {
+    if (this._playbackAdapter) return this._playbackAdapter;
     const m = this;
-    return {
+    this._playbackAdapter = {
       get audioContext() {
         return m.audioContext;
       },
@@ -81,11 +107,13 @@ export class AudioManager {
         m.currentSource = v;
       },
     };
+    return this._playbackAdapter;
   }
 
-  private toLoadAndPlayAdapter() {
+  private toLoadAndPlayAdapter(): IAudioManagerLoadAndPlay {
+    if (this._loadAndPlayAdapter) return this._loadAndPlayAdapter;
     const m = this;
-    return {
+    this._loadAndPlayAdapter = {
       get audioContext() {
         return m.audioContext;
       },
@@ -114,6 +142,7 @@ export class AudioManager {
         m._playing = v;
       },
     };
+    return this._loadAndPlayAdapter;
   }
 
   private startPlayback() {
@@ -204,6 +233,8 @@ export class AudioManager {
   }
 
   destroy() {
+    this.spatialAudio?.destroy();
+    this.spatialAudio = null;
     destroyAudio({
       activeSfx: this.activeSfx,
       audioContext: this.audioContext,
@@ -215,6 +246,8 @@ export class AudioManager {
         this.sfxGainNode = null;
         this.currentSource = null;
         this.currentBuffer = null;
+        this._playbackAdapter = null;
+        this._loadAndPlayAdapter = null;
       },
     });
   }

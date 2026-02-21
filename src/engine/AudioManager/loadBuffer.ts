@@ -1,11 +1,13 @@
 /**
  * Load and decode audio buffers with caching.
+ * Uses LRU eviction when cache exceeds BUFFER_CACHE_MAX_SIZE.
  */
 
 import {
   AUDIO_CHANNELS,
   AUDIO_LENGTH,
   AUDIO_SAMPLE_RATE,
+  BUFFER_CACHE_MAX_SIZE,
 } from "./constants.ts";
 
 export interface IAudioManagerLoadBuffer {
@@ -17,8 +19,12 @@ export async function loadBuffer(
   manager: IAudioManagerLoadBuffer,
   url: string
 ): Promise<AudioBuffer | null> {
-  if (manager.bufferCache.has(url)) {
-    return manager.bufferCache.get(url)!;
+  const cache = manager.bufferCache;
+  if (cache.has(url)) {
+    const buf = cache.get(url)!;
+    cache.delete(url);
+    cache.set(url, buf);
+    return buf;
   }
 
   try {
@@ -32,7 +38,16 @@ export async function loadBuffer(
         AUDIO_SAMPLE_RATE
       );
     const decoded = await ctx.decodeAudioData(arrayBuffer);
-    manager.bufferCache.set(url, decoded);
+
+    while (cache.size >= BUFFER_CACHE_MAX_SIZE) {
+      const oldestKey = cache.keys().next().value;
+      if (oldestKey !== undefined) {
+        cache.delete(oldestKey);
+      } else {
+        break;
+      }
+    }
+    cache.set(url, decoded);
     return decoded;
   } catch (err) {
     console.warn("Failed to load audio:", url, err);
