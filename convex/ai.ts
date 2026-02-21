@@ -42,7 +42,13 @@ export const invokeStream = httpAction(async (_ctx, _request) => {
 
 // Context for AI: string or record of dynamic key-value pairs (e.g. npcName, recentMessages)
 const aiContextValidator = v.optional(
-  v.union(v.string(), v.record(v.string(), v.any())),
+  v.union(
+    v.string(),
+    v.record(
+      v.string(),
+      v.union(v.string(), v.number(), v.boolean(), v.null()),
+    ),
+  ),
 );
 
 // Stub actions that AI functionality expects
