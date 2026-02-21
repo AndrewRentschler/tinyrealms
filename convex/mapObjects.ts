@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
+import type { QueryCtx } from "./_generated/server";
 import { mutation, query } from "./_generated/server";
 import { requireMapEditor } from "./lib/requireMapEditor";
 
@@ -14,7 +15,7 @@ function slugifyInstanceName(input: string): string {
 }
 
 async function generateUniqueNpcInstanceName(
-  ctx: any,
+  ctx: QueryCtx,
   baseInput: string,
   usedObjectNames?: Set<string>,
   usedProfileNames?: Set<string>,
@@ -24,17 +25,15 @@ async function generateUniqueNpcInstanceName(
     usedObjectNames ??
     new Set(
       (await ctx.db.query("mapObjects").collect())
-        .map((o: any) => o.instanceName)
+        .map((o) => o.instanceName)
         .filter(
-          (v: unknown): v is string => typeof v === "string" && v.length > 0,
+          (v): v is string => typeof v === "string" && v.length > 0,
         ),
     );
   const profileNames =
     usedProfileNames ??
     new Set(
-      (await ctx.db.query("npcProfiles").collect()).map((p: any) =>
-        String(p.name),
-      ),
+      (await ctx.db.query("npcProfiles").collect()).map((p) => String(p.name)),
     );
 
   let candidate = base;
@@ -229,9 +228,7 @@ export const bulkSave = mutation({
         .filter((v): v is string => typeof v === "string" && v.length > 0),
     );
     const allProfiles = await ctx.db.query("npcProfiles").collect();
-    const usedProfileNames = new Set(
-      allProfiles.map((p) => String((p as any).name)),
-    );
+    const usedProfileNames = new Set(allProfiles.map((p) => String(p.name)));
     const allDefs = await ctx.db.query("spriteDefinitions").collect();
     const defByName = new Map(allDefs.map((d) => [d.name, d]));
 
@@ -249,7 +246,7 @@ export const bulkSave = mutation({
         });
       } else {
         // New object
-        let instanceName = (fields as any).instanceName as string | undefined;
+        let instanceName = fields.instanceName;
         const def = defByName.get(obj.spriteDefName);
         if (def?.category === "npc" && !instanceName) {
           instanceName = await generateUniqueNpcInstanceName(

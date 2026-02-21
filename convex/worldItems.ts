@@ -1,6 +1,7 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
+import type { Doc } from "./_generated/dataModel";
 import { internalMutation, mutation, query } from "./_generated/server";
 import { requireSuperuser } from "./lib/requireSuperuser";
 
@@ -20,35 +21,47 @@ export const listByMap = query({
     // Also fetch the item definitions so clients can render icons
     const defNames = [...new Set(items.map((i) => i.itemDefName))];
     const allDefs = await ctx.db.query("itemDefs").collect();
-    const defsMap: Record<string, any> = {};
     const iconSpriteDefNames = new Set<string>();
     for (const d of allDefs) {
       if (!defNames.includes(d.name)) continue;
-      defsMap[d.name] = d;
-      if (
-        typeof (d as any).iconSpriteDefName === "string" &&
-        (d as any).iconSpriteDefName.length > 0
-      ) {
-        iconSpriteDefNames.add((d as any).iconSpriteDefName);
+      const name = d.iconSpriteDefName;
+      if (typeof name === "string" && name.length > 0) {
+        iconSpriteDefNames.add(name);
       }
     }
 
     // Resolve optional sprite-def-based item icons (animated object sprites).
-    if (iconSpriteDefNames.size > 0) {
-      const spriteDefs = await ctx.db.query("spriteDefinitions").collect();
-      const spriteByName = new Map(spriteDefs.map((d) => [d.name, d]));
-      for (const def of Object.values(defsMap)) {
-        const spriteName = (def as any).iconSpriteDefName;
-        if (!spriteName) continue;
-        const spriteDef = spriteByName.get(spriteName);
-        if (!spriteDef) continue;
-        // Only expose safe icon fields needed by the client renderer.
-        (def as any).iconSpriteSheetUrl = spriteDef.spriteSheetUrl;
-        (def as any).iconSpriteAnimation = spriteDef.defaultAnimation;
-        (def as any).iconSpriteAnimationSpeed = spriteDef.animationSpeed;
-        (def as any).iconSpriteScale = spriteDef.scale;
-        (def as any).iconSpriteFrameWidth = spriteDef.frameWidth;
-        (def as any).iconSpriteFrameHeight = spriteDef.frameHeight;
+    const spriteDefs =
+      iconSpriteDefNames.size > 0
+        ? await ctx.db.query("spriteDefinitions").collect()
+        : [];
+    const spriteByName = new Map(spriteDefs.map((d) => [d.name, d]));
+
+    type EnrichedDef = Doc<"itemDefs"> & {
+      iconSpriteSheetUrl?: string;
+      iconSpriteAnimation?: string;
+      iconSpriteAnimationSpeed?: number;
+      iconSpriteScale?: number;
+      iconSpriteFrameWidth?: number;
+      iconSpriteFrameHeight?: number;
+    };
+    const defsMap: Record<string, EnrichedDef> = {};
+    for (const d of allDefs) {
+      if (!defNames.includes(d.name)) continue;
+      const spriteName = d.iconSpriteDefName;
+      if (spriteName && spriteByName.has(spriteName)) {
+        const spriteDef = spriteByName.get(spriteName)!;
+        defsMap[d.name] = {
+          ...d,
+          iconSpriteSheetUrl: spriteDef.spriteSheetUrl,
+          iconSpriteAnimation: spriteDef.defaultAnimation,
+          iconSpriteAnimationSpeed: spriteDef.animationSpeed,
+          iconSpriteScale: spriteDef.scale,
+          iconSpriteFrameWidth: spriteDef.frameWidth,
+          iconSpriteFrameHeight: spriteDef.frameHeight,
+        };
+      } else {
+        defsMap[d.name] = d;
       }
     }
 

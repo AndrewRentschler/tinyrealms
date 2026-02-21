@@ -7,6 +7,7 @@
  */
 import { v } from "convex/values";
 import { mutation, query, internalMutation } from "./_generated/server";
+import type { Doc } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 
 // ---------------------------------------------------------------------------
@@ -294,7 +295,9 @@ export const syncMap = internalMutation({
           : (def?.npcWanderRadius ?? 60);
       if (existing) {
         // Keep instance identity and behavior tuning in sync.
-        const patch: Record<string, any> = {};
+        const patch: Partial<
+          Pick<Doc<"npcState">, "instanceName" | "speed" | "wanderRadius">
+        > = {};
         if (existing.instanceName !== obj.instanceName) {
           patch.instanceName = obj.instanceName;
         }

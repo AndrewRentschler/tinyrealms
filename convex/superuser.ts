@@ -1,15 +1,24 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
+import type { QueryCtx } from "./_generated/server";
 import { getMapType, isValidVisibilityType } from "./lib/visibility.ts";
+import { isSuperuserProfile, getProfileRole } from "./lib/profileRole.ts";
 import { getAuthUserId } from "@convex-dev/auth/server";
 
-async function requireOwnedSuperuserProfile(ctx: any, profileId: any) {
+/** Auth user shape (from @convex-dev/auth) may include email, isAnonymous. */
+type AuthUserWithEmail = { _id: Id<"users">; email?: string; isAnonymous?: boolean };
+
+async function requireOwnedSuperuserProfile(
+  ctx: QueryCtx,
+  profileId: Id<"profiles">,
+) {
   const userId = await getAuthUserId(ctx);
   if (!userId) throw new Error("Not authenticated");
   const profile = await ctx.db.get(profileId);
   if (!profile) throw new Error("Profile not found");
   if (profile.userId !== userId) throw new Error("Profile does not belong to current user");
-  if ((profile as any).role !== "superuser") throw new Error("Superuser role required");
+  if (!isSuperuserProfile(profile)) throw new Error("Superuser role required");
   return profile;
 }
 
@@ -27,34 +36,43 @@ export const dashboard = query({
     const profileById = new Map(profiles.map((p) => [String(p._id), p]));
 
     const usersOut = users.map((u) => {
+      const authUser = u as AuthUserWithEmail;
       const p = profiles.filter((x) => x.userId === u._id);
       return {
         _id: u._id,
-        email: (u as any).email ?? null,
-        isAnonymous: (u as any).isAnonymous ?? false,
+        email: authUser.email ?? null,
+        isAnonymous: authUser.isAnonymous ?? false,
         profiles: p.map((pp) => ({
           _id: pp._id,
           name: pp.name,
-          role: (pp as any).role ?? "player",
+          role: getProfileRole(pp),
           level: pp.stats.level,
         })),
       };
     });
 
-    const mapsOut = maps.map((m) => ({
-      _id: m._id,
-      name: m.name,
-      status: (m as any).status ?? "published",
-      mapType: getMapType(m),
-      createdByEmail: m.createdBy ? ((userById.get(String(m.createdBy)) as any)?.email ?? null) : null,
-      editors: ((m as any).editors ?? []).map((id: any) => {
-        const p = profileById.get(String(id));
-        if (!p) return { profileId: String(id), label: `(missing:${String(id)})` };
-        const owner = p.userId ? userById.get(String(p.userId)) : null;
-        const email = (owner as any)?.email ?? "(no-email)";
-        return { profileId: String(p._id), label: `${email}:${p.name}` };
-      }),
-    }));
+    const mapsOut = maps.map((m) => {
+      const mapEditors = m.editors ?? [];
+      const createdByUser = m.createdBy
+        ? (userById.get(String(m.createdBy)) as AuthUserWithEmail | undefined)
+        : undefined;
+      return {
+        _id: m._id,
+        name: m.name,
+        status: m.status ?? "published",
+        mapType: getMapType(m),
+        createdByEmail: createdByUser?.email ?? null,
+        editors: mapEditors.map((id: Id<"profiles">) => {
+          const p = profileById.get(String(id));
+          if (!p) return { profileId: String(id), label: `(missing:${String(id)})` };
+          const owner = p.userId
+            ? (userById.get(String(p.userId)) as AuthUserWithEmail | undefined)
+            : undefined;
+          const email = owner?.email ?? "(no-email)";
+          return { profileId: String(p._id), label: `${email}:${p.name}` };
+        }),
+      };
+    });
 
     return { users: usersOut, maps: mapsOut };
   },
@@ -194,11 +212,11 @@ export const setMapEditors = mutation({
       .first();
     if (!map) throw new Error(`Map "${mapName}" not found`);
 
-    const editorIds: any[] = [];
+    const editorIds: Id<"profiles">[] = [];
     for (const spec of editorSpecs) {
       const user = await ctx.db
         .query("users")
-        .withIndex("email", (q: any) => q.eq("email", spec.email))
+        .withIndex("email", (q) => q.eq("email", spec.email))
         .first();
       if (!user) continue;
       const p = await ctx.db
@@ -209,7 +227,7 @@ export const setMapEditors = mutation({
       if (p) editorIds.push(p._id);
     }
 
-    await ctx.db.patch(map._id, { editors: editorIds, updatedAt: Date.now() } as any);
+    await ctx.db.patch(map._id, { editors: editorIds, updatedAt: Date.now() });
     return { ok: true, editorCount: editorIds.length };
   },
 });
@@ -233,7 +251,7 @@ export const setMapType = mutation({
       .first();
     if (!map) throw new Error(`Map "${mapName}" not found`);
 
-    await ctx.db.patch(map._id, { mapType, updatedAt: Date.now() } as any);
+    await ctx.db.patch(map._id, { mapType, updatedAt: Date.now() });
     return { ok: true };
   },
 });

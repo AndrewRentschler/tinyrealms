@@ -1,5 +1,6 @@
 import type { MutationCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
+import { isSuperuserProfile } from "./profileRole.ts";
 
 /**
  * Verify that the given profileId belongs to a superuser.
@@ -11,7 +12,7 @@ export async function requireSuperuser(
 ): Promise<void> {
   const profile = await ctx.db.get(profileId);
   if (!profile) throw new Error("Profile not found");
-  if ((profile as any).role !== "superuser") {
+  if (!isSuperuserProfile(profile)) {
     throw new Error("Permission denied: superuser role required");
   }
 }

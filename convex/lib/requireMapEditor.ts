@@ -1,5 +1,6 @@
 import type { MutationCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
+import { isSuperuserProfile } from "./profileRole.ts";
 
 /**
  * Verify that the given profileId is allowed to edit the given map.
@@ -19,7 +20,7 @@ export async function requireMapEditor(
   if (!profile) throw new Error("Profile not found");
 
   // Superusers can edit any map
-  if ((profile as any).role === "superuser") return;
+  if (isSuperuserProfile(profile)) return;
 
   // Look up the map
   const map = await ctx.db
@@ -54,7 +55,7 @@ export async function isMapOwner(
   const profile = await ctx.db.get(profileId);
   if (!profile) return false;
 
-  if ((profile as any).role === "superuser") return true;
+  if (isSuperuserProfile(profile)) return true;
 
   const map = await ctx.db
     .query("maps")

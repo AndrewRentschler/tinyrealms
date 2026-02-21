@@ -1,6 +1,9 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
+import type { QueryCtx } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { isSuperuserProfile } from "./lib/profileRole.ts";
 import { getVisibilityType, visibilityTypeValidator } from "./lib/visibility.ts";
 
 // ---------------------------------------------------------------------------
@@ -45,20 +48,26 @@ const effectValidator = v.object({
   description: v.optional(v.string()),
 });
 
-function canReadItem(item: any, userId: string | null): boolean {
+function canReadItem(
+  item: { createdByUser?: string; visibilityType?: string },
+  userId: string | null,
+): boolean {
   const visibility = getVisibilityType(item);
   if (visibility === "system" || visibility === "public") return true;
   if (!userId) return false;
   return item.createdByUser === userId;
 }
 
-async function isSuperuserUser(ctx: any, userId: string | null): Promise<boolean> {
+async function isSuperuserUser(
+  ctx: QueryCtx,
+  userId: string | null,
+): Promise<boolean> {
   if (!userId) return false;
   const profiles = await ctx.db
     .query("profiles")
-    .withIndex("by_user", (q: any) => q.eq("userId", userId))
+    .withIndex("by_user", (q) => q.eq("userId", userId as Id<"users">))
     .collect();
-  return profiles.some((p: any) => p.role === "superuser");
+  return profiles.some((p) => isSuperuserProfile(p));
 }
 
 // ---------------------------------------------------------------------------
@@ -158,7 +167,7 @@ export const save = mutation({
     const profile = await ctx.db.get(args.profileId);
     if (!profile) throw new Error("Profile not found");
     if (profile.userId !== userId) throw new Error("Not your profile");
-    const isSuperuser = (profile as any).role === "superuser";
+    const isSuperuser = isSuperuserProfile(profile);
 
     const existing = await ctx.db
       .query("itemDefs")
@@ -176,13 +185,13 @@ export const save = mutation({
       if (spriteDef.category !== "object") {
         throw new Error(`Item icon sprite must use an object sprite definition.`);
       }
-      if ((spriteDef as any).toggleable || (spriteDef as any).isDoor) {
+      if (spriteDef.toggleable || spriteDef.isDoor) {
         throw new Error(`Item icon sprite cannot use toggleable or door object definitions.`);
       }
     }
 
     if (existing) {
-      const existingOwner = (existing as any).createdByUser;
+      const existingOwner = existing.createdByUser;
       const existingVisibility = getVisibilityType(existing);
       const isOwner = existingOwner === userId;
       if (!isSuperuser && !isOwner) {
@@ -230,12 +239,12 @@ export const remove = mutation({
     const profile = await ctx.db.get(profileId);
     if (!profile) throw new Error("Profile not found");
     if (profile.userId !== userId) throw new Error("Not your profile");
-    const isSuperuser = (profile as any).role === "superuser";
+    const isSuperuser = isSuperuserProfile(profile);
 
     const item = await ctx.db.get(id);
     if (!item) throw new Error("Item definition not found");
     const visibility = getVisibilityType(item);
-    const isOwner = (item as any).createdByUser === userId;
+    const isOwner = item.createdByUser === userId;
     if (!isSuperuser && !isOwner) {
       throw new Error(`Permission denied: only owner or superuser can delete this item definition.`);
     }

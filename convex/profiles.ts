@@ -1,5 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
+import type { QueryCtx } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { DEFAULT_START_MAP } from "./maps";
 
@@ -44,7 +46,7 @@ const DEFAULT_STATS = {
   xp: 0,
 };
 
-async function requireOwnedProfile(ctx: any, id: any) {
+async function requireOwnedProfile(ctx: QueryCtx, id: Id<"profiles">) {
   const userId = await getAuthUserId(ctx);
   if (!userId) throw new Error("Not authenticated");
   const profile = await ctx.db.get(id);
