@@ -74,8 +74,7 @@ export async function handleCombatInput(game: IGame): Promise<void> {
 
   try {
     const convex = getConvexClient();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Convex api doesn't expose mechanics.combat in generated types
-    const result = await convex.mutation((api as any).mechanics.combat.attackNearestHostile, {
+    const result = await convex.mutation(api["mechanics/combat"].attackNearestHostile, {
         profileId: game.profile._id as import("../../../convex/_generated/dataModel").Id<"profiles">,
         mapName: game.currentMapName,
         x: game.entityLayer.playerX,

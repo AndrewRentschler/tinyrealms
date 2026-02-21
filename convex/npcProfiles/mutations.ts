@@ -1,18 +1,22 @@
+/**
+ * NPC profile mutations.
+ */
 import { v } from "convex/values";
-import { internalQuery, mutation, query } from "./_generated/server";
+import { mutation } from "../_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { getVisibilityType, isSuperuserUser, slugifyInstanceName } from "./helpers.ts";
 
 const visibilityTypeValidator = v.union(
   v.literal("public"),
   v.literal("private"),
-  v.literal("system"),
+  v.literal("system")
 );
 const npcTypeValidator = v.union(v.literal("procedural"), v.literal("ai"));
 const instanceTypeValidator = v.union(v.literal("animal"), v.literal("character"));
 const aggressionValidator = v.union(
   v.literal("low"),
   v.literal("medium"),
-  v.literal("high"),
+  v.literal("high")
 );
 const aiPolicyValidator = v.object({
   capabilities: v.optional(
@@ -24,128 +28,9 @@ const aiPolicyValidator = v.object({
       canCombat: v.optional(v.boolean()),
       canAffectQuests: v.optional(v.boolean()),
       canUsePortals: v.optional(v.boolean()),
-    }),
+    })
   ),
 });
-
-function getVisibilityType(profile: any): "public" | "private" | "system" {
-  return (profile.visibilityType ?? "system") as "public" | "private" | "system";
-}
-
-function canReadNpcProfile(profile: any, userId: string | null): boolean {
-  const visibility = getVisibilityType(profile);
-  if (visibility === "system" || visibility === "public") return true;
-  if (!userId) return false;
-  return profile.createdByUser === userId;
-}
-
-async function isSuperuserUser(ctx: any, userId: string | null): Promise<boolean> {
-  if (!userId) return false;
-  const profiles = await ctx.db
-    .query("profiles")
-    .withIndex("by_user", (q: any) => q.eq("userId", userId))
-    .collect();
-  return profiles.some((p: any) => p.role === "superuser");
-}
-
-function slugifyInstanceName(input: string): string {
-  return input
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9-]+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "");
-}
-
-// ---------------------------------------------------------------------------
-// Queries
-// ---------------------------------------------------------------------------
-
-/** List all NPC profiles */
-export const list = query({
-  args: {},
-  handler: async (ctx) => {
-    const userId = await getAuthUserId(ctx);
-    const superuser = await isSuperuserUser(ctx, userId);
-    const all = await ctx.db.query("npcProfiles").collect();
-    if (superuser) return all;
-    return all.filter((p) => canReadNpcProfile(p, userId));
-  },
-});
-
-/** Get an NPC profile by unique instance name */
-export const getByName = query({
-  args: { name: v.string() },
-  handler: async (ctx, { name }) => {
-    const userId = await getAuthUserId(ctx);
-    const superuser = await isSuperuserUser(ctx, userId);
-    const profile = await ctx.db
-      .query("npcProfiles")
-      .withIndex("by_name", (q) => q.eq("name", name))
-      .first();
-    if (!profile) return null;
-    if (superuser) return profile;
-    if (!canReadNpcProfile(profile, userId)) return null;
-    return profile;
-  },
-});
-
-/** Internal lookup (no auth visibility filter) for server-side NPC pipelines. */
-export const getByNameInternal = internalQuery({
-  args: { name: v.string() },
-  handler: async (ctx, { name }) => {
-    return await ctx.db
-      .query("npcProfiles")
-      .withIndex("by_name", (q) => q.eq("name", name))
-      .first();
-  },
-});
-
-/**
- * List all NPC instances across all maps.
- * Returns mapObjects that have an NPC sprite def (category === "npc"),
- * joined with their npcProfile if one exists.
- */
-export const listInstances = query({
-  args: {},
-  handler: async (ctx) => {
-    const userId = await getAuthUserId(ctx);
-    const superuser = await isSuperuserUser(ctx, userId);
-
-    // 1) Get all sprite defs with category "npc"
-    const allDefs = await ctx.db.query("spriteDefinitions").collect();
-    const npcDefNames = new Set(
-      allDefs.filter((d) => d.category === "npc").map((d) => d.name)
-    );
-
-    // 2) Get all map objects
-    const allObjects = await ctx.db.query("mapObjects").collect();
-    const npcObjects = allObjects.filter((o) => npcDefNames.has(o.spriteDefName));
-
-    // 3) Get all NPC profiles
-    const profiles = await ctx.db.query("npcProfiles").collect();
-    const visibleProfiles = superuser
-      ? profiles
-      : profiles.filter((p) => canReadNpcProfile(p, userId));
-    const profilesByName = new Map(visibleProfiles.map((p) => [p.name, p]));
-
-    // 4) Join: return each NPC instance with its profile (if any)
-    return npcObjects.map((obj) => ({
-      mapObjectId: obj._id,
-      mapName: obj.mapName,
-      spriteDefName: obj.spriteDefName,
-      instanceName: obj.instanceName,
-      x: obj.x,
-      y: obj.y,
-      profile: obj.instanceName ? profilesByName.get(obj.instanceName) ?? null : null,
-      spriteDef: allDefs.find((d) => d.name === obj.spriteDefName) ?? null,
-    }));
-  },
-});
-
-// ---------------------------------------------------------------------------
-// Mutations
-// ---------------------------------------------------------------------------
 
 /** Save (upsert) an NPC profile by instance name with visibility scoping. */
 export const save = mutation({
@@ -210,7 +95,7 @@ export const save = mutation({
     const editorProfile = await ctx.db.get(args.profileId);
     if (!editorProfile) throw new Error("Profile not found");
     if (editorProfile.userId !== userId) throw new Error("Not your profile");
-    const isSuperuser = (editorProfile as any).role === "superuser";
+    const isSuperuser = (editorProfile as { role?: string }).role === "superuser";
 
     const existing = await ctx.db
       .query("npcProfiles")
@@ -218,12 +103,12 @@ export const save = mutation({
       .first();
 
     if (existing) {
-      const existingOwner = (existing as any).createdByUser;
+      const existingOwner = (existing as { createdByUser?: string }).createdByUser;
       const existingVisibility = getVisibilityType(existing);
       const isOwner = existingOwner === userId;
       if (!isSuperuser && !isOwner) {
         throw new Error(
-          `Permission denied: you can only edit your own NPC profiles (or be superuser).`,
+          `Permission denied: you can only edit your own NPC profiles (or be superuser).`
         );
       }
       if (!isSuperuser && existingVisibility === "system") {
@@ -236,26 +121,16 @@ export const save = mutation({
       throw new Error(`Only superusers can set NPC visibility to "system".`);
     }
 
-    const instanceType = args.instanceType ?? ((existing as any)?.instanceType ?? "character");
-    const { profileId: _, visibilityType: __, ...fields } = args;
+    const instanceType = args.instanceType ?? (existing as { instanceType?: string })?.instanceType ?? "character";
+    const { profileId: _p, visibilityType: _v, ...fields } = args;
     const baseCapabilities = {
-      ...(((existing as any)?.aiPolicy?.capabilities as any) ?? {}),
+      ...((existing as { aiPolicy?: { capabilities?: Record<string, boolean> } })?.aiPolicy?.capabilities ?? {}),
       ...(args.aiPolicy?.capabilities ?? {}),
     };
     const normalizedAiPolicy =
       instanceType === "animal"
-        ? {
-            capabilities: {
-              ...baseCapabilities,
-              canChat: false,
-            },
-          }
-        : {
-            capabilities: {
-              ...baseCapabilities,
-              canChat: true,
-            },
-          };
+        ? { capabilities: { ...baseCapabilities, canChat: false } }
+        : { capabilities: { ...baseCapabilities, canChat: true } };
     const data = {
       ...fields,
       instanceType,
@@ -275,8 +150,6 @@ export const save = mutation({
       savedId = await ctx.db.insert("npcProfiles", data);
     }
 
-    // If this profile is bound to live NPC instances, push behavior tuning
-    // directly into runtime npcState rows so changes apply immediately.
     if (typeof args.moveSpeed === "number" || typeof args.wanderRadius === "number") {
       const allStates = await ctx.db.query("npcState").collect();
       for (const state of allStates) {
@@ -285,14 +158,11 @@ export const save = mutation({
         if (typeof args.moveSpeed === "number" && state.speed !== args.moveSpeed) {
           patch.speed = args.moveSpeed;
         }
-        if (
-          typeof args.wanderRadius === "number" &&
-          state.wanderRadius !== args.wanderRadius
-        ) {
+        if (typeof args.wanderRadius === "number" && state.wanderRadius !== args.wanderRadius) {
           patch.wanderRadius = args.wanderRadius;
         }
         if (Object.keys(patch).length > 0) {
-          await ctx.db.patch(state._id, patch as any);
+          await ctx.db.patch(state._id, patch);
         }
       }
     }
@@ -301,7 +171,7 @@ export const save = mutation({
   },
 });
 
-/** Assign an instance name to a mapObject. Requires owner/superuser. */
+/** Assign an instance name to a mapObject. */
 export const assignInstanceName = mutation({
   args: {
     profileId: v.id("profiles"),
@@ -314,7 +184,7 @@ export const assignInstanceName = mutation({
     const editorProfile = await ctx.db.get(profileId);
     if (!editorProfile) throw new Error("Profile not found");
     if (editorProfile.userId !== userId) throw new Error("Not your profile");
-    const isSuperuser = (editorProfile as any).role === "superuser";
+    const isSuperuser = (editorProfile as { role?: string }).role === "superuser";
 
     const obj = await ctx.db.get(mapObjectId);
     if (!obj) throw new Error("NPC map object not found");
@@ -322,7 +192,7 @@ export const assignInstanceName = mutation({
       .query("maps")
       .withIndex("by_name", (q) => q.eq("name", obj.mapName))
       .first();
-    const ownsMap = !!(map && (map as any).createdBy === userId);
+    const ownsMap = !!(map && (map as { createdBy?: string }).createdBy === userId);
     if (!isSuperuser && !ownsMap) {
       throw new Error("Permission denied: only map owner or superuser can name this NPC instance.");
     }
@@ -332,13 +202,11 @@ export const assignInstanceName = mutation({
     const requested = slugifyInstanceName(instanceName);
     const baseName = requested || currentName || baseFromSprite || "npc";
 
-    // Ensure instance name is unique across mapObjects + npcProfiles.
-    // If user left it blank, auto-generate with numeric suffixes.
     const allObjects = await ctx.db.query("mapObjects").collect();
     const usedObjectNames = new Set(
       allObjects
         .filter((o) => o._id !== mapObjectId && typeof o.instanceName === "string")
-        .map((o) => String(o.instanceName)),
+        .map((o) => String(o.instanceName))
     );
 
     let resolvedName = baseName;
@@ -351,7 +219,6 @@ export const assignInstanceName = mutation({
         .first();
       const conflictsWithDifferentProfile =
         !!profileConflict && resolvedName !== currentName;
-
       if (!objectConflict && !conflictsWithDifferentProfile) break;
       resolvedName = `${baseName}-${suffix++}`;
     }
@@ -364,7 +231,7 @@ export const assignInstanceName = mutation({
   },
 });
 
-/** Delete an NPC profile. Requires owner or superuser. */
+/** Delete an NPC profile. */
 export const remove = mutation({
   args: {
     profileId: v.id("profiles"),
@@ -376,12 +243,12 @@ export const remove = mutation({
     const editorProfile = await ctx.db.get(profileId);
     if (!editorProfile) throw new Error("Profile not found");
     if (editorProfile.userId !== userId) throw new Error("Not your profile");
-    const isSuperuser = (editorProfile as any).role === "superuser";
+    const isSuperuser = (editorProfile as { role?: string }).role === "superuser";
 
     const npcProfile = await ctx.db.get(id);
     if (!npcProfile) throw new Error("NPC profile not found");
     const visibility = getVisibilityType(npcProfile);
-    const isOwner = (npcProfile as any).createdByUser === userId;
+    const isOwner = (npcProfile as { createdByUser?: string }).createdByUser === userId;
     if (!isSuperuser && !isOwner) {
       throw new Error(`Permission denied: only owner or superuser can delete this NPC profile.`);
     }
@@ -392,7 +259,7 @@ export const remove = mutation({
   },
 });
 
-/** Clear AI conversation history + memory summary for one NPC profile. */
+/** Clear AI conversation history + memory for one NPC profile. */
 export const clearConversationHistory = mutation({
   args: {
     profileId: v.id("profiles"),
@@ -404,33 +271,29 @@ export const clearConversationHistory = mutation({
     const editorProfile = await ctx.db.get(profileId);
     if (!editorProfile) throw new Error("Profile not found");
     if (editorProfile.userId !== userId) throw new Error("Not your profile");
-    const isSuperuser = (editorProfile as any).role === "superuser";
+    const isSuperuser = (editorProfile as { role?: string }).role === "superuser";
 
     const npcProfile = await ctx.db.get(npcProfileId);
     if (!npcProfile) throw new Error("NPC profile not found");
-    const isOwner = (npcProfile as any).createdByUser === userId;
+    const isOwner = (npcProfile as { createdByUser?: string }).createdByUser === userId;
     if (!isSuperuser && !isOwner) {
       throw new Error("Permission denied: only owner or superuser can clear history.");
     }
 
-    const npcName = String((npcProfile as any).name ?? "");
+    const npcName = String((npcProfile as { name?: string }).name ?? "");
     if (!npcName) throw new Error("NPC profile has no name");
 
     const convRows = await ctx.db
       .query("npcConversations")
       .withIndex("by_npc", (q) => q.eq("npcProfileName", npcName))
       .collect();
-    for (const row of convRows) {
-      await ctx.db.delete(row._id);
-    }
+    for (const row of convRows) await ctx.db.delete(row._id);
 
     const memRows = await ctx.db
       .query("npcMemories")
       .withIndex("by_npc", (q) => q.eq("npcProfileName", npcName))
       .collect();
-    for (const row of memRows) {
-      await ctx.db.delete(row._id);
-    }
+    for (const row of memRows) await ctx.db.delete(row._id);
 
     return {
       npcProfileName: npcName,

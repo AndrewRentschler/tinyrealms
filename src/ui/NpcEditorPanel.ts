@@ -1817,7 +1817,7 @@ export class NpcEditorPanel {
       this.statusEl.style.color = "var(--text-muted)";
 
       if (profile.name !== this.selected.instanceName || !this.selected.instanceName) {
-        const assignResult = await convex.mutation((api as any).npcProfiles.assignInstanceName, {
+        const assignResult = await convex.mutation(api.npcProfiles.assignInstanceName, {
           profileId: adminId,
           mapObjectId: this.selected.mapObjectId as Id<"mapObjects">,
           instanceName: profile.name,
@@ -1833,7 +1833,7 @@ export class NpcEditorPanel {
         throw new Error("Unable to assign an instance name");
       }
 
-      await convex.mutation((api as any).npcProfiles.save, {
+      await convex.mutation(api.npcProfiles.save, {
         profileId: adminId,
         name: profile.name,
         instanceType: profile.instanceType,
@@ -1958,7 +1958,7 @@ export class NpcEditorPanel {
     this.statusEl.textContent = "Clearing AI history…";
     this.statusEl.style.color = "var(--text-muted)";
     try {
-      const result = await convex.mutation((api as any).npcProfiles.clearConversationHistory, {
+      const result = await convex.mutation(api.npcProfiles.clearConversationHistory, {
         profileId: this.game.profile._id as Id<"profiles">,
         npcProfileId: this.currentProfile._id as Id<"npcProfiles">,
       });
