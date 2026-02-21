@@ -2,6 +2,7 @@
  * Map queries: list, listPublished, listSummaries, listStartMaps, get, getByName.
  */
 import { v } from "convex/values";
+import type { Doc } from "../_generated/dataModel";
 import { query } from "../_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 
@@ -12,12 +13,18 @@ export const list = query({
   },
 });
 
-/** List only published maps (for the map browser / portal validation) */
+/**
+ * List only published maps (for the map browser / portal validation).
+ * Uses index by_status. Maps with status undefined are not included
+ * (schema default is "published" but we only show explicitly published).
+ */
 export const listPublished = query({
   args: {},
   handler: async (ctx) => {
-    const all = await ctx.db.query("maps").collect();
-    return all.filter((m) => (m as { status?: string }).status !== "draft");
+    return await ctx.db
+      .query("maps")
+      .withIndex("by_status", (q) => q.eq("status", "published"))
+      .collect();
   },
 });
 
@@ -29,7 +36,6 @@ export const listSummaries = query({
   args: {},
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
-    const all = await ctx.db.query("maps").collect();
     let isSuperuser = false;
     if (userId) {
       const profiles = await ctx.db
@@ -38,14 +44,33 @@ export const listSummaries = query({
         .collect();
       isSuperuser = profiles.some((p) => (p as { role?: string }).role === "superuser");
     }
-    const filtered = all.filter((m) => {
-      if (isSuperuser) return true;
-      const mapType = (m as { mapType?: string }).mapType ?? "private";
-      if (mapType === "system") return true;
-      if (userId && (m as { createdBy?: unknown }).createdBy === userId) return true;
-      return false;
-    });
-    return filtered.map((m) => ({
+
+    let maps: Doc<"maps">[];
+    if (isSuperuser) {
+      maps = await ctx.db.query("maps").collect();
+    } else {
+      const [systemMaps, userMaps] = await Promise.all([
+        ctx.db
+          .query("maps")
+          .withIndex("by_mapType", (q) => q.eq("mapType", "system"))
+          .collect(),
+        userId
+          ? ctx.db
+              .query("maps")
+              .withIndex("by_createdBy", (q) => q.eq("createdBy", userId))
+              .collect()
+          : [],
+      ]);
+      const seen = new Set<string>();
+      maps = [...systemMaps, ...userMaps].filter((m) => {
+        const id = m._id;
+        if (seen.has(id)) return false;
+        seen.add(id);
+        return true;
+      });
+    }
+
+    return maps.map((m) => ({
       _id: m._id,
       name: m.name,
       width: m.width,
@@ -73,19 +98,31 @@ export const listStartMaps = query({
   args: {},
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
-    const all = await ctx.db.query("maps").collect();
-    return all
-      .filter((m) => {
-        const mapType = (m as { mapType?: string }).mapType ?? "private";
-        if (mapType === "system") return true;
-        if (userId && (m as { createdBy?: unknown }).createdBy === userId) return true;
-        return false;
-      })
-      .map((m) => ({
-        name: m.name,
-        mapType: (m as { mapType?: string }).mapType ?? "private",
-        labelNames: (m.labels ?? []).map((l: { name: string }) => l.name),
-      }));
+    let maps: Doc<"maps">[];
+    const [systemMaps, userMaps] = await Promise.all([
+      ctx.db
+        .query("maps")
+        .withIndex("by_mapType", (q) => q.eq("mapType", "system"))
+        .collect(),
+      userId
+        ? ctx.db
+            .query("maps")
+            .withIndex("by_createdBy", (q) => q.eq("createdBy", userId))
+            .collect()
+        : [],
+    ]);
+    const seen = new Set<string>();
+    maps = [...systemMaps, ...userMaps].filter((m) => {
+      const id = m._id;
+      if (seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
+    return maps.map((m) => ({
+      name: m.name,
+      mapType: (m as { mapType?: string }).mapType ?? "private",
+      labelNames: (m.labels ?? []).map((l: { name: string }) => l.name),
+    }));
   },
 });
 
