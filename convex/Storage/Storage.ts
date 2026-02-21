@@ -45,8 +45,10 @@ export const canAccess = query({
       return profile?.userId === userId;
     }
     
-    // Player storage: only owner
+    // Player storage: only owner (and must be requesting user's profile)
     if (storage.ownerType === "player") {
+      const profile = await ctx.db.get(profileId);
+      if (!profile || profile.userId !== userId) return false;
       return storage.ownerId === profileId;
     }
     
