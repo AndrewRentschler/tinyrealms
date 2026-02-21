@@ -7,7 +7,7 @@ import { Camera } from "../Camera.ts";
 import { MapRenderer } from "../MapRenderer/index.ts";
 import { EntityLayer } from "../EntityLayer/index.ts";
 import { ObjectLayer } from "../ObjectLayer/index.ts";
-import { WorldItemLayer } from "../WorldItemLayer.ts";
+import { WorldItemLayer } from "../WorldItemLayer/index.ts";
 import { WeatherLayer } from "../WeatherLayer.ts";
 import { InputManager } from "../InputManager.ts";
 import { AudioManager, type SfxHandle } from "../AudioManager.ts";

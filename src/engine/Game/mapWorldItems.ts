@@ -1,4 +1,4 @@
-import type { WorldItemInstance } from "../WorldItemLayer.ts";
+import type { WorldItemInstance } from "../WorldItemLayer/index.ts";
 
 /**
  * Map Convex worldItem docs (with _id) to WorldItemInstance (with id).
