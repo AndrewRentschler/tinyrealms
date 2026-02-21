@@ -12,6 +12,7 @@ export const createEncounter = mutation({
     mapId: v.optional(v.id("maps")),
     triggerLabel: v.optional(v.string()),
   },
+  returns: v.id("combatEncounters"),
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Unauthorized");
@@ -25,6 +26,11 @@ export const submitAction = mutation({
     profileId: v.id("profiles"),
     action: v.any(),
   },
+  returns: v.object({
+    action: v.any(),
+    result: v.string(),
+    message: v.string(),
+  }),
   handler: async (ctx, { encounterId, profileId, action: playerAction }) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Unauthorized");
@@ -52,6 +58,7 @@ export const logCombat = mutation({
       v.literal("flee")
     ),
   },
+  returns: v.id("combatLog"),
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Unauthorized");

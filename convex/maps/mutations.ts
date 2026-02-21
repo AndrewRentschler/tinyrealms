@@ -1,17 +1,17 @@
 /**
  * Map mutations: create, saveFullMap, updateMetadata, setEditors, remove, updateLayer, updateCollision, updateLabels.
  */
+import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
-import { mutation } from "../_generated/server";
 import type { MutationCtx } from "../_generated/server";
-import { requireMapEditor, isMapOwner } from "../lib/requireMapEditor";
+import { mutation } from "../_generated/server";
+import { isMapOwner, requireMapEditor } from "../lib/requireMapEditor";
 import {
   type VisibilityType,
   DEFAULT_MAP_TYPE,
   getMapType,
   visibilityTypeValidator,
 } from "../lib/visibility.ts";
-import { getAuthUserId } from "@convex-dev/auth/server";
 
 // ---------------------------------------------------------------------------
 // Validators (shared with args)
@@ -48,13 +48,13 @@ const layerValidator = v.object({
 const weatherModeValidator = v.union(
   v.literal("clear"),
   v.literal("rainy"),
-  v.literal("scattered_rain")
+  v.literal("scattered_rain"),
 );
 
 const weatherIntensityValidator = v.union(
   v.literal("light"),
   v.literal("medium"),
-  v.literal("heavy")
+  v.literal("heavy"),
 );
 
 const combatSettingsValidator = v.object({
@@ -68,7 +68,7 @@ async function validatePortals(
   ctx: MutationCtx,
   profileId: import("../_generated/dataModel").Id<"profiles">,
   sourceMapName: string,
-  portals: Array<{ targetMap: string; [key: string]: unknown }>
+  portals: Array<{ targetMap: string; [key: string]: unknown }>,
 ) {
   if (!portals || portals.length === 0) return;
   const profile = await ctx.db.get(profileId);
@@ -81,7 +81,7 @@ async function validatePortals(
     if (!isSuperuser) {
       throw new Error(
         `Permission denied: you cannot create a portal to "${portal.targetMap}" ` +
-          `because you don't own that map. Only superusers can create cross-user portals.`
+          `because you don't own that map. Only superusers can create cross-user portals.`,
       );
     }
     const target = await ctx.db
@@ -93,7 +93,7 @@ async function validatePortals(
     if (targetType !== "public" && targetType !== "system") {
       throw new Error(
         `Permission denied: "${portal.targetMap}" is private. ` +
-          `Set map type to "public" for cross-user portal links.`
+          `Set map type to "public" for cross-user portal links.`,
       );
     }
   }
@@ -122,6 +122,7 @@ export const create = mutation({
     combatSettings: v.optional(combatSettingsValidator),
     mapType: v.optional(visibilityTypeValidator),
   },
+  returns: v.id("maps"),
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
@@ -129,7 +130,10 @@ export const create = mutation({
     if (!profile) throw new Error("Profile not found");
     if (profile.userId !== userId) throw new Error("Not your profile");
     const mapType = args.mapType ?? "private";
-    if (mapType === "system" && (profile as { role?: string }).role !== "superuser") {
+    if (
+      mapType === "system" &&
+      (profile as { role?: string }).role !== "superuser"
+    ) {
       throw new Error(`Only superusers can set map type to "system"`);
     }
     const existing = await ctx.db
@@ -137,8 +141,12 @@ export const create = mutation({
       .withIndex("by_name", (q) => q.eq("name", args.name))
       .first();
     if (existing) throw new Error(`Map "${args.name}" already exists`);
-    const emptyLayer = JSON.stringify(new Array(args.width * args.height).fill(-1));
-    const emptyCollision = JSON.stringify(new Array(args.width * args.height).fill(false));
+    const emptyLayer = JSON.stringify(
+      new Array(args.width * args.height).fill(-1),
+    );
+    const emptyCollision = JSON.stringify(
+      new Array(args.width * args.height).fill(false),
+    );
     return await ctx.db.insert("maps", {
       name: args.name,
       width: args.width,
@@ -214,6 +222,7 @@ export const saveFullMap = mutation({
     status: v.optional(v.string()),
     mapType: v.optional(visibilityTypeValidator),
   },
+  returns: v.id("maps"),
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
@@ -237,15 +246,22 @@ export const saveFullMap = mutation({
     if (args.weatherMode) {
       weatherMode = args.weatherMode;
     } else if (existing && (existing as { weatherMode?: string }).weatherMode) {
-      weatherMode = (existing as { weatherMode: string }).weatherMode as "clear" | "rainy" | "scattered_rain";
+      weatherMode = (existing as { weatherMode: string }).weatherMode as
+        | "clear"
+        | "rainy"
+        | "scattered_rain";
     } else {
       weatherMode = "clear";
     }
     let weatherIntensity: "light" | "medium" | "heavy";
     if (args.weatherIntensity) {
       weatherIntensity = args.weatherIntensity;
-    } else if (existing && (existing as { weatherIntensity?: string }).weatherIntensity) {
-      weatherIntensity = (existing as { weatherIntensity: string }).weatherIntensity as "light" | "medium" | "heavy";
+    } else if (
+      existing &&
+      (existing as { weatherIntensity?: string }).weatherIntensity
+    ) {
+      weatherIntensity = (existing as { weatherIntensity: string })
+        .weatherIntensity as "light" | "medium" | "heavy";
     } else {
       weatherIntensity = "medium";
     }
@@ -267,10 +283,20 @@ export const saveFullMap = mutation({
       ambientSoundUrl: args.ambientSoundUrl,
       weatherMode,
       weatherIntensity,
-      weatherRainSfx: args.weatherRainSfx ?? (existing as { weatherRainSfx?: boolean })?.weatherRainSfx ?? false,
-      weatherLightningEnabled: args.weatherLightningEnabled ?? (existing as { weatherLightningEnabled?: boolean })?.weatherLightningEnabled ?? false,
+      weatherRainSfx:
+        args.weatherRainSfx ??
+        (existing as { weatherRainSfx?: boolean })?.weatherRainSfx ??
+        false,
+      weatherLightningEnabled:
+        args.weatherLightningEnabled ??
+        (existing as { weatherLightningEnabled?: boolean })
+          ?.weatherLightningEnabled ??
+        false,
       weatherLightningChancePerSec:
-        args.weatherLightningChancePerSec ?? (existing as { weatherLightningChancePerSec?: number })?.weatherLightningChancePerSec ?? 0.03,
+        args.weatherLightningChancePerSec ??
+        (existing as { weatherLightningChancePerSec?: number })
+          ?.weatherLightningChancePerSec ??
+        0.03,
       combatEnabled: args.combatEnabled,
       combatSettings: args.combatSettings,
       status: args.status,
@@ -308,6 +334,7 @@ export const updateMetadata = mutation({
     status: v.optional(v.string()),
     mapType: v.optional(visibilityTypeValidator),
   },
+  returns: v.null(),
   handler: async (ctx, { profileId, name, ...updates }) => {
     await requireMapEditor(ctx, profileId, name);
     const map = await ctx.db
@@ -321,7 +348,9 @@ export const updateMetadata = mutation({
       const isSuperuser = (profile as { role?: string }).role === "superuser";
       const owner = await isMapOwner(ctx, profileId, name);
       if (!owner && !isSuperuser) {
-        throw new Error("Only the map owner or a superuser can change map type");
+        throw new Error(
+          "Only the map owner or a superuser can change map type",
+        );
       }
       if (updates.mapType === "system" && !isSuperuser) {
         throw new Error(`Only superusers can set map type to "system"`);
@@ -333,17 +362,26 @@ export const updateMetadata = mutation({
     }
     const patch: Record<string, unknown> = { updatedAt: Date.now() };
     if (updates.musicUrl !== undefined) patch.musicUrl = updates.musicUrl;
-    if (updates.ambientSoundUrl !== undefined) patch.ambientSoundUrl = updates.ambientSoundUrl;
-    if (updates.weatherMode !== undefined) patch.weatherMode = updates.weatherMode;
-    if (updates.weatherIntensity !== undefined) patch.weatherIntensity = updates.weatherIntensity;
-    if (updates.weatherRainSfx !== undefined) patch.weatherRainSfx = updates.weatherRainSfx;
-    if (updates.weatherLightningEnabled !== undefined) patch.weatherLightningEnabled = updates.weatherLightningEnabled;
-    if (updates.weatherLightningChancePerSec !== undefined) patch.weatherLightningChancePerSec = updates.weatherLightningChancePerSec;
-    if (updates.combatEnabled !== undefined) patch.combatEnabled = updates.combatEnabled;
-    if (updates.combatSettings !== undefined) patch.combatSettings = updates.combatSettings;
+    if (updates.ambientSoundUrl !== undefined)
+      patch.ambientSoundUrl = updates.ambientSoundUrl;
+    if (updates.weatherMode !== undefined)
+      patch.weatherMode = updates.weatherMode;
+    if (updates.weatherIntensity !== undefined)
+      patch.weatherIntensity = updates.weatherIntensity;
+    if (updates.weatherRainSfx !== undefined)
+      patch.weatherRainSfx = updates.weatherRainSfx;
+    if (updates.weatherLightningEnabled !== undefined)
+      patch.weatherLightningEnabled = updates.weatherLightningEnabled;
+    if (updates.weatherLightningChancePerSec !== undefined)
+      patch.weatherLightningChancePerSec = updates.weatherLightningChancePerSec;
+    if (updates.combatEnabled !== undefined)
+      patch.combatEnabled = updates.combatEnabled;
+    if (updates.combatSettings !== undefined)
+      patch.combatSettings = updates.combatSettings;
     if (updates.status !== undefined) patch.status = updates.status;
     if (updates.mapType !== undefined) patch.mapType = updates.mapType;
     await ctx.db.patch(map._id, patch);
+    return null;
   },
 });
 
@@ -354,6 +392,7 @@ export const setEditors = mutation({
     name: v.string(),
     editors: v.array(v.id("profiles")),
   },
+  returns: v.null(),
   handler: async (ctx, { profileId, name, editors }) => {
     const profile = await ctx.db.get(profileId);
     if (!profile) throw new Error("Profile not found");
@@ -363,12 +402,15 @@ export const setEditors = mutation({
       .first();
     if (!map) throw new Error(`Map "${name}" not found`);
     const isSuperuser = (profile as { role?: string }).role === "superuser";
-    const isCreatorByUser = map.createdBy && profile.userId && map.createdBy === profile.userId;
-    const isCreatorByProfile = (map as { creatorProfileId?: unknown }).creatorProfileId === profileId;
+    const isCreatorByUser =
+      map.createdBy && profile.userId && map.createdBy === profile.userId;
+    const isCreatorByProfile =
+      (map as { creatorProfileId?: unknown }).creatorProfileId === profileId;
     if (!isSuperuser && !isCreatorByUser && !isCreatorByProfile) {
       throw new Error("Only the map creator or a superuser can change editors");
     }
     await ctx.db.patch(map._id, { editors, updatedAt: Date.now() });
+    return null;
   },
 });
 
@@ -378,6 +420,7 @@ export const remove = mutation({
     profileId: v.id("profiles"),
     name: v.string(),
   },
+  returns: v.null(),
   handler: async (ctx, { profileId, name }) => {
     const profile = await ctx.db.get(profileId);
     if (!profile) throw new Error("Profile not found");
@@ -387,8 +430,10 @@ export const remove = mutation({
       .first();
     if (!map) throw new Error(`Map "${name}" not found`);
     const isSuperuser = (profile as { role?: string }).role === "superuser";
-    const isCreatorByUser = map.createdBy && profile.userId && map.createdBy === profile.userId;
-    const isCreatorByProfile = (map as { creatorProfileId?: unknown }).creatorProfileId === profileId;
+    const isCreatorByUser =
+      map.createdBy && profile.userId && map.createdBy === profile.userId;
+    const isCreatorByProfile =
+      (map as { creatorProfileId?: unknown }).creatorProfileId === profileId;
     if (!isSuperuser && !isCreatorByUser && !isCreatorByProfile) {
       throw new Error("Only the map creator or a superuser can delete maps");
     }
@@ -413,6 +458,7 @@ export const remove = mutation({
       .collect();
     for (const m of messages) await ctx.db.delete(m._id);
     await ctx.db.delete(map._id);
+    return null;
   },
 });
 
@@ -423,6 +469,7 @@ export const updateLayer = mutation({
     layerIndex: v.number(),
     tiles: v.string(),
   },
+  returns: v.null(),
   handler: async (ctx, { profileId, mapId, layerIndex, tiles }) => {
     const map = await ctx.db.get(mapId);
     if (!map) throw new Error("Map not found");
@@ -430,6 +477,7 @@ export const updateLayer = mutation({
     const layers = [...map.layers];
     layers[layerIndex] = { ...layers[layerIndex], tiles };
     await ctx.db.patch(mapId, { layers, updatedAt: Date.now() });
+    return null;
   },
 });
 
@@ -439,11 +487,13 @@ export const updateCollision = mutation({
     mapId: v.id("maps"),
     collisionMask: v.string(),
   },
+  returns: v.null(),
   handler: async (ctx, { profileId, mapId, collisionMask }) => {
     const map = await ctx.db.get(mapId);
     if (!map) throw new Error("Map not found");
     await requireMapEditor(ctx, profileId, map.name);
     await ctx.db.patch(mapId, { collisionMask, updatedAt: Date.now() });
+    return null;
   },
 });
 
@@ -453,10 +503,12 @@ export const updateLabels = mutation({
     mapId: v.id("maps"),
     labels: v.array(labelValidator),
   },
+  returns: v.null(),
   handler: async (ctx, { profileId, mapId, labels }) => {
     const map = await ctx.db.get(mapId);
     if (!map) throw new Error("Map not found");
     await requireMapEditor(ctx, profileId, map.name);
     await ctx.db.patch(mapId, { labels, updatedAt: Date.now() });
+    return null;
   },
 });

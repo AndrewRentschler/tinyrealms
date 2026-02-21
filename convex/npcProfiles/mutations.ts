@@ -88,6 +88,7 @@ export const save = mutation({
     aiPolicy: v.optional(aiPolicyValidator),
     visibilityType: v.optional(visibilityTypeValidator),
   },
+  returns: v.id("npcProfiles"),
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
@@ -199,6 +200,7 @@ export const assignInstanceName = mutation({
     mapObjectId: v.id("mapObjects"),
     instanceName: v.string(),
   },
+  returns: v.object({ instanceName: v.string() }),
   handler: async (ctx, { profileId, mapObjectId, instanceName }) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
@@ -265,6 +267,7 @@ export const remove = mutation({
     profileId: v.id("profiles"),
     id: v.id("npcProfiles"),
   },
+  returns: v.null(),
   handler: async (ctx, { profileId, id }) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
@@ -290,6 +293,7 @@ export const remove = mutation({
       );
     }
     await ctx.db.delete(id);
+    return null;
   },
 });
 
@@ -299,6 +303,11 @@ export const clearConversationHistory = mutation({
     profileId: v.id("profiles"),
     npcProfileId: v.id("npcProfiles"),
   },
+  returns: v.object({
+    npcProfileName: v.string(),
+    conversationsDeleted: v.number(),
+    memoriesDeleted: v.number(),
+  }),
   handler: async (ctx, { profileId, npcProfileId }) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");

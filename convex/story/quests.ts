@@ -9,6 +9,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 
 export const list = query({
   args: {},
+  returns: v.array(v.any()),
   handler: async (ctx) => {
     return await ctx.db.query("quests").collect();
   },
@@ -16,6 +17,7 @@ export const list = query({
 
 export const get = query({
   args: { questId: v.id("quests") },
+  returns: v.union(v.any(), v.null()),
   handler: async (ctx, { questId }) => {
     return await ctx.db.get(questId);
   },
@@ -29,6 +31,7 @@ export const create = mutation({
     prerequisites: v.array(v.id("quests")),
     rewards: v.any(),
   },
+  returns: v.id("quests"),
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Unauthorized");
@@ -38,6 +41,7 @@ export const create = mutation({
 
 export const getProgress = query({
   args: { profileId: v.id("profiles") },
+  returns: v.array(v.any()),
   handler: async (ctx, { profileId }) => {
     return await ctx.db
       .query("questProgress")
@@ -51,6 +55,7 @@ export const startQuest = mutation({
     profileId: v.id("profiles"),
     questId: v.id("quests"),
   },
+  returns: v.id("questProgress"),
   handler: async (ctx, { profileId, questId }) => {
     const existing = await ctx.db
       .query("questProgress")
@@ -76,12 +81,13 @@ export const advanceQuest = mutation({
     progressId: v.id("questProgress"),
     choice: v.optional(v.any()),
   },
+  returns: v.null(),
   handler: async (ctx, { progressId, choice }) => {
     const progress = await ctx.db.get(progressId);
-    if (!progress || progress.status !== "active") return;
+    if (!progress || progress.status !== "active") return null;
 
     const quest = await ctx.db.get(progress.questId);
-    if (!quest) return;
+    if (!quest) return null;
 
     const nextStep = progress.currentStep + 1;
     const steps = quest.steps as any[];
@@ -97,6 +103,7 @@ export const advanceQuest = mutation({
       updates.status = "completed";
     }
     await ctx.db.patch(progressId, updates);
+    return null;
   },
 });
 
@@ -112,6 +119,33 @@ const sourceValidator = v.object({
 /** List active quests for a profile (active + completed, with questDef and progress) */
 export const listActive = query({
   args: { profileId: v.id("profiles") },
+  returns: v.array(
+    v.object({
+      _id: v.id("playerQuests"),
+      profileId: v.id("profiles"),
+      questDefKey: v.string(),
+      status: v.union(
+        v.literal("active"),
+        v.literal("completed"),
+        v.literal("failed"),
+        v.literal("abandoned")
+      ),
+      acceptedAt: v.number(),
+      deadlineAt: v.optional(v.number()),
+      completedAt: v.optional(v.number()),
+      rewardClaimedAt: v.optional(v.number()),
+      progress: v.optional(v.any()),
+      questDef: v.optional(
+        v.object({
+          key: v.string(),
+          title: v.string(),
+          description: v.string(),
+          objectives: v.any(),
+          rewards: v.any(),
+        })
+      ),
+    })
+  ),
   handler: async (ctx, { profileId }) => {
     const rows = await ctx.db
       .query("playerQuests")
@@ -171,6 +205,15 @@ export const listAvailable = query({
     npcInstanceName: v.optional(v.string()),
     mapName: v.optional(v.string()),
   },
+  returns: v.array(
+    v.object({
+      key: v.string(),
+      title: v.string(),
+      description: v.string(),
+      objectives: v.any(),
+      rewards: v.any(),
+    })
+  ),
   handler: async (ctx, { profileId, sourceType, npcInstanceName, mapName }) => {
     const defs = await ctx.db
       .query("questDefs")
@@ -230,6 +273,7 @@ export const listHistory = query({
       )
     ),
   },
+  returns: v.array(v.any()),
   handler: async (ctx, { profileId, status }) => {
     if (status) {
       return await ctx.db
@@ -271,6 +315,7 @@ export const accept = mutation({
     source: sourceValidator,
     mapName: v.optional(v.string()),
   },
+  returns: v.id("playerQuests"),
   handler: async (ctx, { profileId, questDefKey, source, mapName }) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
@@ -337,6 +382,7 @@ export const abandon = mutation({
     profileId: v.id("profiles"),
     playerQuestId: v.id("playerQuests"),
   },
+  returns: v.null(),
   handler: async (ctx, { profileId, playerQuestId }) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
@@ -348,6 +394,7 @@ export const abandon = mutation({
     if (pq.profileId !== profileId) throw new Error("Not your quest");
     if (pq.status !== "active") throw new Error("Quest is not active");
     await ctx.db.patch(playerQuestId, { status: "abandoned" });
+    return null;
   },
 });
 
@@ -357,6 +404,13 @@ export const claimReward = mutation({
     profileId: v.id("profiles"),
     playerQuestId: v.id("playerQuests"),
   },
+  returns: v.object({
+    rewards: v.object({
+      gold: v.number(),
+      xp: v.number(),
+      hp: v.number(),
+    }),
+  }),
   handler: async (ctx, { profileId, playerQuestId }) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
