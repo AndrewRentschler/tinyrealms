@@ -10,6 +10,7 @@
  */
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
+import type { FunctionReference } from "convex/server";
 import { SOUND_FILES } from "../config/audio-config.ts";
 import { NPC_SPRITE_SHEETS } from "../config/spritesheet-config.ts";
 import type { Game } from "../engine/Game/index.ts";
@@ -1946,13 +1947,15 @@ export class NpcEditorPanel {
     this.aiHistoryPane.textContent = "Loading history…";
     try {
       const convex = getConvexClient();
-      const rows = (await convex.query(
-        (api as any).npc.memory.listConversation,
-        {
-          npcProfileName: this.currentProfile.name,
-          limit: 20,
-        },
-      )) as Array<{ role: string; content: string; createdAt?: number }>;
+      type ListConvResult = Array<{ role: string; content: string; createdAt?: number }>;
+      type ListConvRef = FunctionReference<"query", "public", { npcProfileName: string; limit?: number }, ListConvResult>;
+      const listConv = (
+        api as typeof api & { "npc/memory": { listConversation: ListConvRef } }
+      )["npc/memory"].listConversation;
+      const rows = await convex.query(listConv, {
+        npcProfileName: this.currentProfile.name,
+        limit: 20,
+      });
       if (!rows || rows.length === 0) {
         this.aiHistoryPane.textContent = "No message history yet.";
         return;
@@ -1968,8 +1971,8 @@ export class NpcEditorPanel {
         this.aiHistoryPane.appendChild(line);
       }
       this.aiHistoryPane.scrollTop = this.aiHistoryPane.scrollHeight;
-    } catch (err: any) {
-      this.aiHistoryPane.textContent = `Failed to load history: ${err?.message || "unknown error"}`;
+    } catch (err: unknown) {
+      this.aiHistoryPane.textContent = `Failed to load history: ${err instanceof Error ? err.message : "unknown error"}`;
     }
   }
 

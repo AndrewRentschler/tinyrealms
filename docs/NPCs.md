@@ -117,8 +117,8 @@ AI-related fields:
 
 - `npcType` (`procedural` or `ai`)
 - `aiEnabled`
-- `braintrustSlug`
 - `aiPolicy.capabilities.*` including `canChat`
+- `braintrustSlug` ( AI currently uses OpenAI gpt-5-mini and gpt-5-nano via Vercel AI SDK package)
 
 ## 6) Dialogue Modes and E Interaction
 
@@ -203,7 +203,7 @@ and `npcState` rows exist and are linked by object/instance identity.
 
 - verify `mapObjects.instanceName` matches `npcProfiles.name`
 - verify `npcType`, `aiEnabled`, and `canChat`
-- verify `braintrustSlug` and Convex AI env vars
+- verify `OPENAI_API_KEY` is set in Convex dashboard environment variables
 
 ### E should only bark (no chat)
 
@@ -245,8 +245,8 @@ and `npcState` rows exist and are linked by object/instance identity.
 - `src/splash/screens/AiChatSplash.ts`
 - `convex/npcProfiles.ts`
 - `convex/npcEngine.ts`
-- `convex/npc/chat.ts`
-- `convex/npc/braintrust.ts`
+- `convex/npc/braintrust.ts` – AI dialogue via Vercel AI SDK + OpenAI (gpt-5-mini / gpt-5-nano)
+- `convex/npc/memory.ts` – conversation history for NPCs
 - `convex/mapObjects.ts`
 - `convex/schema.ts`
 

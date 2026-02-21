@@ -42,6 +42,7 @@ import type * as mechanics_inventory from "../mechanics/inventory.js";
 import type * as mechanics_loot from "../mechanics/loot.js";
 import type * as migrations from "../migrations.js";
 import type * as npc_braintrust from "../npc/braintrust.js";
+import type * as npc_memory from "../npc/memory.js";
 import type * as npcEngine from "../npcEngine.js";
 import type * as npcProfiles_helpers from "../npcProfiles/helpers.js";
 import type * as npcProfiles_index from "../npcProfiles/index.js";
@@ -109,6 +110,7 @@ declare const fullApi: ApiFromModules<{
   "mechanics/loot": typeof mechanics_loot;
   migrations: typeof migrations;
   "npc/braintrust": typeof npc_braintrust;
+  "npc/memory": typeof npc_memory;
   npcEngine: typeof npcEngine;
   "npcProfiles/helpers": typeof npcProfiles_helpers;
   "npcProfiles/index": typeof npcProfiles_index;

@@ -108,6 +108,7 @@ export class NpcDialogueController {
     const result = await convex.action(api.npc.braintrust.generateResponse, {
       npcProfileName: args.npcProfileName,
       playerMessage: args.userMessage,
+      mapName: args.mapName,
     });
     return (result as { response?: string }).response ?? "";
   }
