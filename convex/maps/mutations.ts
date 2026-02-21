@@ -418,13 +418,15 @@ export const remove = mutation({
 
 export const updateLayer = mutation({
   args: {
+    profileId: v.id("profiles"),
     mapId: v.id("maps"),
     layerIndex: v.number(),
     tiles: v.string(),
   },
-  handler: async (ctx, { mapId, layerIndex, tiles }) => {
+  handler: async (ctx, { profileId, mapId, layerIndex, tiles }) => {
     const map = await ctx.db.get(mapId);
     if (!map) throw new Error("Map not found");
+    await requireMapEditor(ctx, profileId, map.name);
     const layers = [...map.layers];
     layers[layerIndex] = { ...layers[layerIndex], tiles };
     await ctx.db.patch(mapId, { layers, updatedAt: Date.now() });
@@ -433,20 +435,28 @@ export const updateLayer = mutation({
 
 export const updateCollision = mutation({
   args: {
+    profileId: v.id("profiles"),
     mapId: v.id("maps"),
     collisionMask: v.string(),
   },
-  handler: async (ctx, { mapId, collisionMask }) => {
+  handler: async (ctx, { profileId, mapId, collisionMask }) => {
+    const map = await ctx.db.get(mapId);
+    if (!map) throw new Error("Map not found");
+    await requireMapEditor(ctx, profileId, map.name);
     await ctx.db.patch(mapId, { collisionMask, updatedAt: Date.now() });
   },
 });
 
 export const updateLabels = mutation({
   args: {
+    profileId: v.id("profiles"),
     mapId: v.id("maps"),
     labels: v.array(labelValidator),
   },
-  handler: async (ctx, { mapId, labels }) => {
+  handler: async (ctx, { profileId, mapId, labels }) => {
+    const map = await ctx.db.get(mapId);
+    if (!map) throw new Error("Map not found");
+    await requireMapEditor(ctx, profileId, map.name);
     await ctx.db.patch(mapId, { labels, updatedAt: Date.now() });
   },
 });
