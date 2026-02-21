@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { mutation } from "../_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { ownerTypeValidator } from "./Storage.ts";
+import { ownerTypeValidator } from "./storage.ts";
 
 /** Create a new storage instance */
 export default mutation({
