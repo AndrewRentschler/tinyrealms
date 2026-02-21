@@ -5,7 +5,7 @@
 import { Application } from "pixi.js";
 import { Camera } from "../Camera.ts";
 import { MapRenderer } from "../MapRenderer/index.ts";
-import { EntityLayer } from "../EntityLayer.ts";
+import { EntityLayer } from "../EntityLayer/index.ts";
 import { ObjectLayer } from "../ObjectLayer.ts";
 import { WorldItemLayer } from "../WorldItemLayer.ts";
 import { WeatherLayer } from "../WeatherLayer.ts";
