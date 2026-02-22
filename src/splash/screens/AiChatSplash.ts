@@ -1,16 +1,20 @@
 /**
  * AI Chat splash – in-game NPC conversation with LLM-backed responses.
  */
+import { api } from "../../../convex/_generated/api";
+import { getConvexClient } from "../../lib/convexClient.ts";
 import type { SplashScreen, SplashScreenCallbacks } from "../SplashTypes.ts";
 
 export interface AiChatSplashProps extends SplashScreenCallbacks {
   npcName: string;
+  npcProfileName: string;
   /** Sends a message and returns the NPC's reply text */
   onSend: (message: string) => Promise<string>;
 }
 
 export function createAiChatSplash(props: AiChatSplashProps): SplashScreen {
-  const { npcName, onSend, onClose } = props;
+  const { npcName, npcProfileName, onSend, onClose } = props;
+  console.log(`[AiChatSplash] Initializing for ${npcName} (${npcProfileName})`);
 
   const el = document.createElement("div");
   el.style.cssText =
@@ -73,7 +77,9 @@ export function createAiChatSplash(props: AiChatSplashProps): SplashScreen {
     const wrap = document.createElement("div");
     wrap.style.cssText =
       "padding:8px 12px;border-radius:var(--radius-sm);max-width:85%;" +
-      "align-self:" + (isUser ? "flex-end" : "flex-start") + ";";
+      "align-self:" +
+      (isUser ? "flex-end" : "flex-start") +
+      ";";
     wrap.style.background = isUser ? "var(--accent)" : "var(--bg-hover)";
     wrap.style.color = isUser ? "white" : "var(--text-primary)";
     const p = document.createElement("p");
@@ -83,6 +89,30 @@ export function createAiChatSplash(props: AiChatSplashProps): SplashScreen {
     messagesEl.appendChild(wrap);
     messagesEl.scrollTop = messagesEl.scrollHeight;
   }
+
+  // Load history
+  async function loadHistory() {
+    console.log(`[AiChatSplash] Loading history for ${npcProfileName}...`);
+    try {
+      const convex = getConvexClient();
+      const history = await convex.query(api.npc.memory.listConversation, {
+        npcProfileName,
+        limit: 20,
+      });
+      console.log(
+        `[AiChatSplash] Loaded ${history?.length || 0} history messages`,
+      );
+      if (history && history.length > 0) {
+        for (const msg of history) {
+          appendMessage(msg.content, msg.role === "user");
+        }
+      }
+    } catch (err) {
+      console.error("[AiChatSplash] Failed to load history:", err);
+    }
+  }
+
+  loadHistory();
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -98,7 +128,7 @@ export function createAiChatSplash(props: AiChatSplashProps): SplashScreen {
     } catch (err) {
       appendMessage(
         err instanceof Error ? err.message : "Failed to get response",
-        false
+        false,
       );
     } finally {
       sending = false;

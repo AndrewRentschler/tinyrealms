@@ -2240,8 +2240,12 @@ export class MapEditorPanel {
           const existingId = this.getPersistedMapObjectId(o);
           if (existingId) {
             obj.existingId = existingId;
-            // For existing objects, preserve the storageId
+            // For existing objects, preserve the storageId and send current storage config
+            // so bulkSave can handle adding/removing storage if changed in editor.
             if (o.storageId) obj.storageId = o.storageId;
+            obj.hasStorage = o.hasStorage;
+            obj.storageCapacity = o.storageCapacity;
+            obj.storageOwnerType = o.storageOwnerType;
           } else {
             // For new objects, send storage configuration if present
             if (o.hasStorage) {
@@ -2297,6 +2301,7 @@ export class MapEditorPanel {
         layer: o.layer ?? 0,
         isOn: o.isOn,
         storageId: o.storageId,
+        hasStorage: !!o.storageId,
       }));
     } catch (err) {
       console.warn("Failed to load placed objects:", err);

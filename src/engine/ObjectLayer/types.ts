@@ -1,7 +1,12 @@
-import type { AnimatedSprite, Container, Graphics, Text } from "pixi.js";
-import type { Texture } from "pixi.js";
-import type { SfxHandle } from "../AudioManager/index.ts";
+import type {
+  AnimatedSprite,
+  Container,
+  Graphics,
+  Text,
+  Texture,
+} from "pixi.js";
 import type { Id } from "../../../convex/_generated/dataModel";
+import type { SfxHandle } from "../AudioManager/index.ts";
 
 /** Minimal sprite def info needed for rendering */
 export interface SpriteDefInfo {
@@ -27,6 +32,9 @@ export interface SpriteDefInfo {
   doorClosingAnimation?: string;
   doorOpenSoundUrl?: string;
   doorCloseSoundUrl?: string;
+  hasStorage?: boolean;
+  storageCapacity?: number;
+  storageOwnerType?: "public" | "player";
 }
 
 export type DoorState = "closed" | "opening" | "open" | "closing";
@@ -123,6 +131,7 @@ export interface PlacedObjectInput {
   instanceName?: string;
   sourceId?: string;
   storageId?: Id<"storages">;
+  hasStorage?: boolean;
 }
 
 /** Minimal audio interface — avoids importing AudioManager in consuming modules */
@@ -152,7 +161,10 @@ export interface IObjectLayer {
 
   setAudio(audio: IObjectLayerAudio): void;
   registerSpriteDef(def: SpriteDefInfo): void;
-  addPlacedObject(obj: PlacedObjectInput, defInfo?: SpriteDefInfo): Promise<void>;
+  addPlacedObject(
+    obj: PlacedObjectInput,
+    defInfo?: SpriteDefInfo,
+  ): Promise<void>;
   removePlacedObject(id: string): void;
   loadAll(objects: PlacedObjectInput[], defs: SpriteDefInfo[]): Promise<void>;
   updateAmbientVolumes(listenerX: number, listenerY: number): void;

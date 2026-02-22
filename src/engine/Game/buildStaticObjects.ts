@@ -111,5 +111,8 @@ function defToSpriteDefInfo(def: SpriteDefRow): SpriteDefInfo {
     doorClosingAnimation: def.doorClosingAnimation ?? undefined,
     doorOpenSoundUrl: def.doorOpenSoundUrl ?? undefined,
     doorCloseSoundUrl: def.doorCloseSoundUrl ?? undefined,
+    hasStorage: def.hasStorage ?? undefined,
+    storageCapacity: def.storageCapacity ?? undefined,
+    storageOwnerType: def.storageOwnerType ?? undefined,
   };
 }

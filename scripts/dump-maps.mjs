@@ -9,9 +9,9 @@
  *   npm run dump:maps
  */
 import { execSync } from "child_process";
-import { mkdirSync, readFileSync, writeFileSync, unlinkSync } from "fs";
-import { resolve, dirname } from "path";
+import { mkdirSync, readFileSync, unlinkSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
+import { dirname, resolve } from "path";
 
 const ROOT = resolve(dirname(new URL(import.meta.url).pathname), "..");
 
@@ -62,7 +62,11 @@ try {
 
   const raw = readFileSync(tmpFile, "utf8");
   const data = JSON.parse(raw);
-  try { unlinkSync(tmpFile); } catch { /* ignore */ }
+  try {
+    unlinkSync(tmpFile);
+  } catch {
+    /* ignore */
+  }
 
   const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
   const outPath = resolve(ROOT, "dumps", `maps-${ts}.json`);
@@ -78,7 +82,11 @@ try {
   console.log(`\nMaps dumped to: ${outPath}`);
   console.log(`Map count: ${mapsOnly._counts.maps}\n`);
 } catch (err) {
-  try { unlinkSync(tmpFile); } catch { /* ignore */ }
+  try {
+    unlinkSync(tmpFile);
+  } catch {
+    /* ignore */
+  }
   console.error("Failed to dump maps:", err?.message ?? err);
   process.exit(1);
 }

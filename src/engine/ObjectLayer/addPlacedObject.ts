@@ -3,17 +3,12 @@
  * Loads sprite sheet, resolves animations (case-insensitive), creates RenderedObject,
  * computes door collision tiles, starts ambient sounds, adds glow+prompt for interactables.
  */
-import { Container, AnimatedSprite, Graphics, Text, TextStyle } from "pixi.js";
-import type { Spritesheet, Texture } from "pixi.js";
+import type { Texture } from "pixi.js";
+import { AnimatedSprite, Container, Graphics, Text, TextStyle } from "pixi.js";
 import { loadSpriteSheet } from "../SpriteLoader.ts";
-import type {
-  ObjectLayerContext,
-  PlacedObjectInput,
-  RenderedObject,
-  SpriteDefInfo,
-  DoorState,
-} from "./types.ts";
+import { computeDoorCollisionTiles } from "./computeDoorCollisionTiles.ts";
 import {
+  AMBIENT_INITIAL_VOLUME,
   ANIMATION_FIRST_FRAME,
   DEFAULT_AMBIENT_RADIUS,
   DEFAULT_AMBIENT_VOLUME,
@@ -23,7 +18,6 @@ import {
   GLOW_COLOR,
   GLOW_RADIUS,
   GLOW_Y_HALF_HEIGHT_FACTOR,
-  AMBIENT_INITIAL_VOLUME,
   PROMPT_ANCHOR_X,
   PROMPT_ANCHOR_Y,
   PROMPT_CLOSE,
@@ -31,9 +25,9 @@ import {
   PROMPT_FONT_FAMILY,
   PROMPT_FONT_SIZE,
   PROMPT_OPEN,
+  PROMPT_STORAGE,
   PROMPT_STROKE_COLOR,
   PROMPT_STROKE_WIDTH,
-  PROMPT_STORAGE,
   PROMPT_TURN_OFF,
   PROMPT_TURN_ON,
   PROMPT_Y_OFFSET,
@@ -41,7 +35,13 @@ import {
   SPRITE_ANCHOR_Y,
 } from "./constants.ts";
 import { parentForLayer } from "./parentForLayer.ts";
-import { computeDoorCollisionTiles } from "./computeDoorCollisionTiles.ts";
+import type {
+  DoorState,
+  ObjectLayerContext,
+  PlacedObjectInput,
+  RenderedObject,
+  SpriteDefInfo,
+} from "./types.ts";
 
 /**
  * Add a placed object and render it immediately.
@@ -55,7 +55,9 @@ export async function addPlacedObject(
 ): Promise<void> {
   const def = defInfo ?? layer.defCache.get(obj.spriteDefName);
   if (!def) {
-    console.warn(`[ObjectLayer] No sprite def found for "${obj.spriteDefName}"`);
+    console.warn(
+      `[ObjectLayer] No sprite def found for "${obj.spriteDefName}"`,
+    );
     return;
   }
 
@@ -68,7 +70,7 @@ export async function addPlacedObject(
 
     const isToggleable = !!def.toggleable;
     const isDoor = !!def.isDoor;
-    const isOn = obj.isOn ?? ((isToggleable || isDoor) ? false : true);
+    const isOn = obj.isOn ?? (isToggleable || isDoor ? false : true);
 
     if (isDoor) {
       console.log(
@@ -93,7 +95,9 @@ export async function addPlacedObject(
     let doorState: DoorState = "closed";
 
     if (isDoor) {
-      doorClosedFrames = findAnim(def.doorClosedAnimation || def.defaultAnimation);
+      doorClosedFrames = findAnim(
+        def.doorClosedAnimation || def.defaultAnimation,
+      );
       doorOpeningFrames = findAnim(def.doorOpeningAnimation);
       doorOpenFrames = findAnim(def.doorOpenAnimation);
       doorClosingFrames = findAnim(def.doorClosingAnimation);
@@ -192,7 +196,7 @@ export async function addPlacedObject(
     };
 
     // Add storage indicator, glow, and prompt if object has storage
-    if (obj.storageId) {
+    if (obj.storageId || obj.hasStorage) {
       const storageIndicator = new Graphics();
       storageIndicator.circle(0, -10, 4);
       storageIndicator.fill({ color: 0xffd700, alpha: 0.8 }); // Gold indicator
@@ -292,21 +296,29 @@ export async function addPlacedObject(
 
     if (def.ambientSoundUrl && layer.audio) {
       entry.ambientRadius = def.ambientSoundRadius ?? DEFAULT_AMBIENT_RADIUS;
-      entry.ambientBaseVolume = def.ambientSoundVolume ?? DEFAULT_AMBIENT_VOLUME;
+      entry.ambientBaseVolume =
+        def.ambientSoundVolume ?? DEFAULT_AMBIENT_VOLUME;
       if (!isToggleable || isOn) {
-        layer.audio.playAmbient(def.ambientSoundUrl, AMBIENT_INITIAL_VOLUME).then((handle) => {
-          if (handle) entry.sfxHandle = handle;
-        });
+        layer.audio
+          .playAmbient(def.ambientSoundUrl, AMBIENT_INITIAL_VOLUME)
+          .then((handle) => {
+            if (handle) entry.sfxHandle = handle;
+          });
       }
     }
 
     if (isToggleable && isOn && def.onSoundUrl && layer.audio) {
-      entry.ambientRadius = entry.ambientRadius ?? (def.ambientSoundRadius ?? DEFAULT_AMBIENT_RADIUS);
+      entry.ambientRadius =
+        entry.ambientRadius ?? def.ambientSoundRadius ?? DEFAULT_AMBIENT_RADIUS;
       entry.ambientBaseVolume =
-        entry.ambientBaseVolume ?? (def.ambientSoundVolume ?? DEFAULT_AMBIENT_VOLUME);
-      layer.audio.playAmbient(def.onSoundUrl, AMBIENT_INITIAL_VOLUME).then((handle) => {
-        if (handle) entry.onSfxHandle = handle;
-      });
+        entry.ambientBaseVolume ??
+        def.ambientSoundVolume ??
+        DEFAULT_AMBIENT_VOLUME;
+      layer.audio
+        .playAmbient(def.onSoundUrl, AMBIENT_INITIAL_VOLUME)
+        .then((handle) => {
+          if (handle) entry.onSfxHandle = handle;
+        });
     }
 
     layer.rendered.push(entry);

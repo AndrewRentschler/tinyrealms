@@ -104,12 +104,27 @@ export class NpcDialogueController {
     userMessage: string;
     mapName: string;
   }): Promise<string> {
+    console.log(
+      `[NpcDialogueController] Sending message to ${args.npcProfileName}: "${args.userMessage}"`,
+    );
     const convex = getConvexClient();
-    const result = await convex.action(api.npc.braintrust.generateResponse, {
-      npcProfileName: args.npcProfileName,
-      playerMessage: args.userMessage,
-      mapName: args.mapName,
-    });
-    return (result as { response?: string }).response ?? "";
+    try {
+      const result = await convex.action(api.npc.braintrust.generateResponse, {
+        npcProfileName: args.npcProfileName,
+        playerMessage: args.userMessage,
+        mapName: args.mapName,
+      });
+      const response = (result as { response?: string }).response ?? "";
+      console.log(
+        `[NpcDialogueController] Received response from ${args.npcProfileName}: "${response}"`,
+      );
+      return response;
+    } catch (err) {
+      console.error(
+        `[NpcDialogueController] Error sending message to ${args.npcProfileName}:`,
+        err,
+      );
+      throw err;
+    }
   }
 }

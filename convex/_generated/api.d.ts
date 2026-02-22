@@ -10,6 +10,7 @@
 
 import type * as admin_backfills from "../admin/backfills.js";
 import type * as admin_clear from "../admin/clear.js";
+import type * as admin_export from "../admin/export.js";
 import type * as admin_index from "../admin/index.js";
 import type * as admin_inspection from "../admin/inspection.js";
 import type * as admin_maps from "../admin/maps.js";
@@ -78,6 +79,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   "admin/backfills": typeof admin_backfills;
   "admin/clear": typeof admin_clear;
+  "admin/export": typeof admin_export;
   "admin/index": typeof admin_index;
   "admin/inspection": typeof admin_inspection;
   "admin/maps": typeof admin_maps;

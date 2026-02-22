@@ -249,10 +249,37 @@ export const bulkSave = mutation({
       if (existingId && existingById.has(existingId)) {
         // Existing object — patch position / layout only; preserve isOn and storageId
         keptIds.add(existingId);
+        const existingObj = existingById.get(existingId)!;
+        let storageId = incomingStorageId ?? existingObj.storageId;
+
+        // If storage was requested but doesn't exist, create it
+        if (
+          !storageId &&
+          hasStorage &&
+          storageCapacity &&
+          storageCapacity > 0
+        ) {
+          const ownerType = storageOwnerType ?? "public";
+          const ownerId = ownerType === "player" ? profileId : undefined;
+
+          storageId = await ctx.db.insert("storages", {
+            ownerType,
+            ownerId,
+            capacity: storageCapacity,
+            slots: [],
+            name: `${fields.spriteDefName} Storage`,
+            updatedAt: now,
+          });
+        }
+        // If storage exists but was explicitly removed (hasStorage is false)
+        else if (storageId && hasStorage === false) {
+          await ctx.db.delete(storageId);
+          storageId = undefined;
+        }
+
         await ctx.db.patch(existingId, {
           ...fields,
-          // Preserve existing storageId if not explicitly changed
-          ...(incomingStorageId ? { storageId: incomingStorageId } : {}),
+          storageId,
           updatedAt: now,
         });
       } else {
