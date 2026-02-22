@@ -57,7 +57,8 @@
     "@pixi/sound": "^6.0.1",
     "ai": "^6.0.97",
     "convex": "^1.31.7",
-    "pixi.js": "^8.16.0"
+    "pixi.js": "^8.16.0",
+    "puppeteer": "^24.37.5"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",

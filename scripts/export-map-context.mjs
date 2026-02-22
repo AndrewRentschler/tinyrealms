@@ -3,9 +3,10 @@
  * Export full map context for AI analysis.
  */
 import { execSync } from "child_process";
-import { mkdirSync, readFileSync, writeFileSync, unlinkSync } from "fs";
-import { resolve, dirname } from "path";
+import { mkdirSync, readFileSync, unlinkSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
+import { dirname, resolve } from "path";
+import puppeteer from "puppeteer";
 
 const ROOT = resolve(dirname(new URL(import.meta.url).pathname), "..");
 
@@ -49,16 +50,23 @@ const tmpFile = resolve(tmpdir(), `convex-export-map-${Date.now()}.json`);
 
 try {
   console.log(`Exporting map context for "${mapName}"...`);
-  execSync(`npx convex run admin/export:exportMapContext '${fnArgs}' > "${tmpFile}"`, {
-    cwd: ROOT,
-    stdio: "inherit",
-    shell: true,
-    timeout: 60_000,
-  });
+  execSync(
+    `npx convex run admin/export:exportMapContext '${fnArgs}' > "${tmpFile}"`,
+    {
+      cwd: ROOT,
+      stdio: "inherit",
+      shell: true,
+      timeout: 60_000,
+    },
+  );
 
   const raw = readFileSync(tmpFile, "utf8");
   const data = JSON.parse(raw);
-  try { unlinkSync(tmpFile); } catch { /* ignore */ }
+  try {
+    unlinkSync(tmpFile);
+  } catch {
+    /* ignore */
+  }
 
   const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
   const outDir = resolve(ROOT, "dumps", "map-context", mapName);
@@ -71,21 +79,35 @@ try {
   const simplified = {
     mapName: data.map.name,
     dimensions: `${data.map.width}x${data.map.height}`,
-    layers: data.map.layers.map(l => ({ name: l.name, type: l.type, visible: l.visible })),
+    layers: data.map.layers.map((l) => ({
+      name: l.name,
+      type: l.type,
+      visible: l.visible,
+    })),
     objectCount: data.objects.length,
     npcCount: data.npcProfiles.length,
-    spriteDefs: data.spriteDefinitions.map(d => d.name),
+    spriteDefs: data.spriteDefinitions.map((d) => d.name),
   };
-  writeFileSync(resolve(outDir, "summary.json"), JSON.stringify(simplified, null, 2), "utf8");
+  writeFileSync(
+    resolve(outDir, "summary.json"),
+    JSON.stringify(simplified, null, 2),
+    "utf8",
+  );
 
   console.log(`\nMap context exported to: ${outPath}`);
   console.log(`Summary:`, simplified);
 
   // Generate HTML Renderer
-  generateRenderer(data, outDir, mapName);
+  const htmlPath = generateRenderer(data, outDir, mapName);
 
+  // Capture Screenshot
+  await captureScreenshot(htmlPath, outDir, mapName, data.map);
 } catch (err) {
-  try { unlinkSync(tmpFile); } catch { /* ignore */ }
+  try {
+    unlinkSync(tmpFile);
+  } catch {
+    /* ignore */
+  }
   console.error("Failed to export map context:", err?.message ?? err);
   process.exit(1);
 }
@@ -235,6 +257,18 @@ function generateRenderer(data, outDir, mapName) {
         }
 
         init();
+        
+        // Signal to Puppeteer that we are ready
+        window.isReady = false;
+        async function checkReady() {
+            // Simple check: if we have layers, wait a bit for textures
+            if (mapData.layers.length > 0) {
+                await new Promise(r => setTimeout(r, 2000));
+            }
+            window.isReady = true;
+            document.body.setAttribute('data-ready', 'true');
+        }
+        checkReady();
     </script>
 </body>
 </html>
@@ -242,4 +276,34 @@ function generateRenderer(data, outDir, mapName) {
   const htmlPath = resolve(outDir, "index.html");
   writeFileSync(htmlPath, html, "utf8");
   console.log(`Renderer HTML generated: ${htmlPath}`);
+  return htmlPath;
+}
+
+async function captureScreenshot(htmlPath, outDir, mapName, map) {
+  console.log(`Capturing screenshot for ${mapName}...`);
+  const browser = await puppeteer.launch({ headless: "new" });
+  const page = await browser.newPage();
+  
+  const width = map.width * map.tileWidth;
+  const height = map.height * map.tileHeight;
+  
+  await page.setViewport({ width: width + 40, height: height + 100 });
+  await page.goto(`file://${htmlPath}`);
+  
+  // Wait for the ready signal
+  await page.waitForSelector('body[data-ready="true"]', { timeout: 10000 });
+  
+  const screenshotPath = resolve(outDir, `map-${mapName}.png`);
+  
+  // Target the canvas specifically
+  const canvas = await page.$('canvas');
+  if (canvas) {
+    await canvas.screenshot({ path: screenshotPath });
+    console.log(`Screenshot saved to: ${screenshotPath}`);
+  } else {
+    await page.screenshot({ path: screenshotPath });
+    console.log(`Full page screenshot saved to: ${screenshotPath} (canvas not found)`);
+  }
+  
+  await browser.close();
 }
