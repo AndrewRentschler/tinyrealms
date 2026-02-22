@@ -196,6 +196,12 @@ export default defineSchema({
     doorClosingAnimation: v.optional(v.string()), // transition: open → closed (plays once)
     doorOpenSoundUrl: v.optional(v.string()), // one-shot sound when door opens
     doorCloseSoundUrl: v.optional(v.string()), // one-shot sound when door closes
+    // Storage template defaults
+    hasStorage: v.optional(v.boolean()),
+    storageCapacity: v.optional(v.number()),
+    storageOwnerType: v.optional(
+      v.union(v.literal("public"), v.literal("player")),
+    ),
     visibilityType: v.optional(visibilityTypeValidator),
     createdByUser: v.optional(v.id("users")), // owner user for private/public assets
     updatedAt: v.number(),

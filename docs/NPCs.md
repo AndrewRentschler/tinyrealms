@@ -120,6 +120,15 @@ AI-related fields:
 - `aiPolicy.capabilities.*` including `canChat`
 - `braintrustSlug` ( AI currently uses OpenAI gpt-5-mini and gpt-5-nano via Vercel AI SDK package)
 
+**If E shows procedural dialogue instead of AI chat:** Run the migration to enable AI for character profiles:
+
+```bash
+export ADMIN_API_KEY='your-admin-key'
+npm run migrate:npc-ai-enable
+```
+
+Or enable AI per-NPC in the NPC editor: check "Enable AI chat" and save.
+
 ## 6) Dialogue Modes and E Interaction
 
 Interaction mode is resolved at runtime:
@@ -203,7 +212,7 @@ and `npcState` rows exist and are linked by object/instance identity.
 
 - verify `mapObjects.instanceName` matches `npcProfiles.name`
 - verify `npcType`, `aiEnabled`, and `canChat`
-- verify `OPENAI_API_KEY` is set in Convex dashboard environment variables
+- verify `OPENAI_API_KEY` is in `.env.local` and synced to Convex: `npx convex env set OPENAI_API_KEY "$(grep OPENAI_API_KEY .env.local | cut -d= -f2-)"`
 
 ### E should only bark (no chat)
 

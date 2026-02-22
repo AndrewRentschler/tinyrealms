@@ -1,7 +1,10 @@
+import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { getAuthUserId } from "@convex-dev/auth/server";
-import { getVisibilityType, visibilityTypeValidator } from "./lib/visibility.ts";
+import {
+  getVisibilityType,
+  visibilityTypeValidator,
+} from "./lib/visibility.ts";
 
 function canReadDef(def: any, userId: string | null): boolean {
   const visibility = getVisibilityType(def);
@@ -10,7 +13,10 @@ function canReadDef(def: any, userId: string | null): boolean {
   return def.createdByUser === userId;
 }
 
-async function isSuperuserUser(ctx: any, userId: string | null): Promise<boolean> {
+async function isSuperuserUser(
+  ctx: any,
+  userId: string | null,
+): Promise<boolean> {
   if (!userId) return false;
   const profiles = await ctx.db
     .query("profiles")
@@ -89,11 +95,26 @@ export const save = mutation({
     doorClosingAnimation: v.optional(v.string()),
     doorOpenSoundUrl: v.optional(v.string()),
     doorCloseSoundUrl: v.optional(v.string()),
+    // Storage template defaults
+    hasStorage: v.optional(v.boolean()),
+    storageCapacity: v.optional(v.number()),
+    storageOwnerType: v.optional(
+      v.union(v.literal("public"), v.literal("player")),
+    ),
     visibilityType: v.optional(visibilityTypeValidator),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
+
+    if (
+      args.hasStorage &&
+      (!args.storageCapacity || args.storageCapacity <= 0)
+    ) {
+      throw new Error(
+        "Storage-enabled sprites must have a capacity greater than 0.",
+      );
+    }
 
     const profile = await ctx.db.get(args.profileId);
     if (!profile) throw new Error("Profile not found");
@@ -115,11 +136,15 @@ export const save = mutation({
         );
       }
       if (!isSuperuser && existingVisibility === "system") {
-        throw new Error(`Permission denied: only superusers can edit system sprite definitions.`);
+        throw new Error(
+          `Permission denied: only superusers can edit system sprite definitions.`,
+        );
       }
     }
 
-    let visibilityType = args.visibilityType ?? (existing ? getVisibilityType(existing) : "private");
+    let visibilityType =
+      args.visibilityType ??
+      (existing ? getVisibilityType(existing) : "private");
     if (visibilityType === "system" && !isSuperuser) {
       throw new Error(`Only superusers can set sprite visibility to "system".`);
     }
@@ -162,10 +187,14 @@ export const remove = mutation({
     const visibility = getVisibilityType(def);
     const isOwner = (def as any).createdByUser === userId;
     if (!isSuperuser && !isOwner) {
-      throw new Error(`Permission denied: only owner or superuser can delete this sprite definition.`);
+      throw new Error(
+        `Permission denied: only owner or superuser can delete this sprite definition.`,
+      );
     }
     if (!isSuperuser && visibility === "system") {
-      throw new Error(`Permission denied: only superusers can delete system sprite definitions.`);
+      throw new Error(
+        `Permission denied: only superusers can delete system sprite definitions.`,
+      );
     }
     await ctx.db.delete(id);
   },

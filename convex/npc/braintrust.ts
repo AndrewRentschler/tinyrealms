@@ -6,17 +6,29 @@
  */
 "use node";
 
-import { openai } from "@ai-sdk/openai";
+import { createOpenAI } from "@ai-sdk/openai";
 import { generateText } from "ai";
 import type { FunctionReference } from "convex/server";
 import { v } from "convex/values";
-import { action } from "../_generated/server";
 import { internal } from "../_generated/api";
+import { action } from "../_generated/server";
 
-const DEFAULT_MODEL = "gpt-5-mini";
-const FALLBACK_MODEL = "gpt-5-nano";
+const MODEL_MINI = "gpt-5-mini";
+const MODEL_NANO = "gpt-5-nano";
+const DEFAULT_MODEL = MODEL_MINI;
+const FALLBACK_MODEL = MODEL_NANO;
 const MAX_HISTORY_TURNS = 30;
 const MAX_OUTPUT_TOKENS = 512;
+
+function getOpenAI() {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error(
+      'OPENAI_API_KEY is not set. Add it to .env.local and run: npx convex env set OPENAI_API_KEY "$(grep OPENAI_API_KEY .env.local | cut -d= -f2-)"',
+    );
+  }
+  return createOpenAI({ apiKey });
+}
 
 type NpcProfile = {
   name?: string;
@@ -41,7 +53,7 @@ function buildSystemPrompt(profile: NpcProfile | null): string {
   const parts: string[] = [];
 
   parts.push(
-    `You are ${profile.displayName ?? profile.name ?? "an NPC"}${profile.title ? `, ${profile.title}` : ""}, a character in a fantasy game.`
+    `You are ${profile.displayName ?? profile.name ?? "an NPC"}${profile.title ? `, ${profile.title}` : ""}, a character in a fantasy game.`,
   );
 
   if (profile.backstory) {
@@ -60,14 +72,19 @@ function buildSystemPrompt(profile: NpcProfile | null): string {
     parts.push(`\nKnowledge: ${profile.knowledge}`);
   }
   if (profile.secrets) {
-    parts.push(`\n(Internal - things you know but may not reveal freely): ${profile.secrets}`);
+    parts.push(
+      `\n(Internal - things you know but may not reveal freely): ${profile.secrets}`,
+    );
   }
   if (profile.relationships?.length) {
     parts.push(
       "\nRelationships: " +
         profile.relationships
-          .map((r) => `${r.npcName} (${r.relation})${r.notes ? `: ${r.notes}` : ""}`)
-          .join("; ")
+          .map(
+            (r) =>
+              `${r.npcName} (${r.relation})${r.notes ? `: ${r.notes}` : ""}`,
+          )
+          .join("; "),
     );
   }
   if (profile.greeting) {
@@ -78,7 +95,7 @@ function buildSystemPrompt(profile: NpcProfile | null): string {
   }
 
   parts.push(
-    "\nKeep responses concise (1-3 sentences typically). Stay in character. Do not break the fourth wall."
+    "\nKeep responses concise (1-3 sentences typically). Stay in character. Do not break the fourth wall.",
   );
 
   return parts.join("");
@@ -96,8 +113,13 @@ export const generateResponse = action({
     actions: v.array(
       v.object({
         type: v.string(),
-        payload: v.optional(v.record(v.string(), v.union(v.string(), v.number(), v.boolean(), v.null()))),
-      })
+        payload: v.optional(
+          v.record(
+            v.string(),
+            v.union(v.string(), v.number(), v.boolean(), v.null()),
+          ),
+        ),
+      }),
     ),
   }),
   handler: async (ctx, args) => {
@@ -105,16 +127,31 @@ export const generateResponse = action({
 
     const internalApi = internal as unknown as Record<
       string,
-      Record<string, FunctionReference<"query", "internal"> | FunctionReference<"mutation", "internal">>
+      Record<
+        string,
+        | FunctionReference<"query", "internal">
+        | FunctionReference<"mutation", "internal">
+      >
     >;
     const [profile, history] = await Promise.all([
-      ctx.runQuery(internalApi["npcProfiles/queries"].getByNameInternal as FunctionReference<"query", "internal">, {
-        name: npcProfileName,
-      }),
-      ctx.runQuery(internalApi["npc/memory"].getConversationHistoryInternal as FunctionReference<"query", "internal">, {
-        npcProfileName,
-        limit: MAX_HISTORY_TURNS,
-      }),
+      ctx.runQuery(
+        internalApi["npcProfiles/queries"]
+          .getByNameInternal as FunctionReference<"query", "internal">,
+        {
+          name: npcProfileName,
+        },
+      ),
+      ctx.runQuery(
+        internalApi["npc/memory"]
+          .getConversationHistoryInternal as FunctionReference<
+          "query",
+          "internal"
+        >,
+        {
+          npcProfileName,
+          limit: MAX_HISTORY_TURNS,
+        },
+      ),
     ]);
 
     const systemPrompt = buildSystemPrompt(profile as NpcProfile | null);
@@ -130,6 +167,7 @@ export const generateResponse = action({
     let text: string;
     let modelUsed = DEFAULT_MODEL;
 
+    const openai = getOpenAI();
     try {
       const result = await generateText({
         model: openai.chat(DEFAULT_MODEL),
@@ -140,7 +178,11 @@ export const generateResponse = action({
       text = result.text;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      if (msg.includes("model") || msg.includes("not found") || msg.includes("404")) {
+      if (
+        msg.includes("model") ||
+        msg.includes("not found") ||
+        msg.includes("404")
+      ) {
         try {
           const fallback = await generateText({
             model: openai.chat(FALLBACK_MODEL),
@@ -161,13 +203,19 @@ export const generateResponse = action({
       }
     }
 
-    await ctx.runMutation(internalApi["npc/memory"].appendConversationInternal as FunctionReference<"mutation", "internal">, {
-      npcProfileName,
-      mapName,
-      actorProfileId,
-      userContent: playerMessage,
-      assistantContent: text,
-    });
+    await ctx.runMutation(
+      internalApi["npc/memory"].appendConversationInternal as FunctionReference<
+        "mutation",
+        "internal"
+      >,
+      {
+        npcProfileName,
+        mapName,
+        actorProfileId,
+        userContent: playerMessage,
+        assistantContent: text,
+      },
+    );
 
     return {
       response: text,

@@ -26,9 +26,7 @@ async function generateUniqueNpcInstanceName(
     new Set(
       (await ctx.db.query("mapObjects").collect())
         .map((o) => o.instanceName)
-        .filter(
-          (v): v is string => typeof v === "string" && v.length > 0,
-        ),
+        .filter((v): v is string => typeof v === "string" && v.length > 0),
     );
   const profileNames =
     usedProfileNames ??
@@ -205,6 +203,12 @@ export const bulkSave = mutation({
         scaleOverride: v.optional(v.number()),
         flipX: v.optional(v.boolean()),
         storageId: v.optional(v.id("storages")), // NEW: preserve storage link
+        // NEW: storage configuration for new objects
+        hasStorage: v.optional(v.boolean()),
+        storageCapacity: v.optional(v.number()),
+        storageOwnerType: v.optional(
+          v.union(v.literal("public"), v.literal("player")),
+        ),
       }),
     ),
   },
@@ -233,7 +237,14 @@ export const bulkSave = mutation({
     const defByName = new Map(allDefs.map((d) => [d.name, d]));
 
     for (const obj of objects) {
-      const { existingId, storageId, ...fields } = obj;
+      const {
+        existingId,
+        storageId: incomingStorageId,
+        hasStorage,
+        storageCapacity,
+        storageOwnerType,
+        ...fields
+      } = obj;
 
       if (existingId && existingById.has(existingId)) {
         // Existing object — patch position / layout only; preserve isOn and storageId
@@ -241,7 +252,7 @@ export const bulkSave = mutation({
         await ctx.db.patch(existingId, {
           ...fields,
           // Preserve existing storageId if not explicitly changed
-          ...(storageId ? { storageId } : {}),
+          ...(incomingStorageId ? { storageId: incomingStorageId } : {}),
           updatedAt: now,
         });
       } else {
@@ -256,6 +267,28 @@ export const bulkSave = mutation({
             usedProfileNames,
           );
         }
+
+        let storageId = incomingStorageId;
+        // Create storage if requested for a new object
+        if (
+          !storageId &&
+          hasStorage &&
+          storageCapacity &&
+          storageCapacity > 0
+        ) {
+          const ownerType = storageOwnerType ?? "public";
+          const ownerId = ownerType === "player" ? profileId : undefined;
+
+          storageId = await ctx.db.insert("storages", {
+            ownerType,
+            ownerId,
+            capacity: storageCapacity,
+            slots: [],
+            name: `${fields.spriteDefName} Storage`,
+            updatedAt: now,
+          });
+        }
+
         await ctx.db.insert("mapObjects", {
           mapName,
           ...fields,

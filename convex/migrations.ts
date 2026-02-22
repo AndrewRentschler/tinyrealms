@@ -134,7 +134,8 @@ export const auditMapSizes = query({
         layerKB: Math.round(layerBytes / 1024),
         collisionKB: Math.round(collisionBytes / 1024),
         totalKB,
-        warning: totalKB > 500 ? "APPROACHING LIMIT" : totalKB > 250 ? "LARGE" : "OK",
+        warning:
+          totalKB > 500 ? "APPROACHING LIMIT" : totalKB > 250 ? "LARGE" : "OK",
       };
     });
 
@@ -153,7 +154,9 @@ function pickProfileForPlayer(player: any, profiles: any[]): any | null {
   const exactName = profiles.find((p) => p.name === player.name);
   if (exactName) return exactName;
   // Fallback to oldest profile for that user.
-  const sorted = [...profiles].sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0));
+  const sorted = [...profiles].sort(
+    (a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0),
+  );
   return sorted[0] ?? null;
 }
 
@@ -179,7 +182,9 @@ export const migratePlayerRefsToProfiles = mutation({
 
     const playerToProfile = new Map<string, string>();
     for (const player of players) {
-      const userProfiles = player.userId ? profilesByUser.get(String(player.userId)) ?? [] : [];
+      const userProfiles = player.userId
+        ? (profilesByUser.get(String(player.userId)) ?? [])
+        : [];
       const chosen = pickProfileForPlayer(player, userProfiles);
       if (chosen?._id) {
         playerToProfile.set(String(player._id), String(chosen._id));
@@ -251,7 +256,9 @@ export const migratePlayerRefsToProfiles = mutation({
 
     const loreRows = await ctx.db.query("lore").collect();
     for (const row of loreRows) {
-      const discovered = Array.isArray((row as any).discoveredBy) ? (row as any).discoveredBy : [];
+      const discovered = Array.isArray((row as any).discoveredBy)
+        ? (row as any).discoveredBy
+        : [];
       if (discovered.length === 0) continue;
       const converted: string[] = [];
       let changed = false;
@@ -322,11 +329,17 @@ export const cleanupLegacyPlayerRefs = mutation({
     combatLogCleaned = await clearLegacyField("combatLog", true);
 
     const loreRows = await ctx.db.query("lore").collect();
-    const profileIds = new Set((await ctx.db.query("profiles").collect()).map((p) => String(p._id)));
+    const profileIds = new Set(
+      (await ctx.db.query("profiles").collect()).map((p) => String(p._id)),
+    );
     for (const row of loreRows) {
-      const discovered = Array.isArray((row as any).discoveredBy) ? (row as any).discoveredBy : [];
+      const discovered = Array.isArray((row as any).discoveredBy)
+        ? (row as any).discoveredBy
+        : [];
       // Keep only IDs that currently exist in profiles.
-      const filtered = discovered.filter((id: any) => profileIds.has(String(id)));
+      const filtered = discovered.filter((id: any) =>
+        profileIds.has(String(id)),
+      );
       if (filtered.length !== discovered.length) {
         await ctx.db.patch(row._id, { discoveredBy: filtered } as any);
         loreCleaned++;
@@ -370,6 +383,36 @@ export const backfillNpcAiDefaults = mutation({
       }
       if (Object.keys(patch).length > 0) {
         await ctx.db.patch(npc._id, patch as any);
+        patched++;
+      }
+    }
+    return { total: all.length, patched };
+  },
+});
+
+/**
+ * Enable AI chat for character NPC profiles.
+ * Use after backfillNpcAiDefaults if you want E-interaction to use AI instead of procedural dialogue.
+ */
+export const enableAiForCharacterProfiles = mutation({
+  args: { adminKey: v.string() },
+  handler: async (ctx, { adminKey }) => {
+    requireAdminKey(adminKey);
+
+    const all = await ctx.db.query("npcProfiles").collect();
+    let patched = 0;
+    for (const npc of all) {
+      const instanceType = (npc as { instanceType?: "animal" | "character" })
+        .instanceType;
+      if (instanceType === "animal") continue;
+
+      const patch: Record<string, unknown> = {};
+      if ((npc as { npcType?: string }).npcType !== "ai") patch.npcType = "ai";
+      if ((npc as { aiEnabled?: boolean }).aiEnabled !== true)
+        patch.aiEnabled = true;
+
+      if (Object.keys(patch).length > 0) {
+        await ctx.db.patch(npc._id, patch);
         patched++;
       }
     }

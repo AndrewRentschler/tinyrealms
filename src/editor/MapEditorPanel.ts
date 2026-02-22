@@ -1282,6 +1282,16 @@ export class MapEditorPanel {
       x: Math.round(worldX),
       y: Math.round(worldY),
       layer: this.activeLayer,
+      // Default storage from sprite definition if present, or override from picker
+      hasStorage:
+        (this as any).placementStorageConfig?.hasStorage ??
+        this.selectedSpriteDef.hasStorage,
+      storageCapacity:
+        (this as any).placementStorageConfig?.storageCapacity ??
+        this.selectedSpriteDef.storageCapacity,
+      storageOwnerType:
+        (this as any).placementStorageConfig?.storageOwnerType ??
+        this.selectedSpriteDef.storageOwnerType,
     };
 
     this.placedObjects.push(obj);
@@ -1290,7 +1300,10 @@ export class MapEditorPanel {
     // All objects (including NPCs) render as static previews in the editor.
     // Real server-driven NPCs are created via the npcState subscription after saving.
     this.game?.objectLayer?.addPlacedObject(
-      obj,
+      {
+        ...obj,
+        storageId: obj.storageId,
+      },
       this.selectedSpriteDef as SpriteDefInfo,
     );
   }
@@ -2225,7 +2238,18 @@ export class MapEditorPanel {
           if (o.instanceName) obj.instanceName = o.instanceName;
           // Send existingId for objects loaded from Convex so bulkSave patches in place.
           const existingId = this.getPersistedMapObjectId(o);
-          if (existingId) obj.existingId = existingId;
+          if (existingId) {
+            obj.existingId = existingId;
+            // For existing objects, preserve the storageId
+            if (o.storageId) obj.storageId = o.storageId;
+          } else {
+            // For new objects, send storage configuration if present
+            if (o.hasStorage) {
+              obj.hasStorage = true;
+              obj.storageCapacity = o.storageCapacity;
+              obj.storageOwnerType = o.storageOwnerType;
+            }
+          }
           return obj;
         }),
       } as any);
@@ -2272,6 +2296,7 @@ export class MapEditorPanel {
         y: o.y,
         layer: o.layer ?? 0,
         isOn: o.isOn,
+        storageId: o.storageId,
       }));
     } catch (err) {
       console.warn("Failed to load placed objects:", err);

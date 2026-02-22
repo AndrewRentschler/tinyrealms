@@ -1,6 +1,7 @@
 /**
  * Map editor types: tools, tilesets, placed objects, sprite/item definitions.
  */
+import type { Id } from "../../../convex/_generated/dataModel";
 import type { MapLayerType } from "../../types/index.ts";
 import type { VisibilityType } from "../../types/visibility.ts";
 
@@ -43,6 +44,10 @@ export interface PlacedObject {
   y: number;
   layer: number;
   isOn?: boolean;
+  storageId?: Id<"storages">;
+  hasStorage?: boolean;
+  storageCapacity?: number;
+  storageOwnerType?: "public" | "player";
 }
 
 /** Sprite definition row from Convex (subset of fields) */
@@ -73,6 +78,9 @@ export interface SpriteDef {
   offAnimation?: string;
   onSoundUrl?: string;
   isDoor?: boolean;
+  hasStorage?: boolean;
+  storageCapacity?: number;
+  storageOwnerType?: "public" | "player";
 }
 
 export interface ItemDef {
@@ -108,7 +116,17 @@ export interface PlacedItem {
 
 /** Minimal context for layer panel helpers (avoids circular imports) */
 export interface LayerPanelContext {
-  game: { mapRenderer: { getMapData(): { layers: { name?: string; tilesetUrl?: string }[]; tilesetUrl?: string; width?: number; height?: number } | null; loadMap(d: unknown): void } } | null;
+  game: {
+    mapRenderer: {
+      getMapData(): {
+        layers: { name?: string; tilesetUrl?: string }[];
+        tilesetUrl?: string;
+        width?: number;
+        height?: number;
+      } | null;
+      loadMap(d: unknown): void;
+    };
+  } | null;
   activeLayer: number;
   layerListEl: HTMLElement;
   layerButtons: HTMLButtonElement[];

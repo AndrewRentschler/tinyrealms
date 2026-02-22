@@ -4,6 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "predev": "test -f .env.local && grep -q '^OPENAI_API_KEY=' .env.local && npx convex env set OPENAI_API_KEY \"$(grep '^OPENAI_API_KEY=' .env.local | cut -d= -f2-)\" || true",
     "dev": "npm-run-all --parallel dev:frontend dev:backend",
     "dev:frontend": "vite",
     "dev:backend": "convex dev --local",
@@ -32,6 +33,7 @@
     "migrate:player-refs": "node scripts/admin-run.mjs migrations:migratePlayerRefsToProfiles",
     "migrate:player-cleanup": "node scripts/admin-run.mjs migrations:cleanupLegacyPlayerRefs",
     "migrate:npc-ai-defaults": "node scripts/admin-run.mjs migrations:backfillNpcAiDefaults",
+    "migrate:npc-ai-enable": "node scripts/admin-run.mjs migrations:enableAiForCharacterProfiles",
     "typecheck": "tsc -b --pretty false",
     "auth:list-users": "node scripts/admin-run.mjs admin:listUsers",
     "auth:assign-profiles": "npx convex run admin:assignUnlinkedProfiles",

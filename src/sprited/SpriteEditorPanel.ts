@@ -2,15 +2,15 @@
  * Sprite Editor — browse sprite sheets, preview animations,
  * create named sprite definitions, and save them to Convex.
  */
-import { getConvexClient } from "../lib/convexClient.ts";
 import { api } from "../../convex/_generated/api";
-import type { Game } from "../engine/Game/index.ts";
-import type { VisibilityType } from "../types/visibility.ts";
 import { SOUND_FILES } from "../config/audio-config.ts";
 import {
   OBJECT_SPRITE_SHEETS,
   type SheetEntry,
 } from "../config/spritesheet-config.ts";
+import type { Game } from "../engine/Game/index.ts";
+import { getConvexClient } from "../lib/convexClient.ts";
+import type { VisibilityType } from "../types/visibility.ts";
 import "./SpriteEditor.css";
 
 // ---------------------------------------------------------------------------
@@ -19,7 +19,10 @@ import "./SpriteEditor.css";
 
 /** Raw sprite-sheet JSON shape (TexturePacker / PixiJS format) */
 interface SheetJson {
-  frames: Record<string, { frame: { x: number; y: number; w: number; h: number } }>;
+  frames: Record<
+    string,
+    { frame: { x: number; y: number; w: number; h: number } }
+  >;
   animations?: Record<string, string[]>;
   meta: { image: string; format: string; scale: string };
 }
@@ -66,6 +69,10 @@ interface SavedSpriteDef {
   onAnimation?: string;
   offAnimation?: string;
   onSoundUrl?: string;
+  // Storage template defaults
+  hasStorage?: boolean;
+  storageCapacity?: number;
+  storageOwnerType?: "public" | "player";
   // Door
   isDoor?: boolean;
   doorClosedAnimation?: string;
@@ -146,6 +153,12 @@ export class SpriteEditorPanel {
   private doorOpenSoundSelect!: HTMLSelectElement;
   private doorCloseSoundSelect!: HTMLSelectElement;
 
+  // Storage form fields
+  private storageFieldsWrap!: HTMLElement;
+  private hasStorageCheck!: HTMLInputElement;
+  private storageCapacityInput!: HTMLInputElement;
+  private storageOwnerTypeSelect!: HTMLSelectElement;
+
   // NPC-specific form fields
   private npcFieldsWrap!: HTMLElement;
   private npcSpeedInput!: HTMLInputElement;
@@ -172,7 +185,9 @@ export class SpriteEditorPanel {
 
   setGame(game: Game) {
     this.game = game;
-    this.rebuildVisibilityOptions(this.visibilitySelect?.value as any || "private");
+    this.rebuildVisibilityOptions(
+      (this.visibilitySelect?.value as any) || "private",
+    );
   }
 
   // =========================================================================
@@ -274,12 +289,37 @@ export class SpriteEditorPanel {
     const form = document.createElement("div");
     form.className = "sprite-editor-form";
 
-    this.nameInput = this.addFormField(form, "Name", "text", "My Sprite") as HTMLInputElement;
-    this.speedInput = this.addFormField(form, "Anim Speed", "number", "0.15") as HTMLInputElement;
+    this.nameInput = this.addFormField(
+      form,
+      "Name",
+      "text",
+      "My Sprite",
+    ) as HTMLInputElement;
+    this.speedInput = this.addFormField(
+      form,
+      "Anim Speed",
+      "number",
+      "0.15",
+    ) as HTMLInputElement;
     this.speedInput.addEventListener("input", () => this.startPreview()); // live-update preview
-    this.scaleInput = this.addFormField(form, "Scale", "number", "1") as HTMLInputElement;
-    this.anchorXInput = this.addFormField(form, "Anchor X (0–1)", "number", "0.5") as HTMLInputElement;
-    this.anchorYInput = this.addFormField(form, "Anchor Y (0–1)", "number", "1") as HTMLInputElement;
+    this.scaleInput = this.addFormField(
+      form,
+      "Scale",
+      "number",
+      "1",
+    ) as HTMLInputElement;
+    this.anchorXInput = this.addFormField(
+      form,
+      "Anchor X (0–1)",
+      "number",
+      "0.5",
+    ) as HTMLInputElement;
+    this.anchorYInput = this.addFormField(
+      form,
+      "Anchor Y (0–1)",
+      "number",
+      "1",
+    ) as HTMLInputElement;
 
     // Category
     const catField = document.createElement("div");
@@ -335,8 +375,18 @@ export class SpriteEditorPanel {
     ambField.append(ambLabel, this.ambientSoundSelect);
     form.appendChild(ambField);
 
-    this.ambientRadiusInput = this.addFormField(form, "Ambient Radius (px)", "number", "200") as HTMLInputElement;
-    this.ambientVolumeInput = this.addFormField(form, "Ambient Volume (0–1)", "number", "0.5") as HTMLInputElement;
+    this.ambientRadiusInput = this.addFormField(
+      form,
+      "Ambient Radius (px)",
+      "number",
+      "200",
+    ) as HTMLInputElement;
+    this.ambientVolumeInput = this.addFormField(
+      form,
+      "Ambient Volume (0–1)",
+      "number",
+      "0.5",
+    ) as HTMLInputElement;
 
     // Interact sound
     const intField = document.createElement("div");
@@ -369,8 +419,18 @@ export class SpriteEditorPanel {
     const toggleAnimWrap = document.createElement("div");
     toggleAnimWrap.className = "sprite-editor-toggle-anim-fields";
     toggleAnimWrap.style.display = "none";
-    this.onAnimInput = this.addFormField(toggleAnimWrap, "On Animation (row name)", "text", "") as HTMLInputElement;
-    this.offAnimInput = this.addFormField(toggleAnimWrap, "Off Animation (row name)", "text", "") as HTMLInputElement;
+    this.onAnimInput = this.addFormField(
+      toggleAnimWrap,
+      "On Animation (row name)",
+      "text",
+      "",
+    ) as HTMLInputElement;
+    this.offAnimInput = this.addFormField(
+      toggleAnimWrap,
+      "Off Animation (row name)",
+      "text",
+      "",
+    ) as HTMLInputElement;
 
     const onSoundField = document.createElement("div");
     onSoundField.className = "sprite-editor-field";
@@ -410,10 +470,30 @@ export class SpriteEditorPanel {
     const doorAnimWrap = document.createElement("div");
     doorAnimWrap.className = "sprite-editor-door-anim-fields";
     doorAnimWrap.style.display = "none";
-    this.doorClosedAnimInput = this.addFormField(doorAnimWrap, "Closed Animation (row name)", "text", "") as HTMLInputElement;
-    this.doorOpeningAnimInput = this.addFormField(doorAnimWrap, "Opening Animation (row name)", "text", "") as HTMLInputElement;
-    this.doorOpenAnimInput = this.addFormField(doorAnimWrap, "Open Animation (row name)", "text", "") as HTMLInputElement;
-    this.doorClosingAnimInput = this.addFormField(doorAnimWrap, "Closing Animation (row name)", "text", "") as HTMLInputElement;
+    this.doorClosedAnimInput = this.addFormField(
+      doorAnimWrap,
+      "Closed Animation (row name)",
+      "text",
+      "",
+    ) as HTMLInputElement;
+    this.doorOpeningAnimInput = this.addFormField(
+      doorAnimWrap,
+      "Opening Animation (row name)",
+      "text",
+      "",
+    ) as HTMLInputElement;
+    this.doorOpenAnimInput = this.addFormField(
+      doorAnimWrap,
+      "Open Animation (row name)",
+      "text",
+      "",
+    ) as HTMLInputElement;
+    this.doorClosingAnimInput = this.addFormField(
+      doorAnimWrap,
+      "Closing Animation (row name)",
+      "text",
+      "",
+    ) as HTMLInputElement;
 
     // Door sounds
     const doorOpenSoundField = document.createElement("div");
@@ -444,6 +524,62 @@ export class SpriteEditorPanel {
       }
     });
 
+    // ---- Storage fields ----
+    this.storageFieldsWrap = document.createElement("div");
+    this.storageFieldsWrap.className = "sprite-editor-storage-fields-wrap";
+
+    const storageHeader = document.createElement("div");
+    storageHeader.className = "sprite-editor-section-label";
+    storageHeader.textContent = "Storage (Chests, Barrels, etc.)";
+    this.storageFieldsWrap.appendChild(storageHeader);
+
+    const storageField = document.createElement("div");
+    storageField.className = "sprite-editor-field sprite-editor-field-row";
+    this.hasStorageCheck = document.createElement("input");
+    this.hasStorageCheck.type = "checkbox";
+    this.hasStorageCheck.id = "has-storage-check";
+    const storageLabel = document.createElement("label");
+    storageLabel.htmlFor = "has-storage-check";
+    storageLabel.textContent = "Has Storage";
+    storageField.append(this.hasStorageCheck, storageLabel);
+    this.storageFieldsWrap.appendChild(storageField);
+
+    const storageConfigWrap = document.createElement("div");
+    storageConfigWrap.className = "sprite-editor-storage-config-fields";
+    storageConfigWrap.style.display = "none";
+
+    this.storageCapacityInput = this.addFormField(
+      storageConfigWrap,
+      "Capacity (slots)",
+      "number",
+      "10",
+    ) as HTMLInputElement;
+
+    const ownerField = document.createElement("div");
+    ownerField.className = "sprite-editor-field";
+    const ownerLabel = document.createElement("label");
+    ownerLabel.textContent = "Default Owner Type";
+    this.storageOwnerTypeSelect = document.createElement("select");
+    this.storageOwnerTypeSelect.className = "sprite-editor-select";
+    const publicOpt = document.createElement("option");
+    publicOpt.value = "public";
+    publicOpt.textContent = "Public (Shared)";
+    const playerOpt = document.createElement("option");
+    playerOpt.value = "player";
+    playerOpt.textContent = "Player (Private)";
+    this.storageOwnerTypeSelect.append(publicOpt, playerOpt);
+    ownerField.append(ownerLabel, this.storageOwnerTypeSelect);
+    storageConfigWrap.appendChild(ownerField);
+
+    this.storageFieldsWrap.appendChild(storageConfigWrap);
+    form.appendChild(this.storageFieldsWrap);
+
+    this.hasStorageCheck.addEventListener("change", () => {
+      storageConfigWrap.style.display = this.hasStorageCheck.checked
+        ? ""
+        : "none";
+    });
+
     // NPC-specific fields (shown/hidden based on category)
     this.npcFieldsWrap = document.createElement("div");
     this.npcFieldsWrap.className = "sprite-editor-npc-fields";
@@ -454,8 +590,18 @@ export class SpriteEditorPanel {
     npcHeader.textContent = "NPC Settings";
     this.npcFieldsWrap.appendChild(npcHeader);
 
-    this.npcSpeedInput = this.addFormField(this.npcFieldsWrap, "Move Speed (px/sec)", "number", "30") as HTMLInputElement;
-    this.npcWanderInput = this.addFormField(this.npcFieldsWrap, "Wander Radius (px)", "number", "60") as HTMLInputElement;
+    this.npcSpeedInput = this.addFormField(
+      this.npcFieldsWrap,
+      "Move Speed (px/sec)",
+      "number",
+      "30",
+    ) as HTMLInputElement;
+    this.npcWanderInput = this.addFormField(
+      this.npcFieldsWrap,
+      "Wander Radius (px)",
+      "number",
+      "60",
+    ) as HTMLInputElement;
 
     const dirHeader = document.createElement("div");
     dirHeader.className = "sprite-editor-section-label";
@@ -463,10 +609,30 @@ export class SpriteEditorPanel {
     dirHeader.style.marginTop = "4px";
     this.npcFieldsWrap.appendChild(dirHeader);
 
-    this.npcDirDownInput = this.addFormField(this.npcFieldsWrap, "Down", "text", "row0") as HTMLInputElement;
-    this.npcDirUpInput = this.addFormField(this.npcFieldsWrap, "Up", "text", "row1") as HTMLInputElement;
-    this.npcDirLeftInput = this.addFormField(this.npcFieldsWrap, "Left", "text", "row3") as HTMLInputElement;
-    this.npcDirRightInput = this.addFormField(this.npcFieldsWrap, "Right", "text", "row2") as HTMLInputElement;
+    this.npcDirDownInput = this.addFormField(
+      this.npcFieldsWrap,
+      "Down",
+      "text",
+      "row0",
+    ) as HTMLInputElement;
+    this.npcDirUpInput = this.addFormField(
+      this.npcFieldsWrap,
+      "Up",
+      "text",
+      "row1",
+    ) as HTMLInputElement;
+    this.npcDirLeftInput = this.addFormField(
+      this.npcFieldsWrap,
+      "Left",
+      "text",
+      "row3",
+    ) as HTMLInputElement;
+    this.npcDirRightInput = this.addFormField(
+      this.npcFieldsWrap,
+      "Right",
+      "text",
+      "row2",
+    ) as HTMLInputElement;
 
     // Greeting textarea
     const greetField = document.createElement("div");
@@ -476,14 +642,17 @@ export class SpriteEditorPanel {
     this.npcGreetingInput = document.createElement("textarea");
     this.npcGreetingInput.className = "sprite-editor-textarea";
     this.npcGreetingInput.rows = 3;
-    this.npcGreetingInput.placeholder = "Hello there! I don't have much to say yet.";
+    this.npcGreetingInput.placeholder =
+      "Hello there! I don't have much to say yet.";
     greetField.append(greetLabel, this.npcGreetingInput);
     this.npcFieldsWrap.appendChild(greetField);
 
     form.appendChild(this.npcFieldsWrap);
 
     // Show/hide NPC fields when category changes
-    this.categorySelect.addEventListener("change", () => this.onCategoryChange());
+    this.categorySelect.addEventListener("change", () =>
+      this.onCategoryChange(),
+    );
 
     // Buttons
     const btnRow = document.createElement("div");
@@ -547,7 +716,12 @@ export class SpriteEditorPanel {
     return sel;
   }
 
-  private addFormField(parent: HTMLElement, labelText: string, type: string, defaultVal: string): HTMLInputElement {
+  private addFormField(
+    parent: HTMLElement,
+    labelText: string,
+    type: string,
+    defaultVal: string,
+  ): HTMLInputElement {
     const field = document.createElement("div");
     field.className = "sprite-editor-field";
     const label = document.createElement("label");
@@ -581,7 +755,10 @@ export class SpriteEditorPanel {
       const json: SheetJson = await resp.json();
 
       // Determine base path
-      const basePath = entry.jsonUrl.substring(0, entry.jsonUrl.lastIndexOf("/") + 1);
+      const basePath = entry.jsonUrl.substring(
+        0,
+        entry.jsonUrl.lastIndexOf("/") + 1,
+      );
       const imagePath = basePath + json.meta.image;
 
       // Load image
@@ -606,7 +783,14 @@ export class SpriteEditorPanel {
       const fw = firstFrame?.w ?? 32;
       const fh = firstFrame?.h ?? 32;
 
-      this.loadedSheet = { entry, json, image, animations, frameWidth: fw, frameHeight: fh };
+      this.loadedSheet = {
+        entry,
+        json,
+        image,
+        animations,
+        frameWidth: fw,
+        frameHeight: fh,
+      };
       this.renderSheetCanvas();
       this.renderAnimList();
       this.selectAnimation(Object.keys(animations)[0] ?? "");
@@ -707,7 +891,12 @@ export class SpriteEditorPanel {
     }
 
     if (!this.loadedSheet || !this.selectedAnim) {
-      this.previewCtx.clearRect(0, 0, this.previewCanvas.width, this.previewCanvas.height);
+      this.previewCtx.clearRect(
+        0,
+        0,
+        this.previewCanvas.width,
+        this.previewCanvas.height,
+      );
       this.previewLabel.textContent = "Preview";
       return;
     }
@@ -730,7 +919,9 @@ export class SpriteEditorPanel {
     }, intervalMs);
   }
 
-  private drawPreviewFrame(frames: { x: number; y: number; w: number; h: number }[]) {
+  private drawPreviewFrame(
+    frames: { x: number; y: number; w: number; h: number }[],
+  ) {
     if (!this.loadedSheet) return;
     const ctx = this.previewCtx;
     const f = frames[this.previewFrame % frames.length];
@@ -742,9 +933,10 @@ export class SpriteEditorPanel {
     // Scale to fit canvas while preserving aspect ratio.
     // For small frames (< canvas) use integer scale; for large ones use fractional.
     const maxDim = Math.max(f.w, f.h);
-    const scale = maxDim <= cw
-      ? Math.max(1, Math.floor(cw / maxDim))   // integer upscale for pixel art
-      : cw / maxDim;                             // fractional downscale for large sprites
+    const scale =
+      maxDim <= cw
+        ? Math.max(1, Math.floor(cw / maxDim)) // integer upscale for pixel art
+        : cw / maxDim; // fractional downscale for large sprites
     const dw = Math.round(f.w * scale);
     const dh = Math.round(f.h * scale);
     const dx = Math.round((cw - dw) / 2);
@@ -781,12 +973,26 @@ export class SpriteEditorPanel {
     this.ambientVolumeInput.value = "0.5";
     this.interactSoundSelect.value = "";
 
+    // Reset storage fields
+    this.hasStorageCheck.checked = false;
+    this.storageCapacityInput.value = "10";
+    this.storageOwnerTypeSelect.value = "public";
+    (
+      this.storageFieldsWrap.querySelector(
+        ".sprite-editor-storage-config-fields",
+      ) as HTMLElement
+    ).style.display = "none";
+
     // Reset toggle fields
     this.toggleableCheck.checked = false;
     this.onAnimInput.value = "";
     this.offAnimInput.value = "";
     this.onSoundSelect.value = "";
-    (this.toggleFieldsWrap.querySelector(".sprite-editor-toggle-anim-fields") as HTMLElement).style.display = "none";
+    (
+      this.toggleFieldsWrap.querySelector(
+        ".sprite-editor-toggle-anim-fields",
+      ) as HTMLElement
+    ).style.display = "none";
 
     // Reset NPC fields
     this.npcSpeedInput.value = "30";
@@ -817,13 +1023,26 @@ export class SpriteEditorPanel {
     this.ambientVolumeInput.value = String(def.ambientSoundVolume ?? 0.5);
     this.interactSoundSelect.value = def.interactSoundUrl ?? "";
 
+    // Storage fields
+    this.hasStorageCheck.checked = !!def.hasStorage;
+    this.storageCapacityInput.value = String(def.storageCapacity ?? 10);
+    this.storageOwnerTypeSelect.value = def.storageOwnerType ?? "public";
+    (
+      this.storageFieldsWrap.querySelector(
+        ".sprite-editor-storage-config-fields",
+      ) as HTMLElement
+    ).style.display = def.hasStorage ? "" : "none";
+
     // Toggle fields
     this.toggleableCheck.checked = !!def.toggleable;
     this.onAnimInput.value = def.onAnimation ?? "";
     this.offAnimInput.value = def.offAnimation ?? "";
     this.onSoundSelect.value = def.onSoundUrl ?? "";
-    (this.toggleFieldsWrap.querySelector(".sprite-editor-toggle-anim-fields") as HTMLElement).style.display =
-      def.toggleable ? "" : "none";
+    (
+      this.toggleFieldsWrap.querySelector(
+        ".sprite-editor-toggle-anim-fields",
+      ) as HTMLElement
+    ).style.display = def.toggleable ? "" : "none";
 
     // Door fields
     this.doorCheck.checked = !!def.isDoor;
@@ -833,8 +1052,11 @@ export class SpriteEditorPanel {
     this.doorClosingAnimInput.value = def.doorClosingAnimation ?? "";
     this.doorOpenSoundSelect.value = def.doorOpenSoundUrl ?? "";
     this.doorCloseSoundSelect.value = def.doorCloseSoundUrl ?? "";
-    (this.doorFieldsWrap.querySelector(".sprite-editor-door-anim-fields") as HTMLElement).style.display =
-      def.isDoor ? "" : "none";
+    (
+      this.doorFieldsWrap.querySelector(
+        ".sprite-editor-door-anim-fields",
+      ) as HTMLElement
+    ).style.display = def.isDoor ? "" : "none";
 
     // NPC fields
     const isNpc = def.category === "npc";
@@ -898,49 +1120,69 @@ export class SpriteEditorPanel {
         frameHeight: this.loadedSheet.frameHeight,
         // Sound fields
         ambientSoundUrl: this.ambientSoundSelect.value || undefined,
-        ambientSoundRadius: this.ambientSoundSelect.value ? (parseFloat(this.ambientRadiusInput.value) || 200) : undefined,
-        ambientSoundVolume: this.ambientSoundSelect.value ? (parseFloat(this.ambientVolumeInput.value) || 0.5) : undefined,
+        ambientSoundRadius: this.ambientSoundSelect.value
+          ? parseFloat(this.ambientRadiusInput.value) || 200
+          : undefined,
+        ambientSoundVolume: this.ambientSoundSelect.value
+          ? parseFloat(this.ambientVolumeInput.value) || 0.5
+          : undefined,
         interactSoundUrl: this.interactSoundSelect.value || undefined,
+        // Storage defaults
+        hasStorage: this.hasStorageCheck.checked || undefined,
+        storageCapacity: this.hasStorageCheck.checked
+          ? parseInt(this.storageCapacityInput.value) || 10
+          : undefined,
+        storageOwnerType: this.hasStorageCheck.checked
+          ? (this.storageOwnerTypeSelect.value as any)
+          : undefined,
         // Toggleable on/off
-        ...(this.toggleableCheck.checked ? {
-          toggleable: true,
-          onAnimation: this.onAnimInput.value || undefined,
-          offAnimation: this.offAnimInput.value || undefined,
-          onSoundUrl: this.onSoundSelect.value || undefined,
-        } : {
-          toggleable: undefined,
-          onAnimation: undefined,
-          offAnimation: undefined,
-          onSoundUrl: undefined,
-        }),
+        ...(this.toggleableCheck.checked
+          ? {
+              toggleable: true,
+              onAnimation: this.onAnimInput.value || undefined,
+              offAnimation: this.offAnimInput.value || undefined,
+              onSoundUrl: this.onSoundSelect.value || undefined,
+            }
+          : {
+              toggleable: undefined,
+              onAnimation: undefined,
+              offAnimation: undefined,
+              onSoundUrl: undefined,
+            }),
         // Door
-        ...(this.doorCheck.checked ? {
-          isDoor: true,
-          doorClosedAnimation: this.doorClosedAnimInput.value || undefined,
-          doorOpeningAnimation: this.doorOpeningAnimInput.value || undefined,
-          doorOpenAnimation: this.doorOpenAnimInput.value || undefined,
-          doorClosingAnimation: this.doorClosingAnimInput.value || undefined,
-          doorOpenSoundUrl: this.doorOpenSoundSelect.value || undefined,
-          doorCloseSoundUrl: this.doorCloseSoundSelect.value || undefined,
-        } : {
-          isDoor: undefined,
-          doorClosedAnimation: undefined,
-          doorOpeningAnimation: undefined,
-          doorOpenAnimation: undefined,
-          doorClosingAnimation: undefined,
-          doorOpenSoundUrl: undefined,
-          doorCloseSoundUrl: undefined,
-        }),
+        ...(this.doorCheck.checked
+          ? {
+              isDoor: true,
+              doorClosedAnimation: this.doorClosedAnimInput.value || undefined,
+              doorOpeningAnimation:
+                this.doorOpeningAnimInput.value || undefined,
+              doorOpenAnimation: this.doorOpenAnimInput.value || undefined,
+              doorClosingAnimation:
+                this.doorClosingAnimInput.value || undefined,
+              doorOpenSoundUrl: this.doorOpenSoundSelect.value || undefined,
+              doorCloseSoundUrl: this.doorCloseSoundSelect.value || undefined,
+            }
+          : {
+              isDoor: undefined,
+              doorClosedAnimation: undefined,
+              doorOpeningAnimation: undefined,
+              doorOpenAnimation: undefined,
+              doorClosingAnimation: undefined,
+              doorOpenSoundUrl: undefined,
+              doorCloseSoundUrl: undefined,
+            }),
         // NPC-specific
-        ...(isNpc ? {
-          npcSpeed: parseFloat(this.npcSpeedInput.value) || 30,
-          npcWanderRadius: parseFloat(this.npcWanderInput.value) || 60,
-          npcDirDown: this.npcDirDownInput.value || "row0",
-          npcDirUp: this.npcDirUpInput.value || "row1",
-          npcDirLeft: this.npcDirLeftInput.value || "row3",
-          npcDirRight: this.npcDirRightInput.value || "row2",
-          npcGreeting: this.npcGreetingInput.value || undefined,
-        } : {}),
+        ...(isNpc
+          ? {
+              npcSpeed: parseFloat(this.npcSpeedInput.value) || 30,
+              npcWanderRadius: parseFloat(this.npcWanderInput.value) || 60,
+              npcDirDown: this.npcDirDownInput.value || "row0",
+              npcDirUp: this.npcDirUpInput.value || "row1",
+              npcDirLeft: this.npcDirLeftInput.value || "row3",
+              npcDirRight: this.npcDirRightInput.value || "row2",
+              npcGreeting: this.npcGreetingInput.value || undefined,
+            }
+          : {}),
       });
 
       this.showStatus("Saved ✓");
@@ -948,10 +1190,16 @@ export class SpriteEditorPanel {
       // Live-refresh sounds on any running entities using this definition
       const soundCfg = {
         ambientSoundUrl: this.ambientSoundSelect.value || undefined,
-        ambientSoundRadius: this.ambientSoundSelect.value ? (parseFloat(this.ambientRadiusInput.value) || 200) : undefined,
-        ambientSoundVolume: this.ambientSoundSelect.value ? (parseFloat(this.ambientVolumeInput.value) || 0.5) : undefined,
+        ambientSoundRadius: this.ambientSoundSelect.value
+          ? parseFloat(this.ambientRadiusInput.value) || 200
+          : undefined,
+        ambientSoundVolume: this.ambientSoundSelect.value
+          ? parseFloat(this.ambientVolumeInput.value) || 0.5
+          : undefined,
         interactSoundUrl: this.interactSoundSelect.value || undefined,
-        onSoundUrl: (this.toggleableCheck.checked ? this.onSoundSelect.value : "") || undefined,
+        onSoundUrl:
+          (this.toggleableCheck.checked ? this.onSoundSelect.value : "") ||
+          undefined,
       };
       if (this.game?.entityLayer) {
         this.game.entityLayer.refreshNPCSounds(name, soundCfg);
@@ -1018,7 +1266,9 @@ export class SpriteEditorPanel {
     try {
       const convex = getConvexClient();
       const defs = await convex.query(api.spriteDefinitions.list, {});
-      console.log(`[SpriteEditor] Loaded ${defs.length} saved sprite definitions`);
+      console.log(
+        `[SpriteEditor] Loaded ${defs.length} saved sprite definitions`,
+      );
       this.savedDefs = defs as unknown as SavedSpriteDef[];
       this.renderSavedList();
     } catch (err) {
@@ -1110,8 +1360,12 @@ export class SpriteEditorPanel {
     }
   }
 
-  show() { this.toggle(true); }
-  hide() { this.toggle(false); }
+  show() {
+    this.toggle(true);
+  }
+  hide() {
+    this.toggle(false);
+  }
 
   destroy() {
     if (this.previewTimer) clearInterval(this.previewTimer);

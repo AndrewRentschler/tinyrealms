@@ -8,6 +8,7 @@ export interface MapObjectRow {
   y: number;
   layer?: number;
   isOn?: boolean;
+  storageId?: import("../../../convex/_generated/dataModel").Id<"storages">;
 }
 
 /** Sprite definition from Convex (spriteDefinitions table). */
@@ -35,6 +36,9 @@ export interface SpriteDefRow {
   doorClosingAnimation?: string;
   doorOpenSoundUrl?: string;
   doorCloseSoundUrl?: string;
+  hasStorage?: boolean;
+  storageCapacity?: number;
+  storageOwnerType?: "public" | "player";
 }
 
 export interface StaticObjectInput {
@@ -44,6 +48,7 @@ export interface StaticObjectInput {
   y: number;
   layer: number;
   isOn?: boolean;
+  storageId?: import("../../../convex/_generated/dataModel").Id<"storages">;
 }
 
 /**
@@ -70,6 +75,7 @@ export function buildStaticObjects(
       y: o.y,
       layer: o.layer ?? 0,
       isOn: o.isOn,
+      storageId: o.storageId,
     });
 
     if (!defsSeen.has(def.name)) {
