@@ -53,7 +53,7 @@ const fnArgs = JSON.stringify({ adminKey: ADMIN_API_KEY });
 const tmpFile = resolve(tmpdir(), `convex-dump-maps-${Date.now()}.json`);
 
 try {
-  execSync(`npx convex run admin:dumpAll '${fnArgs}' > "${tmpFile}"`, {
+  execSync(`npx convex run admin/restore:dumpAll '${fnArgs}' > "${tmpFile}"`, {
     cwd: ROOT,
     stdio: "inherit",
     shell: true,
