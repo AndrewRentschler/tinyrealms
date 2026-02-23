@@ -36,9 +36,7 @@ export const exportMapContext = query({
 
     // Get all NPC profiles mentioned in objects
     const npcNames = new Set(
-      objects
-        .map((o) => o.instanceName)
-        .filter((n): n is string => !!n)
+      objects.map((o) => o.instanceName).filter((n): n is string => !!n),
     );
     const npcProfiles = [];
     for (const name of npcNames) {

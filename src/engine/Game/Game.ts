@@ -9,6 +9,7 @@ import { EntityLayer } from "../EntityLayer/index.ts";
 import { ObjectLayer } from "../ObjectLayer/index.ts";
 import { WorldItemLayer } from "../WorldItemLayer/index.ts";
 import { WeatherLayer } from "../WeatherLayer.ts";
+import { DayNightLayer } from "../DayNightLayer.ts";
 import { InputManager } from "../InputManager.ts";
 import { AudioManager, type SfxHandle } from "../AudioManager/index.ts";
 import { PresenceManager } from "../PresenceManager.ts";
@@ -32,10 +33,12 @@ export class Game implements IGame {
   app: Application;
   camera: Camera;
   mapRenderer!: MapRenderer;
+  globalChunkRenderer!: import("../GlobalChunkRenderer.ts").GlobalChunkRenderer;
   entityLayer!: EntityLayer;
   objectLayer!: ObjectLayer;
   worldItemLayer!: WorldItemLayer;
   weatherLayer!: WeatherLayer;
+  dayNightLayer!: DayNightLayer;
   input: InputManager;
   audio: AudioManager;
   mode: AppMode = "play";
@@ -62,6 +65,7 @@ export class Game implements IGame {
   worldItemsUnsub: IGame["worldItemsUnsub"] = null;
   npcStateUnsub: IGame["npcStateUnsub"] = null;
   globalWeatherUnsub: IGame["globalWeatherUnsub"] = null;
+  worldTimeUnsub: IGame["worldTimeUnsub"] = null;
   spriteDefCache: Map<string, unknown> = new Map();
   mapObjectInstanceNameById: Map<string, string> = new Map();
 
@@ -69,12 +73,14 @@ export class Game implements IGame {
   weatherRainVolume = 0;
   weatherRainLoading = false;
   globalRainyNow = false;
+  worldTime: IGame["worldTime"] = null;
 
   changingMap = false;
   currentPortals: Portal[] = [];
   currentMapData: MapData | null = null;
   onMapChanged: ((mapName: string) => void) | null = null;
   portalEmptyWarned = false;
+  portalTransitionInFlight = false;
 
   toggling = false;
   pickingUp = false;
@@ -156,8 +162,8 @@ export class Game implements IGame {
     this.presenceManager.stop();
   }
 
-  async changeMap(targetMapName: string, spawnLabel: string, direction?: string): Promise<void> {
-    return changeMap(this, targetMapName, spawnLabel, direction);
+  async changeMap(targetMapName: string, spawnLabel: string, direction?: string, globalCoords?: { x: number; y: number }): Promise<void> {
+    return changeMap(this, targetMapName, spawnLabel, direction, globalCoords);
   }
 
   setMode(mode: AppMode): void {
@@ -174,6 +180,8 @@ export class Game implements IGame {
     this.npcStateUnsub = null;
     this.globalWeatherUnsub?.();
     this.globalWeatherUnsub = null;
+    this.worldTimeUnsub?.();
+    this.worldTimeUnsub = null;
     if (this.unlockHandler) {
       document.removeEventListener("click", this.unlockHandler);
       document.removeEventListener("keydown", this.unlockHandler);
@@ -184,6 +192,9 @@ export class Game implements IGame {
       this.weatherRainVolume = 0;
     }
     this.weatherRainLoading = false;
+    this.dayNightLayer?.destroy();
+    this.globalChunkRenderer?.destroy();
+    this.weatherLayer?.destroy();
     // Clean up storage panel if open
     if (this.storagePanel) {
       this.storagePanel.el.remove();

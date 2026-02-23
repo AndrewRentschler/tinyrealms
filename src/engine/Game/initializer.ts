@@ -1,9 +1,12 @@
 import type { Game } from "./index.ts";
 import { MapRenderer } from "../MapRenderer/index.ts";
+import { GlobalChunkRenderer } from "../GlobalChunkRenderer.ts";
+import { createGlobalChunkLoader } from "./createGlobalChunkLoader.ts";
 import { EntityLayer } from "../EntityLayer/index.ts";
 import { ObjectLayer } from "../ObjectLayer/index.ts";
 import { WorldItemLayer } from "../WorldItemLayer/index.ts";
 import { WeatherLayer } from "../WeatherLayer.ts";
+import { DayNightLayer } from "../DayNightLayer.ts";
 import { GAME_BACKGROUND } from "../../constants/colors.ts";
 import type { IGame } from "./types.ts";
 import { seedStaticMaps } from "./seedStaticMaps.ts";
@@ -31,11 +34,21 @@ export async function initialize(game: IGame): Promise<void> {
   });
 
   game.mapRenderer = new MapRenderer(game as Game);
+  game.globalChunkRenderer = new GlobalChunkRenderer({
+    worldKey: "global",
+    tilesetUrl: "/assets/tilesets/terrain.png",
+    loader: createGlobalChunkLoader(),
+    chunkWorldWidth: 64 * 32,
+    chunkWorldHeight: 64 * 32,
+    tilesetPxW: 32,
+    tilesetPxH: 32,
+  });
   game.objectLayer = new ObjectLayer();
   game.objectLayer.setAudio(game.audio);
   game.worldItemLayer = new WorldItemLayer();
   game.entityLayer = new EntityLayer(game as Game);
   game.weatherLayer = new WeatherLayer();
+  game.dayNightLayer = new DayNightLayer();
 
   setupLayers(game);
   setupResizeObserver(game);

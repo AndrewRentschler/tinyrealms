@@ -4,8 +4,9 @@
  */
 export * from "./backfills.ts";
 export * from "./clear.ts";
+export * from "./export.ts";
 export * from "./inspection.ts";
+export * from "./mapPlan.ts";
 export * from "./maps.ts";
 export * from "./restore.ts";
 export * from "./users.ts";
-export * from "./export.ts";

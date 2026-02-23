@@ -16,6 +16,7 @@ export interface MapLayer {
 
 export interface Portal {
   name: string;
+  portalId?: string;
   x: number;
   y: number;
   width: number;

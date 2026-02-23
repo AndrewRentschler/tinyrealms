@@ -13,6 +13,26 @@ export async function resolveMapData(
   mapName: string,
   game: IGame,
 ): Promise<MapData | null> {
+  if (mapName === "global") {
+    return {
+      name: "global",
+      width: 0,
+      height: 0,
+      tileWidth: 32,
+      tileHeight: 32,
+      tilesetPxW: 32,
+      tilesetPxH: 32,
+      layers: [
+        { name: "bg", type: "bg", tiles: "", visible: false },
+        { name: "obj", type: "obj", tiles: "", visible: false },
+        { name: "overlay", type: "overlay", tiles: "", visible: false },
+      ],
+      collisionMask: "",
+      labels: [],
+      portals: [],
+    } as unknown as MapData;
+  }
+
   const convex = getConvexClient();
 
   try {

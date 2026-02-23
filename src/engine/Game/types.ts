@@ -9,6 +9,7 @@ import type { EntityLayer } from "../EntityLayer/index.ts";
 import type { ObjectLayer } from "../ObjectLayer/index.ts";
 import type { WorldItemLayer } from "../WorldItemLayer/index.ts";
 import type { WeatherLayer } from "../WeatherLayer.ts";
+import type { DayNightLayer } from "../DayNightLayer.ts";
 import type { InputManager } from "../InputManager.ts";
 import type { AudioManager, SfxHandle } from "../AudioManager/index.ts";
 import type { AppMode, MapData, Portal, ProfileData } from "../types.ts";
@@ -16,14 +17,26 @@ import type { AppMode, MapData, Portal, ProfileData } from "../types.ts";
 /** Unsubscribe callback for Convex subscriptions */
 export type Unsubscriber = () => void;
 
+export interface WorldTimeState {
+  key: "global" | string;
+  currentTime: number;
+  dayNumber: number;
+  timeScale: number;
+  isPaused: boolean;
+  updatedAt: number;
+  lastTickAt: number;
+}
+
 export interface IGame {
   app: Application;
   camera: Camera;
   mapRenderer: MapRenderer;
+  globalChunkRenderer: import("../GlobalChunkRenderer.ts").GlobalChunkRenderer;
   entityLayer: EntityLayer;
   objectLayer: ObjectLayer;
   worldItemLayer: WorldItemLayer;
   weatherLayer: WeatherLayer;
+  dayNightLayer: DayNightLayer;
   input: InputManager;
   audio: AudioManager;
   mode: AppMode;
@@ -47,7 +60,9 @@ export interface IGame {
   worldItemsUnsub: Unsubscriber | null;
   npcStateUnsub: Unsubscriber | null;
   globalWeatherUnsub: Unsubscriber | null;
+  worldTimeUnsub: Unsubscriber | null;
   globalRainyNow: boolean;
+  worldTime: WorldTimeState | null;
 
   spriteDefCache: Map<string, unknown>;
   mapObjectInstanceNameById: Map<string, string>;
@@ -58,6 +73,7 @@ export interface IGame {
   lastAppliedWeatherKey?: string;
 
   portalEmptyWarned: boolean;
+  portalTransitionInFlight: boolean;
 
   toggling: boolean;
   pickingUp: boolean;
@@ -81,7 +97,7 @@ export interface IGame {
   subscribeToNpcState(mapName: string): void;
   startPresence(): void;
   stopPresence(): void;
-  changeMap(targetMapName: string, spawnLabel: string, direction?: string): Promise<void>;
+  changeMap(targetMapName: string, spawnLabel: string, direction?: string, globalCoords?: { x: number; y: number }): Promise<void>;
 }
 
 export type { MapData };

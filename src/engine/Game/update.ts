@@ -51,6 +51,24 @@ export function update(game: IGame): void {
   game.app.stage.x = -game.camera.x + game.camera.viewportW / 2;
   game.app.stage.y = -game.camera.y + game.camera.viewportH / 2;
 
+  if (game.currentMapName === "global") {
+    game.mapRenderer.container.visible = false;
+    game.mapRenderer.overlayLayerContainer.visible = false;
+    game.globalChunkRenderer.container.visible = true;
+    game.globalChunkRenderer.overlayContainer.visible = true;
+    void game.globalChunkRenderer.updateWindow({
+      centerX: game.camera.x,
+      centerY: game.camera.y,
+      visibleRadius: 1000,
+      prefetchRadius: 1500,
+    });
+  } else {
+    game.mapRenderer.container.visible = true;
+    game.mapRenderer.overlayLayerContainer.visible = true;
+    game.globalChunkRenderer.container.visible = false;
+    game.globalChunkRenderer.overlayContainer.visible = false;
+  }
+
   if (game.currentMapData) {
     applyWeatherFromMap(game, game.currentMapData);
   }
@@ -62,6 +80,13 @@ export function update(game: IGame): void {
     game.camera.viewportW,
     game.camera.viewportH,
   );
+
+  game.dayNightLayer.update(game.worldTime?.currentTime ?? 12, {
+    width: game.camera.viewportW,
+    height: game.camera.viewportH,
+    cameraX: game.camera.x,
+    cameraY: game.camera.y,
+  });
 
   if (game.mode === "build") {
     const pan = BUILD_PAN_SPEED * dt;

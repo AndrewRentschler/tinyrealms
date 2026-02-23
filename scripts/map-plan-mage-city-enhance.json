@@ -1,0 +1,91 @@
+{
+  "mapName": "mage-city",
+  "moveObjects": [
+    {
+      "id": "kn752qwcb1aaz5gsc2wafa7jk181k2xe",
+      "instanceName": "jane",
+      "x": 1216,
+      "y": 352,
+      "layer": 2
+    }
+  ],
+  "upsertNpcProfiles": [
+    {
+      "name": "gate_guard",
+      "displayName": "City Guard",
+      "spriteDefName": "Villager 2",
+      "mapName": "mage-city",
+      "dialogueStyle": "formal, authoritative",
+      "backstory": "A stoic guard tasked with watching the southern entrance of Mage City. Warns travelers of magical anomalies.",
+      "wanderRadius": 0
+    },
+    {
+      "name": "gardener_bob",
+      "displayName": "Bob the Botanist",
+      "spriteDefName": "Villager 2",
+      "mapName": "mage-city",
+      "dialogueStyle": "friendly, folksy",
+      "backstory": "Tends to the magical herbs and mundane crops in the eastern gardens.",
+      "wanderRadius": 96
+    }
+  ],
+  "upsertMapObjects": [
+    {
+      "instanceName": "gate_guard",
+      "spriteDefName": "Villager 2",
+      "layer": 2,
+      "x": 288,
+      "y": 1376
+    },
+    {
+      "instanceName": "gardener_bob",
+      "spriteDefName": "Villager 2",
+      "layer": 2,
+      "x": 1312,
+      "y": 1056
+    }
+  ],
+  "fillTilesRects": [
+    {
+      "layerName": "bg0",
+      "x1": 24,
+      "y1": 21,
+      "x2": 26,
+      "y2": 23,
+      "tile": 0
+    },
+    {
+      "layerName": "bg0",
+      "x1": 39,
+      "y1": 26,
+      "x2": 43,
+      "y2": 28,
+      "tile": 331
+    }
+  ],
+  "setTiles": [
+    {
+      "layerName": "obj0",
+      "x": 25,
+      "y": 22,
+      "tile": 20
+    },
+    {
+      "layerName": "obj0",
+      "x": 7,
+      "y": 43,
+      "tile": 20
+    },
+    {
+      "layerName": "obj0",
+      "x": 11,
+      "y": 43,
+      "tile": 20
+    }
+  ],
+  "setCollision": [
+    { "x": 25, "y": 22, "blocked": true },
+    { "x": 7, "y": 43, "blocked": true },
+    { "x": 11, "y": 43, "blocked": true }
+  ]
+}

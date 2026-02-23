@@ -13,14 +13,19 @@ import type * as admin_clear from "../admin/clear.js";
 import type * as admin_export from "../admin/export.js";
 import type * as admin_index from "../admin/index.js";
 import type * as admin_inspection from "../admin/inspection.js";
+import type * as admin_mapPlan from "../admin/mapPlan.js";
 import type * as admin_maps from "../admin/maps.js";
 import type * as admin_restore from "../admin/restore.js";
 import type * as admin_users from "../admin/users.js";
 import type * as ai from "../ai.js";
 import type * as auth from "../auth.js";
 import type * as chat from "../chat.js";
+import type * as entityLocations from "../entityLocations.js";
+import type * as globalChunks from "../globalChunks.js";
+import type * as globalSpatial from "../globalSpatial.js";
 import type * as http from "../http.js";
 import type * as items from "../items.js";
+import type * as lib_globalSpatial from "../lib/globalSpatial.js";
 import type * as lib_profileRole from "../lib/profileRole.js";
 import type * as lib_requireAdmin from "../lib/requireAdmin.js";
 import type * as lib_requireAdminKey from "../lib/requireAdminKey.js";
@@ -38,7 +43,9 @@ import type * as mechanics_combat_index from "../mechanics/combat/index.js";
 import type * as mechanics_combat_logging from "../mechanics/combat/logging.js";
 import type * as mechanics_combat_playerAttack from "../mechanics/combat/playerAttack.js";
 import type * as mechanics_combat_queries from "../mechanics/combat/queries.js";
+import type * as mechanics_dimensionTransition from "../mechanics/dimensionTransition.js";
 import type * as mechanics_economy from "../mechanics/economy.js";
+import type * as mechanics_energy from "../mechanics/energy.js";
 import type * as mechanics_inventory from "../mechanics/inventory.js";
 import type * as mechanics_loot from "../mechanics/loot.js";
 import type * as migrations from "../migrations.js";
@@ -51,6 +58,7 @@ import type * as npcProfiles_mutations from "../npcProfiles/mutations.js";
 import type * as npcProfiles_queries from "../npcProfiles/queries.js";
 import type * as npcs from "../npcs.js";
 import type * as players from "../players.js";
+import type * as portalDefs from "../portalDefs.js";
 import type * as presence from "../presence.js";
 import type * as profiles from "../profiles.js";
 import type * as spriteDefinitions from "../spriteDefinitions.js";
@@ -69,6 +77,7 @@ import type * as story_storyAi from "../story/storyAi.js";
 import type * as superuser from "../superuser.js";
 import type * as weather from "../weather.js";
 import type * as worldItems from "../worldItems.js";
+import type * as worldTime from "../worldTime.js";
 
 import type {
   ApiFromModules,
@@ -82,14 +91,19 @@ declare const fullApi: ApiFromModules<{
   "admin/export": typeof admin_export;
   "admin/index": typeof admin_index;
   "admin/inspection": typeof admin_inspection;
+  "admin/mapPlan": typeof admin_mapPlan;
   "admin/maps": typeof admin_maps;
   "admin/restore": typeof admin_restore;
   "admin/users": typeof admin_users;
   ai: typeof ai;
   auth: typeof auth;
   chat: typeof chat;
+  entityLocations: typeof entityLocations;
+  globalChunks: typeof globalChunks;
+  globalSpatial: typeof globalSpatial;
   http: typeof http;
   items: typeof items;
+  "lib/globalSpatial": typeof lib_globalSpatial;
   "lib/profileRole": typeof lib_profileRole;
   "lib/requireAdmin": typeof lib_requireAdmin;
   "lib/requireAdminKey": typeof lib_requireAdminKey;
@@ -107,7 +121,9 @@ declare const fullApi: ApiFromModules<{
   "mechanics/combat/logging": typeof mechanics_combat_logging;
   "mechanics/combat/playerAttack": typeof mechanics_combat_playerAttack;
   "mechanics/combat/queries": typeof mechanics_combat_queries;
+  "mechanics/dimensionTransition": typeof mechanics_dimensionTransition;
   "mechanics/economy": typeof mechanics_economy;
+  "mechanics/energy": typeof mechanics_energy;
   "mechanics/inventory": typeof mechanics_inventory;
   "mechanics/loot": typeof mechanics_loot;
   migrations: typeof migrations;
@@ -120,6 +136,7 @@ declare const fullApi: ApiFromModules<{
   "npcProfiles/queries": typeof npcProfiles_queries;
   npcs: typeof npcs;
   players: typeof players;
+  portalDefs: typeof portalDefs;
   presence: typeof presence;
   profiles: typeof profiles;
   spriteDefinitions: typeof spriteDefinitions;
@@ -138,6 +155,7 @@ declare const fullApi: ApiFromModules<{
   superuser: typeof superuser;
   weather: typeof weather;
   worldItems: typeof worldItems;
+  worldTime: typeof worldTime;
 }>;
 
 /**

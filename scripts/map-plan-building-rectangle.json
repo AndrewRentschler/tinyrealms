@@ -1,0 +1,31 @@
+{
+  "mapName": "mage-city",
+  "fillTilesRects": [
+    {
+      "layerName": "bg1",
+      "x1": 19,
+      "y1": 24,
+      "x2": 27,
+      "y2": 27,
+      "tile": 198
+    }
+  ],
+  "setTiles": [
+    { "layerName": "bg0", "x": 27, "y": 24, "tile": 1 },
+    { "layerName": "bg0", "x": 25, "y": 26, "tile": 1 },
+    { "layerName": "bg0", "x": 27, "y": 26, "tile": 1 },
+    { "layerName": "bg0", "x": 25, "y": 27, "tile": 1 },
+    { "layerName": "obj0", "x": 15, "y": 28, "tile": -1 },
+    { "layerName": "obj0", "x": 16, "y": 28, "tile": -1 },
+    { "layerName": "obj0", "x": 17, "y": 28, "tile": -1 },
+    { "layerName": "obj0", "x": 18, "y": 28, "tile": -1 },
+    { "layerName": "obj0", "x": 25, "y": 28, "tile": -1 },
+    { "layerName": "obj0", "x": 26, "y": 28, "tile": -1 },
+    { "layerName": "obj0", "x": 27, "y": 28, "tile": -1 },
+    { "layerName": "obj0", "x": 28, "y": 28, "tile": -1 },
+    { "layerName": "obj0", "x": 29, "y": 28, "tile": -1 },
+    { "layerName": "obj0", "x": 30, "y": 28, "tile": -1 },
+    { "layerName": "obj0", "x": 31, "y": 28, "tile": -1 },
+    { "layerName": "obj0", "x": 32, "y": 28, "tile": -1 }
+  ]
+}

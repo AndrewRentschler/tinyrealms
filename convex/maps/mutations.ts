@@ -19,6 +19,7 @@ import {
 
 const portalValidator = v.object({
   name: v.string(),
+  portalId: v.optional(v.string()),
   x: v.number(),
   y: v.number(),
   width: v.number(),

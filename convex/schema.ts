@@ -7,6 +7,17 @@ import { visibilityTypeValidator } from "./lib/visibility.ts";
 // Bounded to object-with-string-keys; values use v.any() as last resort for truly dynamic payloads
 export const logicConfigValidator = v.optional(v.record(v.string(), v.any()));
 export const sideEffectsValidator = v.optional(v.record(v.string(), v.any()));
+export const dimensionTypeValidator = v.union(
+  v.literal("global"),
+  v.literal("instance"),
+);
+export const globalEntityTypeValidator = v.union(
+  v.literal("profile"),
+  v.literal("npcState"),
+  v.literal("animal"),
+  v.literal("worldItem"),
+  v.literal("interactiveObject"),
+);
 
 export default defineSchema({
   ...authTables,
@@ -59,6 +70,7 @@ export default defineSchema({
       v.array(
         v.object({
           name: v.string(), // e.g. "door-to-forest"
+          portalId: v.optional(v.string()),
           x: v.number(), // zone position (tile coords)
           y: v.number(),
           width: v.number(), // zone size in tiles
@@ -117,6 +129,132 @@ export default defineSchema({
     tickIntervalMs: v.number(),
     updatedAt: v.number(),
     lastTickAt: v.optional(v.number()),
+  }).index("by_key", ["key"]),
+
+  // ---------------------------------------------------------------------------
+  // Global openworld chunks (static terrain, collision, static objects)
+  // ---------------------------------------------------------------------------
+  globalChunks: defineTable({
+    worldKey: v.string(),
+    chunkX: v.number(),
+    chunkY: v.number(),
+    chunkWidthTiles: v.number(),
+    chunkHeightTiles: v.number(),
+    tileWidth: v.number(),
+    tileHeight: v.number(),
+    bgTiles: v.string(),
+    objTiles: v.string(),
+    overlayTiles: v.string(),
+    collisionMask: v.string(),
+    staticObjects: v.array(
+      v.object({
+        objectKey: v.string(),
+        spriteDefName: v.string(),
+        x: v.float64(),
+        y: v.float64(),
+        layer: v.number(),
+        isCollidable: v.boolean(),
+        animation: v.optional(v.string()),
+        portalId: v.optional(v.string()),
+      }),
+    ),
+    revision: v.number(),
+    generatedAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_world_chunk", ["worldKey", "chunkX", "chunkY"])
+    .index("by_world_updated", ["worldKey", "updatedAt"]),
+
+  // ---------------------------------------------------------------------------
+  // Global spatial index (dynamic/interactive entities in global dimension)
+  // ---------------------------------------------------------------------------
+  globalSpatial: defineTable({
+    worldKey: v.string(),
+    entityType: globalEntityTypeValidator,
+    entityId: v.string(),
+    x: v.float64(),
+    y: v.float64(),
+    dx: v.float64(),
+    dy: v.float64(),
+    chunkX: v.number(),
+    chunkY: v.number(),
+    animation: v.string(),
+    updatedAt: v.number(),
+  })
+    .index("by_entity", ["entityType", "entityId"])
+    .index("by_chunk", ["worldKey", "chunkX", "chunkY"])
+    .index("by_chunk_type", ["worldKey", "chunkX", "chunkY", "entityType"])
+    .index("by_world_updated", ["worldKey", "updatedAt"]),
+
+  // ---------------------------------------------------------------------------
+  // Canonical entity location across dimensions
+  // ---------------------------------------------------------------------------
+  entityLocations: defineTable({
+    entityType: globalEntityTypeValidator,
+    entityId: v.string(),
+    dimensionType: dimensionTypeValidator,
+    worldKey: v.string(),
+    mapName: v.optional(v.string()),
+    lastPortalId: v.optional(v.string()),
+    lastPortalUsedAt: v.optional(v.number()),
+    lastGlobalX: v.optional(v.float64()),
+    lastGlobalY: v.optional(v.float64()),
+    updatedAt: v.number(),
+  })
+    .index("by_entity", ["entityType", "entityId"])
+    .index("by_dimension", ["dimensionType", "mapName"]),
+
+  // ---------------------------------------------------------------------------
+  // Shared portal definitions for cross-dimension transitions
+  // ---------------------------------------------------------------------------
+  portalDefs: defineTable({
+    portalId: v.string(),
+    name: v.string(),
+    fromDimensionType: dimensionTypeValidator,
+    fromMapName: v.optional(v.string()),
+    fromGlobalX: v.optional(v.float64()),
+    fromGlobalY: v.optional(v.float64()),
+    toDimensionType: dimensionTypeValidator,
+    toMapName: v.optional(v.string()),
+    toSpawnLabel: v.optional(v.string()),
+    toGlobalX: v.optional(v.float64()),
+    toGlobalY: v.optional(v.float64()),
+    direction: v.optional(v.string()),
+    transition: v.optional(v.string()),
+    enabled: v.boolean(),
+    updatedAt: v.number(),
+  })
+    .index("by_portal_id", ["portalId"])
+    .index("by_from", ["fromDimensionType", "fromMapName"])
+    .index("by_to", ["toDimensionType", "toMapName"]),
+
+  // ---------------------------------------------------------------------------
+  // Portal transition audit history (append-only)
+  // ---------------------------------------------------------------------------
+  portalTransitions: defineTable({
+    entityType: globalEntityTypeValidator,
+    entityId: v.string(),
+    portalId: v.string(),
+    fromDimensionType: dimensionTypeValidator,
+    fromMapName: v.optional(v.string()),
+    toDimensionType: dimensionTypeValidator,
+    toMapName: v.optional(v.string()),
+    usedAt: v.number(),
+  })
+    .index("by_entity_time", ["entityType", "entityId", "usedAt"])
+    .index("by_portal_time", ["portalId", "usedAt"]),
+
+  // ---------------------------------------------------------------------------
+  // Global world time controller (singleton row keyed by "global")
+  // ---------------------------------------------------------------------------
+  worldTime: defineTable({
+    key: v.string(), // always "global"
+    currentTime: v.float64(), // [0, 24)
+    dayNumber: v.number(), // >= 0
+    timeScale: v.float64(), // real seconds per game hour
+    isPaused: v.boolean(),
+    updatedAt: v.number(),
+    lastTickAt: v.number(),
   }).index("by_key", ["key"]),
 
   // ---------------------------------------------------------------------------
@@ -376,6 +514,9 @@ export default defineSchema({
     x: v.optional(v.float64()), // last known X
     y: v.optional(v.float64()), // last known Y
     direction: v.optional(v.string()), // last facing direction
+    energy: v.optional(v.number()),
+    maxEnergy: v.optional(v.number()),
+    lastEnergyTickAt: v.optional(v.number()),
     createdAt: v.number(),
   })
     .index("by_name", ["name"])
@@ -467,6 +608,11 @@ export default defineSchema({
     lastHitAt: v.optional(v.number()), // combat: throttle repeated hits
     aggroTargetProfileId: v.optional(v.id("profiles")), // medium/high aggression target lock
     aggroUntil: v.optional(v.number()), // target lock expiration
+    energy: v.optional(v.number()),
+    maxEnergy: v.optional(v.number()),
+    lastEnergyTickAt: v.optional(v.number()),
+    lastAteAt: v.optional(v.number()),
+    lastSleptAt: v.optional(v.number()),
     lastTick: v.number(), // timestamp of last server update
   })
     .index("by_map", ["mapName"])
@@ -798,6 +944,7 @@ export default defineSchema({
     tags: v.optional(v.array(v.string())), // freeform tags (e.g. "fire", "cursed", "two-handed")
     lore: v.optional(v.string()), // extended lore text
     consumeHpDelta: v.optional(v.number()), // consumables: +heals, -poisons on click/use
+    energyRestore: v.optional(v.number()), // consumables: energy restored on eat
     pickupSoundUrl: v.optional(v.string()), // one-shot SFX played when picked up
     createdBy: v.optional(v.id("profiles")),
     visibilityType: v.optional(visibilityTypeValidator),

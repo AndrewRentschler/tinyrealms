@@ -18,6 +18,7 @@ export async function changeMap(
   targetMapName: string,
   spawnLabel: string,
   direction?: string,
+  globalCoords?: { x: number; y: number }
 ): Promise<void> {
   if (game.changingMap) return;
   game.changingMap = true;
@@ -71,6 +72,11 @@ export async function changeMap(
     game.mapRenderer.clearAllCollisionOverrides();
     setupObjectLayerForMap(game, mapData);
     setPlayerSpawnPosition(game, mapData, { spawnLabel, direction });
+
+    if (targetMapName === "global" && globalCoords) {
+      game.entityLayer.playerX = globalCoords.x;
+      game.entityLayer.playerY = globalCoords.y;
+    }
 
     const mapName = mapData.name;
     await subscribeToMapData(game, mapName);
